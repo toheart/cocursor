@@ -1,0 +1,110 @@
+{
+  "name": "cocursor",
+  "displayName": "CoCursor",
+  "description": "帮助团队成员共享 AI 聊天记录，提升 Cursor 团队协作效率",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cocursor.openDashboard",
+        "title": "打开仪表板"
+      },
+      {
+        "command": "cocursor.refreshTasks",
+        "title": "刷新任务列表"
+      },
+      {
+        "command": "cocursor.addTask",
+        "title": "添加任务"
+      },
+      {
+        "command": "cocursor.showPeers",
+        "title": "显示节点列表"
+      },
+      {
+        "command": "cocursor.showStats",
+        "title": "显示使用统计"
+      },
+      {
+        "command": "cocursor.showCurrentTeam",
+        "title": "显示当前团队"
+      },
+      {
+        "command": "cocursor.joinTeam",
+        "title": "加入团队"
+      },
+      {
+        "command": "cocursor.refreshSidebar",
+        "title": "刷新侧边栏",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "cocursor": [
+        {
+          "id": "cocursor.sidebar",
+          "name": "CoCursor",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cocursor",
+          "title": "CoCursor",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CoCursor",
+      "properties": {
+        "cocursor.autoStartServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动启动后端服务器"
+        },
+        "cocursor.daemon.port": {
+          "type": "number",
+          "default": 19960,
+          "description": "后端服务器端口"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./dist/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
