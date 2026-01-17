@@ -1,4 +1,4 @@
-.PHONY: all build build-all test clean clean-data clean-all run lint lint-fix fmt
+.PHONY: all build build-all test clean clean-data clean-all run lint lint-fix fmt wire
 
 # 版本信息
 VERSION ?= 0.1.0
@@ -23,10 +23,14 @@ test-coverage:
 	go test -v -race -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 
+# 生成 Wire 代码
+wire:
+	cd internal/wire && wire
+
 # 本地构建
-build:
+build: wire
 	@mkdir -p $(BIN_DIR)
-	go build $(LDFLAGS) -o $(BIN_DIR)/cocursor .
+	go build $(LDFLAGS) -o $(BIN_DIR)/cocursor ./cmd/server
 
 # 构建并安装到 extension/bin（用于开发调试）
 install: build
@@ -39,37 +43,38 @@ build-dev: build-windows-dev
 
 build-windows-dev:
 	@mkdir -p $(EXT_BIN_DIR)
-	go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-windows-amd64.exe .
+	go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-windows-amd64.exe ./cmd/server
 
 # 多平台构建（输出到 extension/bin）
 build-all: build-windows build-windows-arm64 build-darwin build-linux
 
 build-windows:
 	@mkdir -p $(EXT_BIN_DIR)
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-amd64.exe .
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-amd64.exe ./cmd/server
 
 build-darwin:
 	@mkdir -p $(EXT_BIN_DIR)
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-amd64 .
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-arm64 .
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-amd64 ./cmd/server
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-arm64 ./cmd/server
 
 build-linux:
 	@mkdir -p $(EXT_BIN_DIR)
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-amd64 .
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-arm64 .
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-amd64 ./cmd/server
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-arm64 ./cmd/server
 
 build-windows-arm64:
 	@mkdir -p $(EXT_BIN_DIR)
-	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-arm64.exe .
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-arm64.exe ./cmd/server
 
 # 运行
-run:
-	go run .
+run: wire
+	go run ./cmd/server
 
 # 清理构建产物
 clean:
 	rm -rf $(BIN_DIR)
 	rm -f coverage.out coverage.html
+	find . -name "wire_gen.go" -delete
 
 # 清理本地数据（包括数据库、配置等持久化文件）
 # 警告：此操作会删除所有本地数据，包括团队配置、评论、归档记录等

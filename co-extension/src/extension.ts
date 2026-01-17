@@ -1,9 +1,13 @@
 import * as vscode from "vscode";
+import axios from "axios";
 import { WebviewPanel } from "./webviewPanel";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
+import { DaemonManager } from "./daemon/daemonManager";
 
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
+let daemonManager: DaemonManager | null = null;
+let windowStateListener: vscode.Disposable | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
   // 使用多个日志输出，确保能看到
@@ -30,13 +34,30 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
+  // 初始化 DaemonManager
+  daemonManager = new DaemonManager(context);
+
   // 读取配置
   const config = vscode.workspace.getConfiguration("cocursor");
   const autoStartServer = config.get<boolean>("autoStartServer", true);
 
   if (autoStartServer) {
-    startBackendServer(context);
+    startBackendServer(context).then(() => {
+      // 后端启动后注册工作区
+      registerWorkspace();
+    });
+  } else {
+    // 即使不自动启动，也尝试注册（可能后端已手动启动）
+    registerWorkspace();
   }
+
+  // 监听窗口焦点变化
+  windowStateListener = vscode.window.onDidChangeWindowState((e) => {
+    if (e.focused) {
+      updateWorkspaceFocus();
+    }
+  });
+  context.subscriptions.push(windowStateListener);
 
   // 注册命令
   context.subscriptions.push(
@@ -122,14 +143,101 @@ export function activate(context: vscode.ExtensionContext): void {
   console.log("CoCursor: 所有命令已注册完成");
 }
 
-function startBackendServer(context: vscode.ExtensionContext): void {
-  // TODO: 启动后端服务器
-  console.log("启动后端服务器...");
+async function startBackendServer(_context: vscode.ExtensionContext): Promise<void> {
+  if (!daemonManager) {
+    console.error("DaemonManager 未初始化");
+    return;
+  }
+
+  try {
+    // 先检查是否已有实例运行
+    const isRunning = await daemonManager.isRunning();
+    if (isRunning) {
+      console.log("后端服务器已在运行");
+      return;
+    }
+
+    // 启动后端服务器
+    await daemonManager.start();
+    console.log("后端服务器启动成功");
+    
+    // 等待服务器完全启动（给一点时间）
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`启动后端服务器失败: ${message}`);
+    vscode.window.showErrorMessage(`启动后端服务器失败: ${message}`);
+  }
+}
+
+// 注册工作区
+async function registerWorkspace(): Promise<void> {
+  try {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      console.log("CoCursor: 没有打开的工作区，跳过注册");
+      return;
+    }
+
+    const fsPath = workspaceFolders[0].uri.fsPath;
+    console.log(`CoCursor: 注册工作区: ${fsPath}`);
+
+    // 调用后端 API 注册工作区
+    const response = await axios.post(
+      "http://localhost:19960/api/v1/workspace/register",
+      { path: fsPath },
+      { timeout: 5000 }
+    );
+
+    if (response.data.workspaceID) {
+      console.log(`CoCursor: 工作区注册成功，WorkspaceID: ${response.data.workspaceID}`);
+    }
+  } catch (error) {
+    // 静默失败，不阻塞扩展激活
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`CoCursor: 工作区注册失败（可能后端未启动）: ${message}`);
+  }
+}
+
+// 更新工作区焦点
+async function updateWorkspaceFocus(): Promise<void> {
+  try {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return;
+    }
+
+    const fsPath = workspaceFolders[0].uri.fsPath;
+    console.log(`CoCursor: 更新工作区焦点: ${fsPath}`);
+
+    // 调用后端 API 更新焦点
+    await axios.post(
+      "http://localhost:19960/api/v1/workspace/focus",
+      { path: fsPath },
+      { timeout: 5000 }
+    );
+  } catch (error) {
+    // 静默失败
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`CoCursor: 更新工作区焦点失败: ${message}`);
+  }
 }
 
 export function deactivate(): void {
   // 清理资源
   if (statusBarItem) {
     statusBarItem.dispose();
+  }
+
+  // 清理窗口状态监听器
+  if (windowStateListener) {
+    windowStateListener.dispose();
+    windowStateListener = null;
+  }
+
+  // 停止后端服务器
+  if (daemonManager) {
+    daemonManager.stop();
+    daemonManager = null;
   }
 }

@@ -81,3 +81,69 @@ body {
   border-radius: 4px;
   border: 1px solid var(--vscode-list-activeSelectionBorder);
 }
+
+/* 会话健康状态样式 */
+.cocursor-session-health {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-session-health-header h2 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-entropy-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-entropy-value,
+.cocursor-entropy-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-entropy-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-entropy-number {
+  font-size: 18px;
+}
+
+.cocursor-entropy-status-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cocursor-entropy-progress {
+  width: 100%;
+  height: 8px;
+  background-color: var(--vscode-progressBar-background);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.cocursor-entropy-progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

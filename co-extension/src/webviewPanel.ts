@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import axios from "axios";
 import { WebviewMessage, ExtensionMessage } from "./types/message";
 
 export class WebviewPanel {
@@ -83,6 +84,12 @@ export class WebviewPanel {
       case "joinTeam":
         this._handleJoinTeam(message.payload as { teamCode: string });
         break;
+      case "fetchCurrentSessionHealth":
+        this._handleFetchCurrentSessionHealth(message.payload as { projectPath?: string });
+        break;
+      case "showEntropyWarning":
+        this._handleShowEntropyWarning(message.payload as { entropy: number; message: string });
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
@@ -150,6 +157,56 @@ export class WebviewPanel {
         data: { error: error instanceof Error ? error.message : "未知错误" }
       });
     }
+  }
+
+  private async _handleFetchCurrentSessionHealth(payload: { projectPath?: string }): Promise<void> {
+    try {
+      // 获取当前工作区路径
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      let projectPath = payload.projectPath;
+      
+      if (!projectPath && workspaceFolders && workspaceFolders.length > 0) {
+        projectPath = workspaceFolders[0].uri.fsPath;
+      }
+
+      // 调用后端 API
+      const apiUrl = `http://localhost:19960/api/v1/stats/current-session${projectPath ? `?project_path=${encodeURIComponent(projectPath)}` : ""}`;
+      const response = await axios.get(apiUrl, {
+        timeout: 5000
+      });
+      
+      if (response.data.code === 0 && response.data.data) {
+        this._sendMessage({
+          type: "fetchCurrentSessionHealth-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取会话健康状态失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchCurrentSessionHealth-response",
+        data: { 
+          error: error instanceof Error ? error.message : "未知错误",
+          entropy: 0,
+          status: "healthy",
+          warning: ""
+        }
+      });
+    }
+  }
+
+  private _handleShowEntropyWarning(payload: { entropy: number; message: string }): void {
+    // 显示 VS Code 警告通知
+    vscode.window.showWarningMessage(
+      `⚠️ ${payload.message} (熵值: ${payload.entropy.toFixed(2)})`,
+      "查看详情"
+    ).then((selection) => {
+      if (selection === "查看详情") {
+        // 显示面板（如果已关闭则创建）
+        WebviewPanel.createOrShow(this._extensionUri);
+      }
+    });
   }
 
   private _sendMessage(message: ExtensionMessage): void {

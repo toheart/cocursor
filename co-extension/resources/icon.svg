@@ -1,13 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <!-- CoCursor 图标 - 参考协作人形设计，结合技能概念 -->
-  <!-- 左侧人形 -->
-  <circle cx="8" cy="7" r="2"/>
-  <path d="M6 9v4c0 1 1 2 2 2h0c1 0 2-1 2-2V9"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 中心节点 -->
+  <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.9"/>
   
-  <!-- 右侧人形 - 稍微重叠，表示协作 -->
-  <circle cx="16" cy="7" r="2"/>
-  <path d="M14 9v4c0 1 1 2 2 2h0c1 0 2-1 2-2V9"/>
+  <!-- 周围节点 -->
+  <circle cx="6" cy="8" r="2" fill="currentColor" opacity="0.7"/>
+  <circle cx="18" cy="8" r="2" fill="currentColor" opacity="0.7"/>
+  <circle cx="6" cy="16" r="2" fill="currentColor" opacity="0.7"/>
+  <circle cx="18" cy="16" r="2" fill="currentColor" opacity="0.7"/>
   
-  <!-- 技能元素 - 简洁的星形，表示知识/技能共享 -->
-  <path d="M12 4.5L12.4 5.5 13.5 5.5 12.6 6.2 13 7.2 12 6.5 11 7.2 11.4 6.2 10.5 5.5 11.6 5.5z" fill="currentColor"/>
+  <!-- 连接线，表示协作网络 -->
+  <path d="M12 9 L6 8" stroke="currentColor" opacity="0.4"/>
+  <path d="M12 9 L18 8" stroke="currentColor" opacity="0.4"/>
+  <path d="M12 15 L6 16" stroke="currentColor" opacity="0.4"/>
+  <path d="M12 15 L18 16" stroke="currentColor" opacity="0.4"/>
+  <path d="M6 8 L6 16" stroke="currentColor" opacity="0.3"/>
+  <path d="M18 8 L18 16" stroke="currentColor" opacity="0.3"/>
+  
+  <!-- AI 智能元素：中心节点的光晕效果 -->
+  <circle cx="12" cy="12" r="5" stroke="currentColor" opacity="0.2" stroke-width="1"/>
 </svg>

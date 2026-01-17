@@ -54,6 +54,18 @@ class ApiService {
   async joinTeam(teamCode: string): Promise<unknown> {
     return this.postMessage("joinTeam", { teamCode });
   }
+
+  // 获取当前会话健康状态
+  async getCurrentSessionHealth(projectPath?: string): Promise<SessionHealth> {
+    return this.postMessage("fetchCurrentSessionHealth", { projectPath }) as Promise<SessionHealth>;
+  }
+}
+
+// 会话健康状态类型
+export interface SessionHealth {
+  entropy: number;
+  status: "healthy" | "sub_healthy" | "dangerous";
+  warning?: string;
 }
 
 export const apiService = new ApiService();

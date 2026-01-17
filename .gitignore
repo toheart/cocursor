@@ -33,9 +33,12 @@ coverage.html
 *.dll
 *.so
 *.dylib
+dist
 
 # VS Code extension package
 *.vsix
 
 openspec/changes/
 backend/bin
+backend/**/wire_gen.go
+backend/internal/wire/wire_gen.go

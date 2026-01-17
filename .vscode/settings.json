@@ -25,5 +25,25 @@
   },
   "go.useLanguageServer": true,
   "go.lintTool": "golangci-lint",
-  "go.lintOnSave": "workspace"
+  "go.lintOnSave": "workspace",
+  "terminal.integrated.defaultProfile.windows": "Git Bash",
+  "terminal.integrated.profiles.windows": {
+    "Git Bash": {
+      "path": "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+      "args": ["--login"],
+      "icon": "terminal-bash"
+    },
+    "PowerShell": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell"
+    },
+    "Command Prompt": {
+      "path": [
+        "${env:windir}\\Sysnative\\cmd.exe",
+        "${env:windir}\\System32\\cmd.exe"
+      ],
+      "args": [],
+      "icon": "terminal-cmd"
+    }
+  }
 }
