@@ -1,0 +1,85 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "构建插件",
+      "type": "shell",
+      "command": "make compile-debug",
+      "options": {
+        "cwd": "${workspaceFolder}/co-extension"
+      },
+      "problemMatcher": [
+        "$tsc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    },
+    {
+      "label": "构建 Daemon",
+      "type": "shell",
+      "command": "make build-windows-dev",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": [
+        "$go"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    },
+    {
+      "label": "构建所有（插件+Daemon）",
+      "dependsOn": [
+        "构建插件",
+        "构建 Daemon"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    },
+    {
+      "label": "监听模式构建",
+      "type": "shell",
+      "command": "make watch",
+      "options": {
+        "cwd": "${workspaceFolder}/co-extension"
+      },
+      "problemMatcher": [
+        "$tsc-watch"
+      ],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

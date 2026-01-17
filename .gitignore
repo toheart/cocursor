@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+co-extension/dist/
+co-extension/out/
+co-extension/bin/
+# IDE
+
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Environment
+.env
+.env.local
+
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# VS Code extension package
+*.vsix
+
+openspec/changes/
+backend/bin

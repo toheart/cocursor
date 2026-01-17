@@ -1,0 +1,98 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "运行插件",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/co-extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/co-extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "构建所有（插件+Daemon）",
+      "sourceMaps": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "internalConsoleOptions": "neverOpen",
+      "stopOnEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "调试后端 (Go)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/backend",
+      "env": {},
+      "args": []
+    },
+    {
+      "name": "运行插件 (Node 调试)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "runtimeArgs": [
+        "--extensionDevelopmentPath=${workspaceFolder}/co-extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/co-extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "构建所有（插件+Daemon）",
+      "sourceMaps": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "附加到扩展宿主",
+      "type": "extensionHost",
+      "request": "attach",
+      "port": 9229,
+      "outFiles": [
+        "${workspaceFolder}/co-extension/dist/**/*.js"
+      ],
+      "sourceMaps": true
+    },
+    {
+      "name": "运行测试",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/co-extension",
+        "--extensionTestsPath=${workspaceFolder}/co-extension/dist/test/suite/index"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/co-extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "构建所有（插件+Daemon）",
+      "sourceMaps": true
+    },
+    {
+      "name": "运行插件（仅前端，后端独立调试）",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/co-extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/co-extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "构建插件",
+      "sourceMaps": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "internalConsoleOptions": "neverOpen",
+      "stopOnEntry": false,
+      "console": "integratedTerminal"
+    }
+  ]
+}
