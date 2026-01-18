@@ -205,3 +205,34 @@ func (s *SkillInstaller) UninstallSkill(skillName string, workspacePath string) 
 
 	return nil
 }
+
+// SyncSkillToAgentsMD 同步技能到工作区的 AGENTS.md
+// 用于在工作区激活时，确保已安装插件的技能都在 AGENTS.md 中
+func (s *SkillInstaller) SyncSkillToAgentsMD(pluginID string, skillName string, workspacePath string, skillMDContent []byte) error {
+	if workspacePath == "" {
+		return fmt.Errorf("workspace path is required")
+	}
+
+	if len(skillMDContent) == 0 {
+		return fmt.Errorf("skill content is required")
+	}
+
+	// 解析 frontmatter 获取技能元数据
+	metadata, err := s.agentsUpdater.ParseSkillFrontmatter(skillMDContent)
+	if err != nil {
+		return fmt.Errorf("failed to parse skill frontmatter: %w", err)
+	}
+
+	// 查找或创建 AGENTS.md
+	agentsPath, err := s.agentsUpdater.FindAgentsMDFile(workspacePath)
+	if err != nil {
+		return fmt.Errorf("failed to find or create AGENTS.md: %w", err)
+	}
+
+	// 添加技能到 AGENTS.md（如果已存在会跳过）
+	if err := s.agentsUpdater.AddSkillToAgentsMD(agentsPath, metadata); err != nil {
+		return fmt.Errorf("failed to add skill to AGENTS.md: %w", err)
+	}
+
+	return nil
+}

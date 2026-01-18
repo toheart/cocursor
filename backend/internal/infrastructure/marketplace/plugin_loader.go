@@ -129,9 +129,11 @@ func (l *PluginLoader) ReadSkillFiles(pluginID string) (map[string][]byte, error
 }
 
 // ReadCommandFile 读取 Command 文件
-func (l *PluginLoader) ReadCommandFile(pluginID string) ([]byte, error) {
+// pluginID: 插件 ID
+// commandID: 命令 ID（文件名，不含 .md）
+func (l *PluginLoader) ReadCommandFile(pluginID string, commandID string) ([]byte, error) {
 	// embed 文件系统使用正斜杠作为路径分隔符
-	commandPath := "plugins/" + pluginID + "/command/command.md"
+	commandPath := "plugins/" + pluginID + "/command/" + commandID + ".md"
 
 	data, err := pluginsFS.ReadFile(commandPath)
 	if err != nil {
@@ -139,6 +141,46 @@ func (l *PluginLoader) ReadCommandFile(pluginID string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+// ReadCommandFiles 读取所有 Command 文件
+// 返回文件映射：commandID -> 文件内容
+func (l *PluginLoader) ReadCommandFiles(pluginID string) (map[string][]byte, error) {
+	commandDir := "plugins/" + pluginID + "/command"
+	files := make(map[string][]byte)
+
+	err := fs.WalkDir(pluginsFS, commandDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+
+		data, err := pluginsFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		// 提取文件名（不含 .md）
+		fileName := filepath.Base(path)
+		commandID := strings.TrimSuffix(fileName, ".md")
+		files[commandID] = data
+		return nil
+	})
+
+	if err != nil {
+		// 如果目录不存在，返回空映射而不是错误（Command 是可选的）
+		if strings.Contains(err.Error(), "does not exist") {
+			return files, nil
+		}
+		return nil, fmt.Errorf("failed to walk command directory: %w", err)
+	}
+
+	return files, nil
 }
 
 // ExtractEnvVars 从 MCP headers 中提取环境变量

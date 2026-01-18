@@ -307,3 +307,73 @@ type CodeBlock struct {
 	Language string `json:"language"` // 语言（如 "go", "typescript"）
 	Code     string `json:"code"`     // 代码内容
 }
+
+// DailySummary 每日总结（按天统一，包含多个项目）
+type DailySummary struct {
+	// 基础信息
+	ID       string `json:"id"`       // 唯一ID（UUID）
+	Date     string `json:"date"`     // 日期 YYYY-MM-DD
+	Language string `json:"language"` // 语言：zh/en（根据聊天内容判断）
+
+	// 总结内容（Markdown格式）
+	Summary string `json:"summary"` // 总结文本
+
+	// 项目列表（当天涉及的所有项目）
+	Projects []*ProjectSummary `json:"projects"`
+
+	// 工作分类统计（跨所有项目）
+	WorkCategories *WorkCategories `json:"work_categories"`
+
+	// 会话统计
+	TotalSessions int `json:"total_sessions"` // 总会话数
+
+	// 元数据
+	CreatedAt time.Time `json:"created_at"` // 创建时间
+	UpdatedAt time.Time `json:"updated_at"` // 更新时间
+}
+
+// ProjectSummary 项目摘要（总结中每个项目的摘要）
+type ProjectSummary struct {
+	ProjectName string `json:"project_name"` // 项目名称
+	ProjectPath string `json:"project_path"` // 项目路径
+	WorkspaceID string `json:"workspace_id"` // 工作区ID
+
+	// 该项目的工作内容
+	WorkItems []*WorkItem `json:"work_items"` // 具体工作项
+
+	// 该项目的会话
+	Sessions []*DailySessionSummary `json:"sessions"` // 涉及的会话列表
+
+	// 该项目的统计
+	SessionCount int `json:"session_count"` // 会话数量
+}
+
+// WorkItem 具体工作项
+type WorkItem struct {
+	Category    string `json:"category"`    // 工作类型：requirements_discussion/coding/problem_solving/refactoring等
+	Description string `json:"description"` // 工作描述
+	SessionID   string `json:"session_id"`  // 关联的会话ID
+}
+
+// WorkCategories 工作分类统计（跨所有项目）
+type WorkCategories struct {
+	RequirementsDiscussion int `json:"requirements_discussion"` // 需求讨论
+	Coding                 int `json:"coding"`                  // 编码
+	ProblemSolving         int `json:"problem_solving"`         // 问题排查
+	Refactoring            int `json:"refactoring"`             // 重构
+	CodeReview             int `json:"code_review"`             // 代码审查
+	Documentation          int `json:"documentation"`           // 文档编写
+	Testing                int `json:"testing"`                 // 测试
+	Other                  int `json:"other"`                   // 其他
+}
+
+// DailySessionSummary 会话摘要（用于每日总结）
+type DailySessionSummary struct {
+	SessionID    string `json:"session_id"`    // 会话ID
+	Name         string `json:"name"`          // 会话名称
+	ProjectName  string `json:"project_name"`  // 所属项目
+	CreatedAt    int64  `json:"created_at"`    // 创建时间戳
+	UpdatedAt    int64  `json:"updated_at"`    // 更新时间戳
+	MessageCount int    `json:"message_count"` // 消息数量
+	Duration     int64  `json:"duration"`      // 持续时长（毫秒，从 CreatedAt 到 UpdatedAt）
+}

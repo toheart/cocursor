@@ -705,6 +705,7 @@ body {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -857,6 +858,7 @@ body {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -1684,6 +1686,19 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .cocursor-marketplace-categories {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  
+  .cocursor-marketplace-category {
+    font-size: 11px;
+    padding: 5px 12px;
+  }
 }
 
 .cocursor-marketplace-category {
@@ -1720,62 +1735,196 @@ body {
   z-index: 1;
 }
 
+/* 响应式布局 - 中等屏幕 */
+@media (max-width: 1200px) {
+  .cocursor-marketplace-plugins {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 0 20px 24px;
+  }
+}
 
-.cocursor-marketplace-plugin-banner {
+/* 响应式布局 - 小屏幕 */
+@media (max-width: 768px) {
+  .cocursor-marketplace-plugins {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 16px 20px;
+  }
+  
+  .cocursor-marketplace-header {
+    padding: 0 16px;
+    margin-bottom: 24px;
+  }
+  
+  .cocursor-marketplace-search-wrapper {
+    max-width: 100%;
+  }
+  
+  .cocursor-marketplace-plugin-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* 响应式布局 - 超小屏幕 */
+@media (max-width: 480px) {
+  .cocursor-marketplace-plugins {
+    padding: 0 12px 16px;
+  }
+  
+  .cocursor-marketplace-header {
+    padding: 0 12px;
+  }
+  
+  .cocursor-marketplace-hero {
+    padding: 24px 12px;
+  }
+  
+  .cocursor-marketplace-title {
+    font-size: 24px;
+  }
+  
+  .cocursor-marketplace-subtitle {
+    font-size: 12px;
+  }
+  
+  .cocursor-marketplace-plugin-header {
+    padding: 12px;
+  }
+  
+  .cocursor-marketplace-plugin-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .cocursor-marketplace-plugin-name {
+    font-size: 16px;
+  }
+  
+  .cocursor-marketplace-plugin-meta {
+    font-size: 10px;
+    gap: 6px;
+  }
+  
+  .cocursor-marketplace-plugin-content {
+    padding: 12px;
+  }
+}
+
+.cocursor-marketplace-plugin {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  width: 100%;
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  height: auto;
+}
+
+.cocursor-marketplace-plugin.installed {
+  border-color: rgba(76, 175, 80, 0.3);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
+}
+
+.cocursor-marketplace-plugin.installed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    #4caf50 0%,
+    #66bb6a 100%
+  );
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .cocursor-marketplace-plugin {
+    border-radius: 12px;
+  }
+}
+
+/* 紧凑头部布局 */
+.cocursor-marketplace-plugin-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px;
+  padding: 16px 20px;
   background: linear-gradient(
     135deg,
-    rgba(var(--vscode-textLink-foreground-rgb, 0, 122, 204), 0.08) 0%,
+    rgba(var(--vscode-textLink-foreground-rgb, 0, 122, 204), 0.06) 0%,
     rgba(var(--vscode-textLink-foreground-rgb, 0, 122, 204), 0.02) 100%
   );
   border-bottom: 1px solid var(--vscode-panel-border);
   position: relative;
 }
 
-.cocursor-marketplace-plugin-banner::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--vscode-textLink-foreground),
-    transparent
-  );
-  opacity: 0.3;
-}
-
-.cocursor-marketplace-plugin-banner-left {
+.cocursor-marketplace-plugin-header-left {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
   flex: 1;
   min-width: 0;
 }
 
-.cocursor-marketplace-plugin-banner-right {
+.cocursor-marketplace-plugin-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
 }
 
+@media (max-width: 768px) {
+  .cocursor-marketplace-plugin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .cocursor-marketplace-plugin-header-left {
+    width: 100%;
+    min-width: 0;
+  }
+  
+  .cocursor-marketplace-plugin-header-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  
+  .cocursor-marketplace-plugin-title-row {
+    width: 100%;
+    min-width: 0;
+  }
+  
+  .cocursor-marketplace-plugin-name {
+    max-width: 100%;
+  }
+}
+
 .cocursor-marketplace-plugin-icon {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--vscode-input-background);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s;
 }
 
@@ -1843,19 +1992,29 @@ body {
 .cocursor-marketplace-plugin-info {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .cocursor-marketplace-plugin-info {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 .cocursor-marketplace-plugin-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  gap: 10px;
+  flex-wrap: nowrap;
+  margin-bottom: 6px;
+  min-width: 0;
 }
 
 .cocursor-marketplace-plugin-name {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--vscode-foreground);
   line-height: 1.3;
@@ -1863,6 +2022,21 @@ body {
   transition: color 0.3s;
   flex: 1;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cocursor-marketplace-plugin-installed-badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border-radius: 6px;
+  font-weight: 600;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cocursor-marketplace-plugin:hover .cocursor-marketplace-plugin-name {
@@ -1872,32 +2046,33 @@ body {
 .cocursor-marketplace-plugin-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   line-height: 1.5;
   align-items: center;
+  overflow: hidden;
 }
 
 .cocursor-marketplace-plugin-meta > span {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cocursor-marketplace-plugin-meta > span:not(:last-child)::after {
   content: '•';
-  margin-left: 12px;
+  margin-left: 8px;
+  margin-right: 4px;
   opacity: 0.4;
   font-weight: 300;
 }
 
-.cocursor-marketplace-plugin-installed {
+.cocursor-marketplace-plugin-installed-version {
   color: #4caf50;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  font-weight: 500;
 }
 
 .cocursor-marketplace-plugin-author,
@@ -1910,10 +2085,95 @@ body {
 }
 
 .cocursor-marketplace-plugin-content {
-  padding: 20px;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.cocursor-marketplace-plugin-description-preview {
+  margin: 0;
+}
+
+.cocursor-marketplace-plugin-description-preview p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.cocursor-marketplace-plugin-description-preview.expanded p {
+  display: block;
+  overflow: visible;
+  -webkit-box-orient: unset;
+}
+
+.cocursor-marketplace-plugin-expand-button {
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  width: fit-content;
+}
+
+.cocursor-marketplace-plugin-expand-button:hover {
+  color: var(--vscode-textLink-activeForeground);
+  transform: translateX(2px);
+}
+
+.cocursor-marketplace-plugin-expand-icon {
+  font-size: 10px;
+  transition: transform 0.3s;
+}
+
+.cocursor-marketplace-plugin-expanded-content {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .cocursor-marketplace-plugin-content {
+    padding: 16px;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cocursor-marketplace-plugin-content {
+    padding: 12px;
+    gap: 12px;
+  }
 }
 
 .cocursor-marketplace-plugin-description-section,
@@ -1942,84 +2202,48 @@ body {
 
 .cocursor-marketplace-plugin-components {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
   flex-shrink: 0;
 }
 
 .cocursor-marketplace-plugin-component {
-  font-size: 11px;
-  padding: 6px 12px;
-  border-radius: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  font-size: 18px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
   overflow: hidden;
   transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: help;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-panel-border);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.cocursor-marketplace-plugin-component::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
-  transition: left 0.5s;
-}
-
-.cocursor-marketplace-plugin-component:hover::before {
-  left: 100%;
+.cocursor-marketplace-plugin-component:hover {
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .cocursor-marketplace-plugin-component.skill {
-  background: linear-gradient(
-    135deg,
-    #667eea 0%,
-    #764ba2 100%
-  );
-  color: white;
-}
-
-.cocursor-marketplace-plugin-component.skill:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
 }
 
 .cocursor-marketplace-plugin-component.mcp {
-  background: linear-gradient(
-    135deg,
-    #f093fb 0%,
-    #f5576c 100%
-  );
-  color: white;
-}
-
-.cocursor-marketplace-plugin-component.mcp:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-color: #f093fb;
 }
 
 .cocursor-marketplace-plugin-component.command {
-  background: linear-gradient(
-    135deg,
-    #4facfe 0%,
-    #00f2fe 100%
-  );
-  color: white;
-}
-
-.cocursor-marketplace-plugin-component.command:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  border-color: #4facfe;
 }
 
 .cocursor-marketplace-plugin-usage-list {
@@ -2085,11 +2309,11 @@ body {
 }
 
 .cocursor-marketplace-plugin-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
@@ -2097,6 +2321,24 @@ body {
   overflow: hidden;
   letter-spacing: 0.3px;
   min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cocursor-marketplace-plugin-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.cocursor-marketplace-plugin-button-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .cocursor-marketplace-plugin-button::before {
@@ -2145,7 +2387,8 @@ body {
 .cocursor-marketplace-plugin-button.uninstall {
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
-  border-color: var(--vscode-button-border);
+  border: 2px solid var(--vscode-button-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .cocursor-marketplace-plugin-button.uninstall:hover {
@@ -2154,6 +2397,10 @@ body {
   border-color: var(--vscode-textLink-foreground);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cocursor-marketplace-plugin-button.uninstall:active {
+  transform: translateY(0);
 }
 
 .cocursor-marketplace-loading {
@@ -2222,5 +2469,155 @@ body {
   }
   50% {
     transform: translateY(-10px);
+  }
+}
+
+/* Toast 通知样式 */
+.cocursor-marketplace-toasts {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.cocursor-marketplace-toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  animation: toastSlideIn 0.3s ease-out, toastFadeOut 0.3s ease-in 2.7s;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.cocursor-marketplace-toast-success {
+  background: rgba(76, 175, 80, 0.95);
+  color: white;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.cocursor-marketplace-toast-error {
+  background: rgba(244, 67, 54, 0.95);
+  color: white;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* 骨架屏样式 */
+.cocursor-marketplace-plugin-skeleton {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 16px 20px;
+}
+
+.cocursor-marketplace-plugin-skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocursor-marketplace-plugin-skeleton-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-input-background) 0%,
+    var(--vscode-panel-border) 50%,
+    var(--vscode-input-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.cocursor-marketplace-plugin-skeleton-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-marketplace-plugin-skeleton-title {
+  height: 20px;
+  width: 60%;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-input-background) 0%,
+    var(--vscode-panel-border) 50%,
+    var(--vscode-input-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+.cocursor-marketplace-plugin-skeleton-meta {
+  height: 14px;
+  width: 40%;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-input-background) 0%,
+    var(--vscode-panel-border) 50%,
+    var(--vscode-input-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+.cocursor-marketplace-plugin-skeleton-button {
+  width: 80px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-input-background) 0%,
+    var(--vscode-panel-border) 50%,
+    var(--vscode-input-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }

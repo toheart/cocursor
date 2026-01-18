@@ -30,6 +30,7 @@ func NewServer(
 	analyticsHandler *handler.AnalyticsHandler,
 	workspaceHandler *handler.WorkspaceHandler,
 	marketplaceHandler *handler.MarketplaceHandler,
+	workflowHandler *handler.WorkflowHandler,
 	mcpServer *mcp.MCPServer,
 ) *HTTPServer {
 	router := gin.Default()
@@ -72,6 +73,11 @@ func NewServer(
 			marketplace.POST("/plugins/:id/uninstall", marketplaceHandler.UninstallPlugin)
 			marketplace.GET("/plugins/:id/status", marketplaceHandler.CheckPluginStatus)
 		}
+
+		// 工作流相关路由
+		api.GET("/workflows", workflowHandler.ListWorkflows)
+		api.GET("/workflows/status", workflowHandler.GetWorkflowStatus)
+		api.GET("/workflows/:change_id", workflowHandler.GetWorkflowDetail)
 	}
 
 	// 健康检查

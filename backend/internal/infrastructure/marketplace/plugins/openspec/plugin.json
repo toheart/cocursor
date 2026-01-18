@@ -1,0 +1,27 @@
+{
+  "id": "openspec",
+  "name": "OpenSpec",
+  "description": "规范驱动的开发工作流工具，通过 cocursor MCP 工具提供完整的 OpenSpec 工作流支持",
+  "author": "CoCursor Team",
+  "version": "1.0.0",
+  "category": "开发工具",
+  "skill": {
+    "skill_name": "openspec"
+  },
+  "command": {
+    "commands": [
+      {
+        "command_id": "cocursor-openspec-init"
+      },
+      {
+        "command_id": "cocursor-openspec-proposal"
+      },
+      {
+        "command_id": "cocursor-openspec-apply"
+      },
+      {
+        "command_id": "cocursor-openspec-archive"
+      }
+    ]
+  }
+}

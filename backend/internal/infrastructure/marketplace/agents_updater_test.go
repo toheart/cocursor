@@ -164,3 +164,47 @@ func TestAgentsUpdater_FindAgentsMDFile(t *testing.T) {
 		t.Errorf("找到的路径不匹配: 期望 '%s', 得到 '%s'", agentsPath, foundPath)
 	}
 }
+
+func TestAgentsUpdater_FindAgentsMDFile_CreateIfNotExists(t *testing.T) {
+	// 创建临时目录（不包含 AGENTS.md）
+	tempDir := t.TempDir()
+	workspaceDir := filepath.Join(tempDir, "workspace")
+	if err := os.MkdirAll(workspaceDir, 0755); err != nil {
+		t.Fatalf("创建目录失败: %v", err)
+	}
+
+	updater := NewAgentsUpdater()
+
+	// 应该在工作区根目录创建 AGENTS.md
+	expectedPath := filepath.Join(workspaceDir, "AGENTS.md")
+	foundPath, err := updater.FindAgentsMDFile(workspaceDir)
+	if err != nil {
+		t.Fatalf("创建 AGENTS.md 失败: %v", err)
+	}
+
+	if foundPath != expectedPath {
+		t.Errorf("创建的路径不匹配: 期望 '%s', 得到 '%s'", expectedPath, foundPath)
+	}
+
+	// 验证文件已创建
+	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+		t.Fatalf("AGENTS.md 文件未创建")
+	}
+
+	// 验证文件内容包含必要的标记
+	content, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatalf("读取 AGENTS.md 失败: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "<!-- SKILLS_TABLE_START -->") {
+		t.Error("AGENTS.md 缺少 SKILLS_TABLE_START 标记")
+	}
+	if !strings.Contains(contentStr, "<!-- SKILLS_TABLE_END -->") {
+		t.Error("AGENTS.md 缺少 SKILLS_TABLE_END 标记")
+	}
+	if !strings.Contains(contentStr, "<available_skills>") {
+		t.Error("AGENTS.md 缺少 available_skills 标记")
+	}
+}

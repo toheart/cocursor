@@ -4,6 +4,8 @@ import { WorkAnalysis } from "./components/WorkAnalysis";
 import { SessionList } from "./components/SessionList";
 import { SessionDetail } from "./components/SessionDetail";
 import { Marketplace } from "./components/Marketplace";
+import { WorkflowList } from "./components/WorkflowList";
+import { WorkflowDetail } from "./components/WorkflowDetail";
 import { NavigationBar } from "./components/NavigationBar";
 import { getVscodeApi } from "./services/api";
 
@@ -46,11 +48,14 @@ const RouterContent: React.FC = () => {
         "工作分析 - CoCursor",
       "/work-analysis": "工作分析 - CoCursor",
       "/marketplace": "插件市场 - CoCursor",
+      "/workflows": "工作流 - CoCursor",
     };
     
     const title = titles[location.pathname] || 
       (location.pathname.startsWith("/sessions/") 
-        ? "会话详情 - CoCursor" 
+        ? "会话详情 - CoCursor"
+        : location.pathname.startsWith("/workflows/")
+        ? "工作流详情 - CoCursor"
         : viewType === "recentSessions" ? "最近对话 - CoCursor" 
         : viewType === "marketplace" ? "插件市场 - CoCursor"
         : "工作分析 - CoCursor");
@@ -96,7 +101,7 @@ const RouterContent: React.FC = () => {
     );
   }
 
-  // 默认是工作分析
+  // 默认是工作分析，但支持工作流路由
   return (
     <div className="cocursor-router-container">
       <NavigationBar />
@@ -104,6 +109,8 @@ const RouterContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<WorkAnalysis />} />
           <Route path="/work-analysis" element={<WorkAnalysis />} />
+          <Route path="/workflows" element={<WorkflowList />} />
+          <Route path="/workflows/:changeId" element={<WorkflowDetail />} />
           <Route path="/sessions/:sessionId" element={<SessionDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

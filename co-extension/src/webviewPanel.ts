@@ -187,6 +187,12 @@ export class WebviewPanel {
       case "checkPluginStatus":
         this._handleCheckPluginStatus(message.payload as { id: string });
         break;
+      case "fetchWorkflows":
+        this._handleFetchWorkflows(message.payload as { projectPath?: string; status?: string });
+        break;
+      case "fetchWorkflowDetail":
+        this._handleFetchWorkflowDetail(message.payload as { changeId: string; projectPath?: string });
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
@@ -700,6 +706,72 @@ export class WebviewPanel {
       this._sendMessage({
         type: "checkPluginStatus-response",
         data: { error: error instanceof Error ? error.message : "Unknown error" }
+      });
+    }
+  }
+
+  private async _handleFetchWorkflows(payload: { projectPath?: string; status?: string }): Promise<void> {
+    try {
+      const params = new URLSearchParams();
+      if (payload.projectPath) {
+        params.append("project_path", payload.projectPath);
+      }
+      if (payload.status) {
+        params.append("status", payload.status);
+      }
+
+      const apiUrl = `http://localhost:19960/api/v1/workflows${params.toString() ? `?${params.toString()}` : ""}`;
+      console.log("[WebviewPanel] Fetching workflows from:", apiUrl);
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+
+      console.log("[WebviewPanel] API response:", {
+        code: response.data.code,
+        message: response.data.message,
+        dataType: Array.isArray(response.data.data) ? "array" : typeof response.data.data,
+        dataLength: Array.isArray(response.data.data) ? response.data.data.length : "N/A"
+      });
+
+      if (response.data.code === 0) {
+        const workflows = response.data.data || [];
+        console.log("[WebviewPanel] Sending workflows to frontend:", workflows.length, "items");
+        this._sendMessage({
+          type: "fetchWorkflows-response",
+          data: workflows
+        });
+      } else {
+        throw new Error(response.data.message || "获取工作流列表失败");
+      }
+    } catch (error) {
+      console.error("[WebviewPanel] Error fetching workflows:", error);
+      this._sendMessage({
+        type: "fetchWorkflows-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchWorkflowDetail(payload: { changeId: string; projectPath?: string }): Promise<void> {
+    try {
+      const params = new URLSearchParams();
+      if (payload.projectPath) {
+        params.append("project_path", payload.projectPath);
+      }
+
+      const apiUrl = `http://localhost:19960/api/v1/workflows/${encodeURIComponent(payload.changeId)}${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchWorkflowDetail-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取工作流详情失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchWorkflowDetail-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
       });
     }
   }

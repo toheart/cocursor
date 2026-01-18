@@ -26,8 +26,11 @@ func TestPlugin_JSONSerialization(t *testing.T) {
 			},
 		},
 		Command: &CommandComponent{
-			CommandID: "test-command",
-			Scope:     "global",
+			Commands: []CommandItem{
+				{
+					CommandID: "test-command",
+				},
+			},
 		},
 	}
 

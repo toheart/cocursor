@@ -114,6 +114,16 @@ class ApiService {
   async checkPluginStatus(id: string): Promise<unknown> {
     return this.postMessage("checkPluginStatus", { id });
   }
+
+  // 获取工作流列表
+  async getWorkflows(projectPath?: string, status?: string): Promise<unknown> {
+    return this.postMessage("fetchWorkflows", { projectPath, status });
+  }
+
+  // 获取工作流详情
+  async getWorkflowDetail(changeId: string, projectPath?: string): Promise<unknown> {
+    return this.postMessage("fetchWorkflowDetail", { changeId, projectPath });
+  }
 }
 
 // 会话健康状态类型

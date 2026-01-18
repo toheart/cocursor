@@ -918,3 +918,63 @@ func (s *SessionService) parseFileList(subtitle string) []string {
 	}
 	return files
 }
+
+// GetSessionTextContent 获取会话的纯文本内容（过滤 tool 和代码块）
+// 返回用户和 AI 的文本消息，去除所有 tool 调用和代码块
+func (s *SessionService) GetSessionTextContent(sessionID string) ([]*domainCursor.Message, error) {
+	// 获取会话详情
+	sessionDetail, err := s.GetSessionDetail(sessionID, 1000)
+	if err != nil {
+		return nil, err
+	}
+
+	// 过滤消息：只保留文本，去除 tool 和代码块
+	var textMessages []*domainCursor.Message
+	for _, msg := range sessionDetail.Messages {
+		// 跳过有 tool 调用的消息
+		if len(msg.Tools) > 0 {
+			continue
+		}
+
+		// 去除代码块，只保留文本
+		text := msg.Text
+		// 移除代码块（Markdown 格式：```language\ncode\n```）
+		text = s.removeCodeBlocksFromText(text)
+
+		// 如果文本为空，跳过
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+
+		// 创建新的消息对象（不包含代码块和工具）
+		textMsg := &domainCursor.Message{
+			Type:      msg.Type,
+			Text:      text,
+			Timestamp: msg.Timestamp,
+			// 不包含 CodeBlocks, Tools, Files
+		}
+
+		textMessages = append(textMessages, textMsg)
+	}
+
+	return textMessages, nil
+}
+
+// removeCodeBlocksFromText 从文本中移除代码块
+func (s *SessionService) removeCodeBlocksFromText(text string) string {
+	lines := strings.Split(text, "\n")
+	var result []string
+	inCodeBlock := false
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "```") {
+			inCodeBlock = !inCodeBlock
+			continue
+		}
+		if !inCodeBlock {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}

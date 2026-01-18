@@ -1,5 +1,7 @@
 package marketplace
 
+import "fmt"
+
 // Plugin 插件
 type Plugin struct {
 	// 基础信息
@@ -36,8 +38,12 @@ type MCPComponent struct {
 
 // CommandComponent Command 组件
 type CommandComponent struct {
+	Commands []CommandItem `json:"commands,omitempty"`
+}
+
+// CommandItem 单个命令项
+type CommandItem struct {
 	CommandID string `json:"command_id"` // command ID（文件名）
-	Scope     string `json:"scope"`      // "global"（默认，~/.cursor/commands/）
 }
 
 // Validate 验证插件数据
@@ -54,6 +60,26 @@ func (p *Plugin) Validate() error {
 	if p.MCP != nil {
 		if err := p.MCP.Validate(); err != nil {
 			return err
+		}
+	}
+	if p.Command != nil {
+		if err := p.Command.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate 验证 Command 组件
+func (c *CommandComponent) Validate() error {
+	// Command 是可选的，如果没有 Commands 也是允许的
+	if len(c.Commands) == 0 {
+		return nil
+	}
+
+	for _, cmd := range c.Commands {
+		if cmd.CommandID == "" {
+			return fmt.Errorf("command_id is required in commands array")
 		}
 	}
 	return nil

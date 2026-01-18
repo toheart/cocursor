@@ -106,15 +106,26 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
           "graph"
         ),
         new SidebarItem(
-          "最近对话",
+          "OpenSpec 工作流",
           vscode.TreeItemCollapsibleState.None,
           {
-            command: "cocursor.openSessions",
-            title: "打开最近对话",
+            command: "cocursor.openWorkflows",
+            title: "打开工作流",
             arguments: []
           },
-          "comment-discussion"
+          "git-branch"
         ),
+        // 隐藏最近对话功能
+        // new SidebarItem(
+        //   "最近对话",
+        //   vscode.TreeItemCollapsibleState.None,
+        //   {
+        //     command: "cocursor.openSessions",
+        //     title: "打开最近对话",
+        //     arguments: []
+        //   },
+        //   "comment-discussion"
+        // ),
         new SidebarItem(
           "插件市场",
           vscode.TreeItemCollapsibleState.None,

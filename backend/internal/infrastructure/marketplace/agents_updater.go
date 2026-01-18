@@ -53,6 +53,7 @@ func (a *AgentsUpdater) ParseSkillFrontmatter(skillContent []byte) (*SkillMetada
 // FindAgentsMDFile 查找项目的 AGENTS.md 文件
 // workspacePath: 工作区路径（由前端传递）
 // 从工作区路径向上查找，直到找到包含 AGENTS.md 的目录
+// 如果找不到，在工作区根目录创建 AGENTS.md 文件
 func (a *AgentsUpdater) FindAgentsMDFile(workspacePath string) (string, error) {
 	if workspacePath == "" {
 		return "", fmt.Errorf("workspace path is required")
@@ -64,8 +65,14 @@ func (a *AgentsUpdater) FindAgentsMDFile(workspacePath string) (string, error) {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	// 向上查找 AGENTS.md
-	dir := absPath
+	// 确定工作区根目录（如果是文件，取其父目录）
+	workspaceRoot := absPath
+	if info, err := os.Stat(workspaceRoot); err == nil && !info.IsDir() {
+		workspaceRoot = filepath.Dir(workspaceRoot)
+	}
+
+	// 向上查找 AGENTS.md（从工作区根目录开始）
+	dir := workspaceRoot
 	for {
 		agentsPath := filepath.Join(dir, "AGENTS.md")
 		if _, err := os.Stat(agentsPath); err == nil {
@@ -80,7 +87,51 @@ func (a *AgentsUpdater) FindAgentsMDFile(workspacePath string) (string, error) {
 		dir = parent
 	}
 
-	return "", fmt.Errorf("AGENTS.md not found in workspace: %s", workspacePath)
+	// 如果找不到，在工作区根目录创建 AGENTS.md
+
+	agentsPath := filepath.Join(workspaceRoot, "AGENTS.md")
+
+	// 创建默认的 AGENTS.md 文件
+	defaultContent := `# AGENTS
+
+<skills_system priority="1">
+
+## Available Skills
+
+<!-- SKILLS_TABLE_START -->
+<usage>
+When users ask you to perform tasks, check if any of the available skills below can help complete the task more effectively. Skills provide specialized capabilities and domain knowledge.
+
+How to use skills:
+- Invoke: Bash("openskills read <skill-name>")
+- The skill content will load with detailed instructions on how to complete the task
+- Base directory provided in output for resolving bundled resources (references/, scripts/, assets/)
+
+Usage notes:
+- Only use skills listed in <available_skills> below
+- Do not invoke a skill that is already loaded in your context
+- Each skill invocation is stateless
+</usage>
+
+<available_skills>
+
+</available_skills>
+<!-- SKILLS_TABLE_END -->
+
+</skills_system>
+`
+
+	// 确保目录存在
+	if err := os.MkdirAll(workspaceRoot, 0755); err != nil {
+		return "", fmt.Errorf("failed to create workspace directory: %w", err)
+	}
+
+	// 创建文件
+	if err := os.WriteFile(agentsPath, []byte(defaultContent), 0644); err != nil {
+		return "", fmt.Errorf("failed to create AGENTS.md: %w", err)
+	}
+
+	return agentsPath, nil
 }
 
 // AddSkillToAgentsMD 在 AGENTS.md 中添加技能条目

@@ -26,6 +26,11 @@ export const NavigationBar: React.FC = () => {
 
     if (path.startsWith("/sessions/")) {
       crumbs.push({ label: "会话详情", path: path });
+    } else if (path === "/workflows" || path.startsWith("/workflows/")) {
+      crumbs.push({ label: "工作流", path: "/workflows" });
+      if (path.startsWith("/workflows/") && path !== "/workflows") {
+        crumbs.push({ label: "详情", path: path });
+      }
     }
 
     return crumbs;
@@ -59,6 +64,12 @@ export const NavigationBar: React.FC = () => {
       return "插件市场";
     }
     if (path === "/work-analysis") return "工作分析";
+    if (path === "/workflows" || path.startsWith("/workflows/")) {
+      if (path.startsWith("/workflows/") && path !== "/workflows") {
+        return "工作流详情";
+      }
+      return "工作流";
+    }
     if (path.startsWith("/sessions/")) return "会话详情";
     return "工作分析";
   };

@@ -19,25 +19,26 @@ func NewCommandInstaller(pluginLoader *PluginLoader) *CommandInstaller {
 }
 
 // InstallCommand 安装 Command 文件
-func (c *CommandInstaller) InstallCommand(pluginID string, commandID string) error {
+// pluginID: 插件 ID
+// commandID: 命令 ID（文件名，不含 .md）
+// workspacePath: 工作区路径（必需）
+func (c *CommandInstaller) InstallCommand(pluginID string, commandID string, workspacePath string) error {
 	if commandID == "" {
 		return nil // Command 是可选的，如果没有则跳过
 	}
 
+	if workspacePath == "" {
+		return fmt.Errorf("workspace path is required")
+	}
+
 	// 读取 Command 文件
-	content, err := c.pluginLoader.ReadCommandFile(pluginID)
+	content, err := c.pluginLoader.ReadCommandFile(pluginID, commandID)
 	if err != nil {
 		return fmt.Errorf("failed to read command file: %w", err)
 	}
 
-	// 获取用户主目录
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	// 构建目标文件路径
-	commandsDir := filepath.Join(homeDir, ".cursor", "commands")
+	// 项目级：<workspace>/.cursor/commands/
+	commandsDir := filepath.Join(workspacePath, ".cursor", "commands")
 	targetPath := filepath.Join(commandsDir, commandID+".md")
 
 	// 确保目录存在
@@ -54,19 +55,19 @@ func (c *CommandInstaller) InstallCommand(pluginID string, commandID string) err
 }
 
 // UninstallCommand 卸载 Command 文件
-func (c *CommandInstaller) UninstallCommand(commandID string) error {
+// commandID: 命令 ID
+// workspacePath: 工作区路径（必需）
+func (c *CommandInstaller) UninstallCommand(commandID string, workspacePath string) error {
 	if commandID == "" {
 		return nil // 如果没有 command ID，跳过
 	}
 
-	// 获取用户主目录
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
+	if workspacePath == "" {
+		return fmt.Errorf("workspace path is required")
 	}
 
-	// 构建文件路径
-	commandPath := filepath.Join(homeDir, ".cursor", "commands", commandID+".md")
+	// 项目级：<workspace>/.cursor/commands/
+	commandPath := filepath.Join(workspacePath, ".cursor", "commands", commandID+".md")
 
 	// 检查文件是否存在
 	if _, err := os.Stat(commandPath); os.IsNotExist(err) {

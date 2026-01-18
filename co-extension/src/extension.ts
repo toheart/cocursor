@@ -18,12 +18,17 @@ export function activate(context: vscode.ExtensionContext): void {
   console.log("Extension URI:", context.extensionUri.toString());
   console.log("========================================");
   
-  // 显示通知确认激活
-  vscode.window.showInformationMessage("CoCursor 扩展已激活！", "打开仪表板").then((selection) => {
-    if (selection === "打开仪表板") {
-      vscode.commands.executeCommand("cocursor.openDashboard");
-    }
-  });
+  // 只在首次激活时显示通知
+  const isFirstActivation = context.globalState.get<boolean>("cocursor.firstActivation", true);
+  if (isFirstActivation) {
+    vscode.window.showInformationMessage("CoCursor 扩展已激活！", "打开仪表板").then((selection) => {
+      if (selection === "打开仪表板") {
+        vscode.commands.executeCommand("cocursor.openDashboard");
+      }
+    });
+    // 标记为已激活过
+    context.globalState.update("cocursor.firstActivation", false);
+  }
 
   // 创建状态栏项
   statusBarItem = vscode.window.createStatusBarItem(
@@ -82,11 +87,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("cocursor.openDashboard", () => {
       console.log("命令 cocursor.openDashboard 被调用");
       try {
-        WebviewPanel.createOrShow(context.extensionUri, "recentSessions");
+        WebviewPanel.createOrShow(context.extensionUri, "workAnalysis");
         console.log("WebviewPanel.createOrShow 调用成功");
       } catch (error) {
-        console.error("打开最近对话失败:", error);
-        vscode.window.showErrorMessage(`打开最近对话失败: ${error instanceof Error ? error.message : String(error)}`);
+        console.error("打开工作分析失败:", error);
+        vscode.window.showErrorMessage(`打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );
@@ -140,6 +145,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openMarketplace", () => {
       WebviewPanel.createOrShow(context.extensionUri, "marketplace");
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openWorkflows", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", "/workflows");
     })
   );
 

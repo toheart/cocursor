@@ -4,17 +4,24 @@ import (
 	"fmt"
 	"net/http"
 
+	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	infraStorage "github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // MCPServer MCP 服务器
 type MCPServer struct {
-	server  *mcp.Server
-	handler http.Handler
+	server         *mcp.Server
+	handler        http.Handler
+	projectManager *appCursor.ProjectManager
+	summaryRepo    infraStorage.DailySummaryRepository
 }
 
 // NewServer 创建 MCP 服务器
-func NewServer() *MCPServer {
+func NewServer(
+	projectManager *appCursor.ProjectManager,
+	summaryRepo infraStorage.DailySummaryRepository,
+) *MCPServer {
 	// 创建 MCP 服务器实例
 	server := mcp.NewServer(
 		&mcp.Implementation{
@@ -27,20 +34,81 @@ func NewServer() *MCPServer {
 	// 注册工具：get_daemon_status
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_daemon_status",
-		Description: "获取 cocursor 守护进程的状态信息，包括运行状态、版本号和数据库路径",
+		Description: "Get the status information of the cocursor daemon, including running status, version number, and database path. No parameters required.",
 	}, getDaemonStatusTool)
 
 	// 注册工具：generate_daily_report_context
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "generate_daily_report_context",
-		Description: "生成每日协作报告上下文，需要提供 project_path 参数（如 D:/code/cocursor）",
+		Description: "Generate daily collaboration report context. Parameters: project_path (string, required) - project path, e.g., D:/code/cocursor. Returns: date, total chats, active users list, and summary.",
 	}, generateDailyReportContextTool)
 
 	// 注册工具：get_session_health
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_session_health",
-		Description: "获取当前活跃会话的健康状态（熵值），返回熵值、健康状态和警告信息。可选参数 project_path（如 D:/code/cocursor），如果不提供则尝试自动检测",
+		Description: "Get the health status (entropy) of the current active session. Parameters: project_path (string, optional) - project path, e.g., D:/code/cocursor, if not provided will attempt auto-detection. Returns: entropy value, health status (healthy/sub_healthy/dangerous), warning message, and suggestion message.",
 	}, getSessionHealthTool)
+
+	// 创建服务器实例（用于闭包捕获依赖）
+	mcpServer := &MCPServer{
+		server:         server,
+		projectManager: projectManager,
+		summaryRepo:    summaryRepo,
+	}
+
+	// 注册新工具：get_daily_sessions
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_daily_sessions",
+		Description: "Query the list of sessions created or updated on the specified date, grouped by project. Parameters: date (string, optional) - date format YYYY-MM-DD, defaults to today. Returns: date, sessions grouped by project, and total session count.",
+	}, mcpServer.getDailySessionsTool)
+
+	// 注册新工具：get_session_content
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_session_content",
+		Description: "Read the plain text conversation content of the specified session, filtering out tool calls and code blocks. Parameters: session_id (string, required) - session ID. Returns: session ID, name, project name, plain text messages list, and total message count.",
+	}, mcpServer.getSessionContentTool)
+
+	// 注册新工具：save_daily_summary
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "save_daily_summary",
+		Description: "Save daily summary to database. Parameters: date (string, required) - date in YYYY-MM-DD format; summary (string, required) - summary content in Markdown; language (string, optional) - language: zh/en, defaults to zh; projects (array, optional) - project list; categories (object, optional) - work category statistics object containing fields: requirements_discussion, coding, problem_solving, refactoring, code_review, documentation, testing, other; total_sessions (int, required) - total session count. Returns: success status, summary ID, and message.",
+	}, mcpServer.saveDailySummaryTool)
+
+	// 注册新工具：get_daily_summary
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_daily_summary",
+		Description: "Query daily summary for the specified date. Parameters: date (string, required) - date in YYYY-MM-DD format. Returns: summary object (if found) and found flag.",
+	}, mcpServer.getDailySummaryTool)
+
+	// 注册 OpenSpec 工具：openspec_list
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "openspec_list",
+		Description: "List OpenSpec changes and specifications. Parameters: project_path (string, required) - project path, e.g., D:/code/cocursor; type (string, optional) - type: changes|specs|all, defaults to all. Returns: changes list and specs list.",
+	}, openspecListTool)
+
+	// 注册 OpenSpec 工具：openspec_validate
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "openspec_validate",
+		Description: "Validate OpenSpec change format. Parameters: project_path (string, required) - project path; change_id (string, required) - change ID; strict (bool, optional) - strict mode. Returns: valid status, errors list, warnings list, and change ID.",
+	}, openspecValidateTool)
+
+	// 注册 OpenSpec 工具：record_openspec_workflow
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "record_openspec_workflow",
+		Description: "Record OpenSpec workflow status. Only records proposal and apply stages (init stage is skipped). Parameters: project_path (string, required) - project path; change_id (string, required) - change ID; stage (string, required) - stage: proposal|apply (init and archive are not recorded); status (string, required) - status: in_progress|completed|paused; metadata (object, optional) - metadata including task progress. Workflow transitions from proposal to apply are tracked. If stage is apply and tasks.md is completed, will automatically generate work summary. Returns: success status and message.",
+	}, mcpServer.recordOpenSpecWorkflowTool)
+
+	// 注册 OpenSpec 工具：generate_openspec_workflow_summary
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "generate_openspec_workflow_summary",
+		Description: "Generate OpenSpec workflow work summary. Parameters: project_path (string, required) - project path; change_id (string, required) - change ID. Returns: change ID, stage, summary, completed tasks count, total tasks count, changed files list, and time spent.",
+	}, mcpServer.generateOpenSpecWorkflowSummaryTool)
+
+	// 注册 OpenSpec 工具：get_openspec_workflow_status
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_openspec_workflow_status",
+		Description: "Get OpenSpec workflow status. Parameters: project_path (string, optional) - project path; status (string, optional) - status filter: in_progress|completed|paused. Returns: workflow status items list, including change ID, stage, status, progress, updated timestamp, and summary.",
+	}, mcpServer.getOpenSpecWorkflowStatusTool)
 
 	// 创建 SSE Handler
 	handler := mcp.NewSSEHandler(
@@ -51,10 +119,8 @@ func NewServer() *MCPServer {
 		nil, // SSEOptions，使用默认值
 	)
 
-	return &MCPServer{
-		server:  server,
-		handler: handler,
-	}
+	mcpServer.handler = handler
+	return mcpServer
 }
 
 // GetHandler 获取 HTTP Handler（用于集成到 HTTP 服务器）

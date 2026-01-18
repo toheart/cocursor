@@ -1,0 +1,18 @@
+{
+  "id": "daily-summary",
+  "name": "每日总结",
+  "description": "自动总结 Cursor 聊天记录，生成每日工作汇报",
+  "author": "CoCursor Team",
+  "version": "1.0.0",
+  "category": "Productivity",
+  "skill": {
+    "skill_name": "daily-summary"
+  },
+  "command": {
+    "commands": [
+      {
+        "command_id": "daily-summary"
+      }
+    ]
+  }
+}

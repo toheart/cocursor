@@ -102,6 +102,10 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleWorkflowClick = (): void => {
+    navigate("/workflows");
+  };
+
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
     return date.toLocaleString("zh-CN", {
@@ -193,6 +197,30 @@ export const App: React.FC = () => {
       </div>
 
       <main className="cocursor-main" style={{ padding: "16px" }}>
+        {/* 快捷入口 */}
+        <div style={{ marginBottom: "16px", display: "flex", gap: "12px" }}>
+          <button
+            onClick={handleWorkflowClick}
+            style={{
+              padding: "8px 16px",
+              fontSize: "12px",
+              backgroundColor: "var(--vscode-button-background)",
+              color: "var(--vscode-button-foreground)",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--vscode-button-hoverBackground)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--vscode-button-background)";
+            }}
+          >
+            📋 OpenSpec 工作流
+          </button>
+        </div>
+
         {/* 会话熵值展示 */}
         {state.sessionHealth && (
           <div className="cocursor-session-health">

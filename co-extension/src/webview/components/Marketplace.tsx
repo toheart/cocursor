@@ -20,9 +20,16 @@ interface Plugin {
     url: string;
   };
   command?: {
-    command_id: string;
-    scope: string;
+    commands: Array<{
+      command_id: string;
+    }>;
   };
+}
+
+interface Toast {
+  id: string;
+  message: string;
+  type: "success" | "error";
 }
 
 export const Marketplace: React.FC = () => {
@@ -30,6 +37,9 @@ export const Marketplace: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [installingPlugins, setInstallingPlugins] = useState<Set<string>>(new Set());
+  const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(new Set());
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
     loadPlugins();
@@ -76,7 +86,16 @@ export const Marketplace: React.FC = () => {
     }
   };
 
+  const showToast = (message: string, type: "success" | "error") => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  };
+
   const handleInstall = async (pluginId: string) => {
+    setInstallingPlugins((prev) => new Set(prev).add(pluginId));
     try {
       const workspacePath = getWorkspacePath();
       const response = await apiService.installPlugin(pluginId, workspacePath) as {
@@ -88,17 +107,27 @@ export const Marketplace: React.FC = () => {
 
       if (response.error) {
         console.error("Failed to install plugin:", response.error);
+        showToast(`安装失败: ${response.error}`, "error");
         return;
       }
 
+      showToast("安装成功！", "success");
       // 刷新插件列表
       await loadPlugins();
     } catch (error) {
       console.error("Failed to install plugin:", error);
+      showToast("安装失败，请稍后重试", "error");
+    } finally {
+      setInstallingPlugins((prev) => {
+        const next = new Set(prev);
+        next.delete(pluginId);
+        return next;
+      });
     }
   };
 
   const handleUninstall = async (pluginId: string) => {
+    setInstallingPlugins((prev) => new Set(prev).add(pluginId));
     try {
       const workspacePath = getWorkspacePath();
       const response = await apiService.uninstallPlugin(pluginId, workspacePath) as {
@@ -109,14 +138,35 @@ export const Marketplace: React.FC = () => {
 
       if (response.error) {
         console.error("Failed to uninstall plugin:", response.error);
+        showToast(`卸载失败: ${response.error}`, "error");
         return;
       }
 
+      showToast("卸载成功！", "success");
       // 刷新插件列表
       await loadPlugins();
     } catch (error) {
       console.error("Failed to uninstall plugin:", error);
+      showToast("卸载失败，请稍后重试", "error");
+    } finally {
+      setInstallingPlugins((prev) => {
+        const next = new Set(prev);
+        next.delete(pluginId);
+        return next;
+      });
     }
+  };
+
+  const toggleExpand = (pluginId: string) => {
+    setExpandedPlugins((prev) => {
+      const next = new Set(prev);
+      if (next.has(pluginId)) {
+        next.delete(pluginId);
+      } else {
+        next.add(pluginId);
+      }
+      return next;
+    });
   };
 
   const categories = ["all", "工具", "集成", "AI", "主题", "其他"];
@@ -162,10 +212,32 @@ export const Marketplace: React.FC = () => {
         </div>
       </div>
 
+      {/* Toast 通知 */}
+      <div className="cocursor-marketplace-toasts">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`cocursor-marketplace-toast cocursor-marketplace-toast-${toast.type}`}
+          >
+            {toast.type === "success" ? "✓" : "✗"} {toast.message}
+          </div>
+        ))}
+      </div>
+
       {loading ? (
-        <div className="cocursor-marketplace-loading">
-          <div className="cocursor-marketplace-loading-spinner"></div>
-          <p>加载中...</p>
+        <div className="cocursor-marketplace-plugins">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="cocursor-marketplace-plugin-skeleton">
+              <div className="cocursor-marketplace-plugin-skeleton-header">
+                <div className="cocursor-marketplace-plugin-skeleton-icon"></div>
+                <div className="cocursor-marketplace-plugin-skeleton-info">
+                  <div className="cocursor-marketplace-plugin-skeleton-title"></div>
+                  <div className="cocursor-marketplace-plugin-skeleton-meta"></div>
+                </div>
+                <div className="cocursor-marketplace-plugin-skeleton-button"></div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="cocursor-marketplace-plugins">
@@ -193,23 +265,27 @@ export const Marketplace: React.FC = () => {
                   description: `此插件包含 MCP 服务器: ${plugin.mcp.server_name}。安装后，MCP 配置将添加到 ~/.cursor/mcp.json 中，需要重启 Cursor 才能生效。`
                 });
               }
-              if (plugin.command) {
+              if (plugin.command && plugin.command.commands && plugin.command.commands.length > 0) {
+                const commandNames = plugin.command.commands.map(cmd => `/${cmd.command_id}`).join("、");
                 usageInstructions.push({
                   type: "Command",
                   title: "Command 组件",
-                  description: `此插件包含命令: /${plugin.command.command_id}。安装后，可在 Cursor 中使用此命令。`
+                  description: `此插件包含命令: ${commandNames}。安装后，可在 Cursor 中使用此命令。`
                 });
               }
+
+              const isExpanded = expandedPlugins.has(plugin.id);
+              const isInstalling = installingPlugins.has(plugin.id);
 
               return (
                 <div 
                   key={plugin.id} 
-                  className="cocursor-marketplace-plugin"
+                  className={`cocursor-marketplace-plugin ${plugin.installed ? "installed" : ""}`}
                   style={{ animationDelay: `${index * 80}ms` }}
                 >
-                  {/* Banner 区域 - 包含图标、信息、组件标签和操作按钮 */}
-                  <div className="cocursor-marketplace-plugin-banner">
-                    <div className="cocursor-marketplace-plugin-banner-left">
+                  {/* 紧凑头部 - 图标、名称、组件标签、操作按钮一行 */}
+                  <div className="cocursor-marketplace-plugin-header">
+                    <div className="cocursor-marketplace-plugin-header-left">
                       <div className="cocursor-marketplace-plugin-icon">
                         {plugin.icon ? (
                           <img src={plugin.icon} alt={plugin.name} />
@@ -224,21 +300,11 @@ export const Marketplace: React.FC = () => {
                           <h3 className="cocursor-marketplace-plugin-name">
                             {plugin.name}
                           </h3>
-                          <div className="cocursor-marketplace-plugin-components">
-                            <span className="cocursor-marketplace-plugin-component skill">
-                              Skill
+                          {plugin.installed && (
+                            <span className="cocursor-marketplace-plugin-installed-badge">
+                              ✓ 已安装
                             </span>
-                            {plugin.mcp && (
-                              <span className="cocursor-marketplace-plugin-component mcp">
-                                MCP
-                              </span>
-                            )}
-                            {plugin.command && (
-                              <span className="cocursor-marketplace-plugin-component command">
-                                Command
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
                         <div className="cocursor-marketplace-plugin-meta">
                           <span className="cocursor-marketplace-plugin-author">
@@ -248,8 +314,8 @@ export const Marketplace: React.FC = () => {
                             v{plugin.version}
                           </span>
                           {plugin.installed && plugin.installed_version && (
-                            <span className="cocursor-marketplace-plugin-installed">
-                              ✓ 已安装 v{plugin.installed_version}
+                            <span className="cocursor-marketplace-plugin-installed-version">
+                              (v{plugin.installed_version})
                             </span>
                           )}
                           <span className="cocursor-marketplace-plugin-category">
@@ -258,57 +324,108 @@ export const Marketplace: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="cocursor-marketplace-plugin-banner-right">
+                    <div className="cocursor-marketplace-plugin-header-right">
+                      <div className="cocursor-marketplace-plugin-components">
+                        <span className="cocursor-marketplace-plugin-component skill" title="Skill">
+                          🎯
+                        </span>
+                        {plugin.mcp && (
+                          <span className="cocursor-marketplace-plugin-component mcp" title="MCP">
+                            🔌
+                          </span>
+                        )}
+                        {plugin.command && (
+                          <span className="cocursor-marketplace-plugin-component command" title="Command">
+                            ⚡
+                          </span>
+                        )}
+                      </div>
                       {plugin.installed ? (
                         <button
                           className="cocursor-marketplace-plugin-button uninstall"
                           onClick={() => handleUninstall(plugin.id)}
+                          disabled={isInstalling}
                         >
-                          卸载
+                          {isInstalling ? (
+                            <>
+                              <span className="cocursor-marketplace-plugin-button-spinner"></span>
+                              <span>卸载中...</span>
+                            </>
+                          ) : (
+                            "卸载"
+                          )}
                         </button>
                       ) : (
                         <button
                           className="cocursor-marketplace-plugin-button install"
                           onClick={() => handleInstall(plugin.id)}
+                          disabled={isInstalling}
                         >
-                          安装
+                          {isInstalling ? (
+                            <>
+                              <span className="cocursor-marketplace-plugin-button-spinner"></span>
+                              <span>安装中...</span>
+                            </>
+                          ) : (
+                            "安装"
+                          )}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {/* 内容区域 - 描述和使用说明 */}
+                  {/* 可折叠内容区域 */}
                   <div className="cocursor-marketplace-plugin-content">
-                    <div className="cocursor-marketplace-plugin-description-section">
-                      <h4 className="cocursor-marketplace-plugin-section-title">插件说明</h4>
-                      <p className="cocursor-marketplace-plugin-description">
-                        {plugin.description}
-                      </p>
+                    <div className={`cocursor-marketplace-plugin-description-preview ${isExpanded ? "expanded" : ""}`}>
+                      <p>{plugin.description}</p>
                     </div>
-
+                    
                     {usageInstructions.length > 0 && (
-                      <div className="cocursor-marketplace-plugin-usage-section">
-                        <h4 className="cocursor-marketplace-plugin-section-title">使用说明</h4>
-                        <div className="cocursor-marketplace-plugin-usage-list">
-                          {usageInstructions.map((instruction, idx) => (
-                            <div key={idx} className="cocursor-marketplace-plugin-usage-item">
-                              <div className="cocursor-marketplace-plugin-usage-icon">
-                                {instruction.type === "Skill" && "🎯"}
-                                {instruction.type === "MCP" && "🔌"}
-                                {instruction.type === "Command" && "⚡"}
-                              </div>
-                              <div className="cocursor-marketplace-plugin-usage-content">
-                                <div className="cocursor-marketplace-plugin-usage-title">
-                                  {instruction.title}
-                                </div>
-                                <div className="cocursor-marketplace-plugin-usage-description">
-                                  {instruction.description}
-                                </div>
+                      <>
+                        <button
+                          className="cocursor-marketplace-plugin-expand-button"
+                          onClick={() => toggleExpand(plugin.id)}
+                        >
+                          {isExpanded ? (
+                            <>
+                              <span>收起详情</span>
+                              <span className="cocursor-marketplace-plugin-expand-icon">▲</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>查看详情</span>
+                              <span className="cocursor-marketplace-plugin-expand-icon">▼</span>
+                            </>
+                          )}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="cocursor-marketplace-plugin-expanded-content">
+                            <div className="cocursor-marketplace-plugin-usage-section">
+                              <h4 className="cocursor-marketplace-plugin-section-title">使用说明</h4>
+                              <div className="cocursor-marketplace-plugin-usage-list">
+                                {usageInstructions.map((instruction, idx) => (
+                                  <div key={idx} className="cocursor-marketplace-plugin-usage-item">
+                                    <div className="cocursor-marketplace-plugin-usage-icon">
+                                      {instruction.type === "Skill" && "🎯"}
+                                      {instruction.type === "MCP" && "🔌"}
+                                      {instruction.type === "Command" && "⚡"}
+                                    </div>
+                                    <div className="cocursor-marketplace-plugin-usage-content">
+                                      <div className="cocursor-marketplace-plugin-usage-title">
+                                        {instruction.title}
+                                      </div>
+                                      <div className="cocursor-marketplace-plugin-usage-description">
+                                        {instruction.description}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

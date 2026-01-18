@@ -134,8 +134,11 @@ func (s *PluginService) InstallPlugin(id, workspacePath string) (*InstallPluginR
 
 	// 安装 Command（如果存在）
 	if plugin.Command != nil {
-		if err := s.commandInstaller.InstallCommand(id, plugin.Command.CommandID); err != nil {
-			return nil, fmt.Errorf("failed to install command: %w", err)
+		// 安装所有 Command
+		for _, cmd := range plugin.Command.Commands {
+			if err := s.commandInstaller.InstallCommand(id, cmd.CommandID, workspacePath); err != nil {
+				return nil, fmt.Errorf("failed to install command %s: %w", cmd.CommandID, err)
+			}
 		}
 	}
 
@@ -180,8 +183,12 @@ func (s *PluginService) UninstallPlugin(id, workspacePath string) error {
 
 	// 卸载 Command（如果存在）
 	if plugin.Command != nil {
-		if err := s.commandInstaller.UninstallCommand(plugin.Command.CommandID); err != nil {
-			return fmt.Errorf("failed to uninstall command: %w", err)
+		// 卸载所有 Command
+		for _, cmd := range plugin.Command.Commands {
+			if err := s.commandInstaller.UninstallCommand(cmd.CommandID, workspacePath); err != nil {
+				// 记录错误但继续卸载其他 Command
+				continue
+			}
 		}
 	}
 
@@ -212,4 +219,51 @@ func (s *PluginService) CheckPluginStatus(id string) (*PluginStatus, error) {
 		InstalledVersion: plugin.InstalledVersion,
 		LatestVersion:    plugin.Version,
 	}, nil
+}
+
+// SyncInstalledSkillsToAgentsMD 同步已安装插件的技能到工作区的 AGENTS.md
+// 当打开新工作区时，确保所有已安装插件的技能都在该工作区的 AGENTS.md 中
+func (s *PluginService) SyncInstalledSkillsToAgentsMD(workspacePath string) error {
+	if workspacePath == "" {
+		return fmt.Errorf("workspace path is required")
+	}
+
+	// 获取所有已安装的插件
+	installedPlugins, err := s.GetInstalledPlugins()
+	if err != nil {
+		return fmt.Errorf("failed to get installed plugins: %w", err)
+	}
+
+	if len(installedPlugins) == 0 {
+		return nil
+	}
+
+	// 对于每个已安装的插件，检查其技能是否在 AGENTS.md 中
+	for _, plugin := range installedPlugins {
+		// 读取插件的 SKILL.md 文件
+		skillFiles, err := s.pluginLoader.ReadSkillFiles(plugin.ID)
+		if err != nil {
+			// 如果无法读取技能文件，跳过该插件
+			continue
+		}
+
+		// 查找 SKILL.md 文件
+		skillMDContent, ok := skillFiles["SKILL.md"]
+		if !ok {
+			// 如果没有 SKILL.md，跳过
+			continue
+		}
+
+		// 解析 frontmatter 获取技能元数据
+		// 需要通过 skillInstaller 访问 agentsUpdater
+		// 由于 skillInstaller 是私有的，我们需要添加一个公开方法
+		// 或者在这里直接使用 skillInstaller 的内部方法
+		// 为了保持架构清晰，我们在 SkillInstaller 中添加一个同步方法
+		if err := s.skillInstaller.SyncSkillToAgentsMD(plugin.ID, plugin.Skill.SkillName, workspacePath, skillMDContent); err != nil {
+			// 记录错误但继续处理其他插件
+			continue
+		}
+	}
+
+	return nil
 }
