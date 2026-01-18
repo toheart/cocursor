@@ -120,11 +120,11 @@ func getSessionHealthTool(
 	}
 
 	// 计算熵值
-	entropyService := appCursor.NewEntropyService()
-	entropy := entropyService.CalculateSessionEntropy(*activeComposer)
+	statsService := appCursor.NewStatsService()
+	entropy := statsService.CalculateSessionEntropy(*activeComposer)
 
 	// 获取健康状态
-	status, warning := entropyService.GetHealthStatus(entropy)
+	status, warning := statsService.GetHealthStatus(entropy)
 
 	// 构建消息
 	message := fmt.Sprintf("当前会话熵值为 %.2f", entropy)

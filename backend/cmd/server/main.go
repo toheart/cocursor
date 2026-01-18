@@ -1,3 +1,9 @@
+// @title cocursor Daemon API
+// @version 1.0
+// @description cocursor 守护进程 API 服务
+// @host localhost:19960
+// @BasePath /api/v1
+// @schemes http
 package main
 
 import (

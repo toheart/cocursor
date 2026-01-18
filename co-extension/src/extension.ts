@@ -3,6 +3,7 @@ import axios from "axios";
 import { WebviewPanel } from "./webviewPanel";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
 import { DaemonManager } from "./daemon/daemonManager";
+import { configureMCPServer } from "./utils/mcpConfig";
 
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
@@ -40,6 +41,30 @@ export function activate(context: vscode.ExtensionContext): void {
   // 读取配置
   const config = vscode.workspace.getConfiguration("cocursor");
   const autoStartServer = config.get<boolean>("autoStartServer", true);
+  const daemonPort = config.get<number>("daemon.port", 19960);
+
+  // 配置 MCP 服务器（在启动后端之前）
+  // 注意：此操作会自动将 MCP 服务器添加到 Cursor 的设置中
+  try {
+    const mcpUrl = `http://localhost:${daemonPort}/mcp/sse`;
+    const configured = configureMCPServer(mcpUrl, "cocursor");
+    if (configured) {
+      console.log("MCP 服务器已自动配置到 Cursor 设置中");
+      // 仅在首次配置时提示用户重启 Cursor
+      vscode.window.showInformationMessage(
+        "CoCursor MCP 服务器已自动配置，请重启 Cursor 以使配置生效",
+        "知道了"
+      );
+    } else {
+      console.log("MCP 服务器已存在，无需重复配置");
+    }
+  } catch (error) {
+    console.error(`配置 MCP 服务器失败: ${error}`);
+    // 不阻塞扩展激活，只记录错误
+    vscode.window.showWarningMessage(
+      `CoCursor MCP 自动配置失败，请手动配置: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 
   if (autoStartServer) {
     startBackendServer(context).then(() => {

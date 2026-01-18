@@ -98,3 +98,26 @@ func GetTimeSinceLastGeneration(generations []GenerationData) float64 {
 	duration := now.Sub(latestTime)
 	return duration.Minutes()
 }
+
+// ParseAcceptanceStats 解析 aiCodeTracking.dailyStats 的 JSON 字符串
+// rawJson: 从数据库读取的原始 JSON 字符串
+// date: 日期字符串 YYYY-MM-DD
+// 返回: DailyAcceptanceStats 和错误
+func ParseAcceptanceStats(rawJson string, date string) (*DailyAcceptanceStats, error) {
+	if rawJson == "" {
+		return nil, fmt.Errorf("raw JSON is empty")
+	}
+
+	var stats DailyAcceptanceStats
+	if err := json.Unmarshal([]byte(rawJson), &stats); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	// 设置日期
+	stats.Date = date
+
+	// 计算接受率
+	stats.CalculateAcceptanceRate()
+
+	return &stats, nil
+}

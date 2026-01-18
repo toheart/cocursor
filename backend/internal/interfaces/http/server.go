@@ -9,6 +9,10 @@ import (
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/cocursor/backend/docs" // Swagger docs
 )
 
 // HTTPServer HTTP 服务器
@@ -31,12 +35,19 @@ func NewServer(
 	{
 		api.POST("/notifications", notificationHandler.Create)
 		api.GET("/stats/current-session", statsHandler.CurrentSession)
+		api.GET("/stats/acceptance-rate", statsHandler.AcceptanceRate)
+		api.GET("/stats/conversation-overview", statsHandler.ConversationOverview)
+		api.GET("/stats/file-references", statsHandler.FileReferences)
+		api.GET("/stats/daily-report", statsHandler.DailyReport)
 	}
 
 	// 健康检查
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+
+	// Swagger UI
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// MCP SSE 端点
 	if mcpServer != nil {

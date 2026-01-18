@@ -118,3 +118,39 @@ func TestGetActiveComposer_Empty(t *testing.T) {
 	active := GetActiveComposer([]ComposerData{})
 	assert.Nil(t, active, "如果列表为空，应该返回 nil")
 }
+
+func TestParseAcceptanceStats(t *testing.T) {
+	// 根据文档，实际 JSON 格式使用驼峰命名
+	rawJSON := `{
+		"date": "2026-01-17",
+		"tabSuggestedLines": 130,
+		"tabAcceptedLines": 52,
+		"composerSuggestedLines": 0,
+		"composerAcceptedLines": 21463
+	}`
+
+	stats, err := ParseAcceptanceStats(rawJSON, "2026-01-17")
+	require.NoError(t, err)
+	assert.Equal(t, "2026-01-17", stats.Date)
+	assert.Equal(t, 130, stats.TabSuggestedLines)
+	assert.Equal(t, 52, stats.TabAcceptedLines)
+	assert.Equal(t, 0, stats.ComposerSuggestedLines)
+	assert.Equal(t, 21463, stats.ComposerAcceptedLines)
+
+	// 验证接受率已计算
+	expectedTabRate := float64(52) / float64(130) * 100
+	assert.InDelta(t, expectedTabRate, stats.TabAcceptanceRate, 0.01)
+	assert.Equal(t, 0.0, stats.ComposerAcceptanceRate, "Composer 建议行数为0时接受率应为0")
+}
+
+func TestParseAcceptanceStats_EmptyJSON(t *testing.T) {
+	_, err := ParseAcceptanceStats("", "2026-01-17")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "raw JSON is empty")
+}
+
+func TestParseAcceptanceStats_InvalidJSON(t *testing.T) {
+	_, err := ParseAcceptanceStats("invalid json", "2026-01-17")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse JSON")
+}

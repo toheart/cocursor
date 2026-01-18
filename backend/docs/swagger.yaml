@@ -1,0 +1,406 @@
+basePath: /api/v1
+definitions:
+  github_com_cocursor_backend_internal_application_cursor.HealthInfo:
+    properties:
+      entropy:
+        description: 熵值
+        type: number
+      status:
+        allOf:
+        - $ref: '#/definitions/github_com_cocursor_backend_internal_application_cursor.HealthStatus'
+        description: 健康状态
+      warning:
+        description: 警告信息（如果有）
+        type: string
+    type: object
+  github_com_cocursor_backend_internal_application_cursor.HealthStatus:
+    enum:
+    - healthy
+    - sub_healthy
+    - dangerous
+    type: string
+    x-enum-varnames:
+    - HealthStatusHealthy
+    - HealthStatusSubHealthy
+    - HealthStatusDangerous
+  github_com_cocursor_backend_internal_application_notification.CreateNotificationDTO:
+    properties:
+      message:
+        type: string
+      teamCode:
+        type: string
+      title:
+        type: string
+      type:
+        type: integer
+    required:
+    - message
+    - teamCode
+    - title
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.AIUsageSummary:
+    properties:
+      active_sessions:
+        description: 活跃会话数
+        type: integer
+      total_chats:
+        description: 总对话数
+        type: integer
+      total_generations:
+        description: 总生成数
+        type: integer
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.CodeChangeSummary:
+    properties:
+      files_changed:
+        description: 变更文件数
+        type: integer
+      total_lines_added:
+        description: 总添加行数
+        type: integer
+      total_lines_removed:
+        description: 总删除行数
+        type: integer
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.ConversationOverview:
+    properties:
+      active_sessions:
+        description: 活跃会话数
+        type: integer
+      latest_chat_time:
+        description: 最近对话时间（ISO 8601）
+        type: string
+      time_since_last_gen:
+        description: 距离最近生成的时间（分钟）
+        type: number
+      total_chats:
+        description: 总对话数
+        type: integer
+      total_generations:
+        description: 总生成数
+        type: integer
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.DailyAcceptanceStats:
+    properties:
+      composer_acceptance_rate:
+        description: Composer 接受率（百分比，计算字段）
+        type: number
+      composerAcceptedLines:
+        description: Composer 接受的代码行数
+        type: integer
+      composerSuggestedLines:
+        description: Composer 建议的代码行数
+        type: integer
+      date:
+        description: 日期 YYYY-MM-DD
+        type: string
+      tab_acceptance_rate:
+        description: Tab 接受率（百分比，计算字段）
+        type: number
+      tabAcceptedLines:
+        description: Tab 接受的代码行数
+        type: integer
+      tabSuggestedLines:
+        description: Tab 建议的代码行数
+        type: integer
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.DailyReport:
+    properties:
+      acceptance_rate:
+        allOf:
+        - $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.DailyAcceptanceStats'
+        description: 接受率统计
+      ai_usage:
+        allOf:
+        - $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.AIUsageSummary'
+        description: AI 使用统计
+      code_changes:
+        allOf:
+        - $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.CodeChangeSummary'
+        description: 代码变更汇总
+      date:
+        description: 日期 YYYY-MM-DD
+        type: string
+      top_files:
+        description: Top N 文件引用
+        items:
+          $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.FileReference'
+        type: array
+      top_sessions:
+        description: Top N 会话
+        items:
+          $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.SessionSummary'
+        type: array
+      workspace_id:
+        description: 工作区 ID
+        type: string
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.FileReference:
+    properties:
+      file_name:
+        description: 文件名
+        type: string
+      file_type:
+        description: 文件类型（从扩展名推断）
+        type: string
+      reference_count:
+        description: 引用次数
+        type: integer
+    type: object
+  github_com_cocursor_backend_internal_domain_cursor.SessionSummary:
+    properties:
+      composer_id:
+        description: 会话 ID
+        type: string
+      duration:
+        description: 持续时间（分钟）
+        type: number
+      entropy:
+        description: 熵值
+        type: number
+      files_changed:
+        description: 变更文件数
+        type: integer
+      name:
+        description: 会话名称
+        type: string
+      total_lines:
+        description: 总变更行数
+        type: integer
+    type: object
+  github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      detail:
+        type: string
+      message:
+        type: string
+    type: object
+  github_com_cocursor_backend_internal_interfaces_http_response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+host: localhost:19960
+info:
+  contact: {}
+  description: cocursor 守护进程 API 服务
+  title: cocursor Daemon API
+  version: "1.0"
+paths:
+  /notifications:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 通知信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_cocursor_backend_internal_application_notification.CreateNotificationDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+      summary: 创建通知
+      tags:
+      - 通知
+  /stats/acceptance-rate:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 开始日期，格式 YYYY-MM-DD，默认最近 7 天
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期，格式 YYYY-MM-DD，默认今天
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.DailyAcceptanceStats'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+      summary: 获取 AI 代码接受率统计
+      tags:
+      - 统计
+  /stats/conversation-overview:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目路径，如 D:/code/cocursor（可选，如果不提供则尝试自动检测）
+        in: query
+        name: project_path
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.ConversationOverview'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+      summary: 获取对话统计概览
+      tags:
+      - 统计
+  /stats/current-session:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目路径，如 D:/code/cocursor（可选，如果不提供则尝试自动检测）
+        in: query
+        name: project_path
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_cocursor_backend_internal_application_cursor.HealthInfo'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+      summary: 获取当前会话的健康状态
+      tags:
+      - 统计
+  /stats/daily-report:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目路径，如 D:/code/cocursor（可选，如果不提供则尝试自动检测）
+        in: query
+        name: project_path
+        type: string
+      - description: 日期，格式 YYYY-MM-DD，默认今天
+        in: query
+        name: date
+        type: string
+      - description: Top N 会话数，默认 5，最大 20
+        in: query
+        name: top_n_sessions
+        type: integer
+      - description: Top N 文件数，默认 10，最大 50
+        in: query
+        name: top_n_files
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.DailyReport'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+      summary: 生成日报
+      tags:
+      - 统计
+  /stats/file-references:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目路径，如 D:/code/cocursor（可选，如果不提供则尝试自动检测）
+        in: query
+        name: project_path
+        type: string
+      - description: 返回前 N 个文件，默认 10，最大 50，最小 1
+        in: query
+        name: top_n
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_cocursor_backend_internal_domain_cursor.FileReference'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_cocursor_backend_internal_interfaces_http_response.ErrorResponse'
+      summary: 获取文件引用分析
+      tags:
+      - 统计
+schemes:
+- http
+swagger: "2.0"

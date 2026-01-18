@@ -144,8 +144,13 @@ func (p *PathResolver) normalizePath(path string) (string, error) {
 }
 
 // parseFolderURI 解析 folder URI 为文件系统路径
-// 输入: "file:///d%3A/code/cocursor"
-// 输出: "D:/code/cocursor" 或 "D:\\code\\cocursor" (取决于系统)
+// 输入:
+//   - Windows: "file:///d%3A/code/cocursor" 或 "file:///d:/code/cocursor"
+//   - macOS/Linux: "file:///Users/xibaobao/code/cocursor"
+//
+// 输出:
+//   - Windows: "D:/code/cocursor" 或 "D:\\code\\cocursor" (取决于系统)
+//   - macOS/Linux: "/Users/xibaobao/code/cocursor"
 func (p *PathResolver) parseFolderURI(uri string) (string, error) {
 	// 解析 URI
 	parsedURL, err := url.Parse(uri)
@@ -161,10 +166,6 @@ func (p *PathResolver) parseFolderURI(uri string) (string, error) {
 	// 获取路径部分（url.Parse 会自动解码 %3A 为 :）
 	path := parsedURL.Path
 
-	// Windows 路径格式: file:///d%3A/code/cocursor
-	// url.Parse 会解析为: Path = "/d:/code/cocursor" (如果 %3A 被解码)
-	// 或者: Path = "/d%3A/code/cocursor" (如果 %3A 没有被解码)
-
 	// 手动处理 URL 编码（以防 url.Parse 没有完全解码）
 	decodedPath, err := url.PathUnescape(path)
 	if err != nil {
@@ -172,13 +173,23 @@ func (p *PathResolver) parseFolderURI(uri string) (string, error) {
 		decodedPath = path
 	}
 
-	// Windows 路径格式: file:///d:/code/cocursor -> /d:/code/cocursor
-	// 需要移除开头的斜杠（如果存在）
-	if len(decodedPath) > 0 && decodedPath[0] == '/' {
-		decodedPath = decodedPath[1:]
+	// 区分 Windows 和 Unix 路径
+	// Windows 路径格式: file:///d:/code/cocursor -> Path = "/d:/code/cocursor"
+	// macOS/Linux 路径格式: file:///Users/... -> Path = "/Users/..."
+	//
+	// Windows 路径特征: 第二个字符是 ':' (如 "/d:/...")
+	// Unix 路径特征: 以 "/" 开头，第二个字符不是 ':'
+	if len(decodedPath) > 2 && decodedPath[1] == ':' {
+		// Windows 路径: 移除开头的斜杠
+		// file:///d:/code/cocursor -> /d:/code/cocursor -> d:/code/cocursor
+		if len(decodedPath) > 0 && decodedPath[0] == '/' {
+			decodedPath = decodedPath[1:]
+		}
 	}
+	// macOS/Linux 路径: 保留开头的斜杠
+	// file:///Users/... -> /Users/... (保持不变)
 
-	// 转换为系统路径格式（Windows 会使用反斜杠）
+	// 转换为系统路径格式（Windows 会使用反斜杠，Unix 保持正斜杠）
 	systemPath := filepath.FromSlash(decodedPath)
 
 	return systemPath, nil

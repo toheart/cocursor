@@ -25,7 +25,7 @@ test-coverage:
 
 # 生成 Wire 代码
 wire:
-	cd internal/wire && wire
+	cd internal/wire && go run github.com/google/wire/cmd/wire
 
 # 本地构建
 build: wire
@@ -38,12 +38,29 @@ install: build
 	@cp $(BIN_DIR)/cocursor $(EXT_BIN_DIR)/cocursor-darwin-amd64
 	@echo "已安装 daemon 到 extension/bin/cocursor-darwin-amd64"
 
-# 构建并复制到 extension/bin（用于开发）
-build-dev: build-windows-dev
+# 构建并复制到 extension/bin（用于开发，根据当前系统自动选择）
+build-dev:
+	@$(MAKE) build-$(shell uname -s | tr '[:upper:]' '[:lower:]')-dev
+
+build-darwin-dev:
+	@mkdir -p $(EXT_BIN_DIR)
+	@if [ "$$(uname -m)" = "arm64" ]; then \
+		go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-darwin-arm64 ./cmd/server; \
+		echo "已构建 daemon 到 extension/bin/cocursordaemon-darwin-arm64"; \
+	else \
+		go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-darwin-amd64 ./cmd/server; \
+		echo "已构建 daemon 到 extension/bin/cocursordaemon-darwin-amd64"; \
+	fi
+
+build-linux-dev:
+	@mkdir -p $(EXT_BIN_DIR)
+	go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-linux-amd64 ./cmd/server
+	@echo "已构建 daemon 到 extension/bin/cocursordaemon-linux-amd64"
 
 build-windows-dev:
 	@mkdir -p $(EXT_BIN_DIR)
-	go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-windows-amd64.exe ./cmd/server
+	GOOS=windows GOARCH=amd64 go build -a $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursordaemon-windows-amd64.exe ./cmd/server
+	@echo "已构建 daemon 到 extension/bin/cocursordaemon-windows-amd64.exe"
 
 # 多平台构建（输出到 extension/bin）
 build-all: build-windows build-windows-arm64 build-darwin build-linux
