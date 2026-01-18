@@ -29,6 +29,7 @@ func NewServer(
 	projectHandler *handler.ProjectHandler,
 	analyticsHandler *handler.AnalyticsHandler,
 	workspaceHandler *handler.WorkspaceHandler,
+	marketplaceHandler *handler.MarketplaceHandler,
 	mcpServer *mcp.MCPServer,
 ) *HTTPServer {
 	router := gin.Default()
@@ -60,6 +61,17 @@ func NewServer(
 		// 工作区相关路由
 		api.POST("/workspace/register", workspaceHandler.Register)
 		api.POST("/workspace/focus", workspaceHandler.Focus)
+
+		// 插件市场相关路由
+		marketplace := api.Group("/marketplace")
+		{
+			marketplace.GET("/plugins", marketplaceHandler.ListPlugins)
+			marketplace.GET("/plugins/:id", marketplaceHandler.GetPlugin)
+			marketplace.GET("/installed", marketplaceHandler.GetInstalledPlugins)
+			marketplace.POST("/plugins/:id/install", marketplaceHandler.InstallPlugin)
+			marketplace.POST("/plugins/:id/uninstall", marketplaceHandler.UninstallPlugin)
+			marketplace.GET("/plugins/:id/status", marketplaceHandler.CheckPluginStatus)
+		}
 	}
 
 	// 健康检查

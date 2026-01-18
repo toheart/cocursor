@@ -169,6 +169,24 @@ export class WebviewPanel {
           this._panel.title = String(message.payload.title);
         }
         break;
+      case "fetchPlugins":
+        this._handleFetchPlugins(message.payload as { category?: string; search?: string; installed?: boolean });
+        break;
+      case "fetchPlugin":
+        this._handleFetchPlugin(message.payload as { id: string });
+        break;
+      case "fetchInstalledPlugins":
+        this._handleFetchInstalledPlugins();
+        break;
+      case "installPlugin":
+        this._handleInstallPlugin(message.payload as { id: string; workspacePath: string });
+        break;
+      case "uninstallPlugin":
+        this._handleUninstallPlugin(message.payload as { id: string; workspacePath: string });
+        break;
+      case "checkPluginStatus":
+        this._handleCheckPluginStatus(message.payload as { id: string });
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
@@ -525,6 +543,165 @@ export class WebviewPanel {
         WebviewPanel.createOrShow(this._extensionUri, "workAnalysis");
       }
     });
+  }
+
+  private async _handleFetchPlugins(payload: { category?: string; search?: string; installed?: boolean }): Promise<void> {
+    try {
+      const params = new URLSearchParams();
+      if (payload.category) {
+        params.append("category", payload.category);
+      }
+      if (payload.search) {
+        params.append("search", payload.search);
+      }
+      if (payload.installed !== undefined) {
+        params.append("installed", payload.installed.toString());
+      }
+
+      const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchPlugins-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to fetch plugins");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchPlugins-response",
+        data: { error: error instanceof Error ? error.message : "Unknown error" }
+      });
+    }
+  }
+
+  private async _handleFetchPlugin(payload: { id: string }): Promise<void> {
+    try {
+      const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}`;
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchPlugin-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to fetch plugin");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchPlugin-response",
+        data: { error: error instanceof Error ? error.message : "Unknown error" }
+      });
+    }
+  }
+
+  private async _handleFetchInstalledPlugins(): Promise<void> {
+    try {
+      const apiUrl = "http://localhost:19960/api/v1/marketplace/installed";
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchInstalledPlugins-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to fetch installed plugins");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchInstalledPlugins-response",
+        data: { error: error instanceof Error ? error.message : "Unknown error" }
+      });
+    }
+  }
+
+  private async _handleInstallPlugin(payload: { id: string; workspacePath: string }): Promise<void> {
+    try {
+      const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/install`;
+      const response = await axios.post(apiUrl, {
+        workspace_path: payload.workspacePath
+      }, { timeout: 30000 });
+
+      if (response.data.code === 0) {
+        const result = response.data.data as { success: boolean; message: string; env_vars?: string[] };
+        
+        // 如果有环境变量需要配置，显示提示
+        if (result.env_vars && result.env_vars.length > 0) {
+          const envVarsList = result.env_vars.join(", ");
+          vscode.window.showWarningMessage(
+            `Plugin installed successfully. Please configure the following environment variables: ${envVarsList}`,
+            "OK"
+          );
+        } else {
+          vscode.window.showInformationMessage("Plugin installed successfully", "OK");
+        }
+
+        this._sendMessage({
+          type: "installPlugin-response",
+          data: result
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to install plugin");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      vscode.window.showErrorMessage(`Failed to install plugin: ${errorMessage}`);
+      this._sendMessage({
+        type: "installPlugin-response",
+        data: { error: errorMessage }
+      });
+    }
+  }
+
+  private async _handleUninstallPlugin(payload: { id: string; workspacePath: string }): Promise<void> {
+    try {
+      const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/uninstall`;
+      const response = await axios.post(apiUrl, {
+        workspace_path: payload.workspacePath
+      }, { timeout: 30000 });
+
+      if (response.data.code === 0) {
+        vscode.window.showInformationMessage("Plugin uninstalled successfully", "OK");
+        this._sendMessage({
+          type: "uninstallPlugin-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to uninstall plugin");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      vscode.window.showErrorMessage(`Failed to uninstall plugin: ${errorMessage}`);
+      this._sendMessage({
+        type: "uninstallPlugin-response",
+        data: { error: errorMessage }
+      });
+    }
+  }
+
+  private async _handleCheckPluginStatus(payload: { id: string }): Promise<void> {
+    try {
+      const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/status`;
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "checkPluginStatus-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to check plugin status");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "checkPluginStatus-response",
+        data: { error: error instanceof Error ? error.message : "Unknown error" }
+      });
+    }
   }
 
   private _sendMessage(message: ExtensionMessage): void {

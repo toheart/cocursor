@@ -9,6 +9,7 @@ var ProviderSet = wire.NewSet(
 	NewAgentsUpdater,
 	NewMCPConfigManager,
 	NewMCPInstaller,
+	NewMCPInitializer,
 	NewCommandInstaller,
 	NewSkillInstaller,
 )

@@ -84,6 +84,36 @@ class ApiService {
   async getSessionDetail(sessionId: string, limit?: number): Promise<unknown> {
     return this.postMessage("fetchSessionDetail", { sessionId, limit });
   }
+
+  // 获取插件列表
+  async getPlugins(category?: string, search?: string, installed?: boolean): Promise<unknown> {
+    return this.postMessage("fetchPlugins", { category, search, installed });
+  }
+
+  // 获取插件详情
+  async getPlugin(id: string): Promise<unknown> {
+    return this.postMessage("fetchPlugin", { id });
+  }
+
+  // 获取已安装插件列表
+  async getInstalledPlugins(): Promise<unknown> {
+    return this.postMessage("fetchInstalledPlugins");
+  }
+
+  // 安装插件
+  async installPlugin(id: string, workspacePath: string): Promise<unknown> {
+    return this.postMessage("installPlugin", { id, workspacePath });
+  }
+
+  // 卸载插件
+  async uninstallPlugin(id: string, workspacePath: string): Promise<unknown> {
+    return this.postMessage("uninstallPlugin", { id, workspacePath });
+  }
+
+  // 检查插件状态
+  async checkPluginStatus(id: string): Promise<unknown> {
+    return this.postMessage("checkPluginStatus", { id });
+  }
 }
 
 // 会话健康状态类型

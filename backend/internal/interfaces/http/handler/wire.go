@@ -9,5 +9,6 @@ var ProviderSet = wire.NewSet(
 	NewProjectHandler,
 	NewAnalyticsHandler,
 	NewWorkspaceHandler,
+	NewMarketplaceHandler,
 	// 可以继续添加其他 Handler
 )
