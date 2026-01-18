@@ -69,9 +69,19 @@ func NewServer(
 	}, mcpServer.getSessionContentTool)
 
 	// 注册新工具：save_daily_summary
+	// 使用自动 schema 推断，指针类型会自动生成包含 null 和 object 的 schema
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "save_daily_summary",
-		Description: "Save daily summary to database. Parameters: date (string, required) - date in YYYY-MM-DD format; summary (string, required) - summary content in Markdown; language (string, optional) - language: zh/en, defaults to zh; projects (array, optional) - project list; categories (object, optional) - work category statistics object containing fields: requirements_discussion, coding, problem_solving, refactoring, code_review, documentation, testing, other; total_sessions (int, required) - total session count. Returns: success status, summary ID, and message.",
+		Name: "save_daily_summary",
+		Description: `Save daily summary to database. 
+Parameters:
+- date (string, required): Date in YYYY-MM-DD format
+- summary (string, required): Summary content in Markdown format
+- language (string, optional): Language code, either "zh" or "en", defaults to "zh"
+- projects (array, optional): Array of project summary objects (not strings). Each object contains: project_name, project_path, workspace_id, work_items (array), sessions (array), session_count (int)
+- categories (object, optional): Work category statistics object. Must be a JSON object (not a string) with integer fields: requirements_discussion, coding, problem_solving, refactoring, code_review, documentation, testing, other. Example: {"requirements_discussion": 3, "coding": 8, "problem_solving": 4, "refactoring": 3, "code_review": 0, "documentation": 0, "testing": 2, "other": 1}
+- total_sessions (int, required): Total number of sessions
+
+Returns: success status, summary ID, and message.`,
 	}, mcpServer.saveDailySummaryTool)
 
 	// 注册新工具：get_daily_summary
@@ -94,8 +104,18 @@ func NewServer(
 
 	// 注册 OpenSpec 工具：record_openspec_workflow
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "record_openspec_workflow",
-		Description: "Record OpenSpec workflow status. Only records proposal and apply stages (init stage is skipped). Parameters: project_path (string, required) - project path; change_id (string, required) - change ID; stage (string, required) - stage: proposal|apply (init and archive are not recorded); status (string, required) - status: in_progress|completed|paused; metadata (object, optional) - metadata including task progress. Workflow transitions from proposal to apply are tracked. If stage is apply and tasks.md is completed, will automatically generate work summary. Returns: success status and message.",
+		Name: "record_openspec_workflow",
+		Description: `Record OpenSpec workflow status. Only records proposal and apply stages (init stage is skipped).
+Parameters:
+- project_path (string, required): Project path, e.g., D:/code/cocursor
+- change_id (string, required): Change ID
+- stage (string, required): Stage, must be one of: "proposal" or "apply" (init and archive are not recorded)
+- status (string, required): Status, must be one of: "in_progress", "completed", or "paused"
+- metadata (object, optional): Metadata object (not a string) including task progress. Must be a JSON object with string keys and any value types. Example: {"tasks_completed": 5, "tasks_total": 10, "progress": 0.5}
+
+Workflow transitions from proposal to apply are tracked. If stage is apply and tasks.md is completed, will automatically generate work summary.
+
+Returns: success status and message.`,
 	}, mcpServer.recordOpenSpecWorkflowTool)
 
 	// 注册 OpenSpec 工具：generate_openspec_workflow_summary

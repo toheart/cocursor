@@ -77,7 +77,20 @@ Use the `save_daily_summary` MCP tool to save the summary:
   - `summary`: Summary content (Markdown)
   - `language`: Language (zh/en, determined based on chat content)
   - `projects`: Project list (includes work items and session information)
-  - `categories`: Work category statistics
+  - `categories`: Work category statistics object (JSON object, not a string). Must be passed as a JSON object with integer fields. Example format:
+    ```json
+    {
+      "requirements_discussion": 3,
+      "coding": 8,
+      "problem_solving": 4,
+      "refactoring": 3,
+      "code_review": 0,
+      "documentation": 0,
+      "testing": 2,
+      "other": 1
+    }
+    ```
+    **Important**: Pass the categories as a JSON object directly, not as a stringified JSON. The MCP framework will handle the JSON serialization automatically.
   - `total_sessions`: Total number of sessions
 
 ## Work Category Identification

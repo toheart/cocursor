@@ -1,0 +1,177 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "refresh": "刷新",
+    "retry": "重试",
+    "error": "错误",
+    "back": "返回",
+    "home": "首页",
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭",
+    "search": "搜索",
+    "filter": "筛选",
+    "all": "全部",
+    "none": "暂无",
+    "unknown": "未知"
+  },
+  "app": {
+    "title": "CoCursor 仪表板",
+    "loadingChats": "加载对话中...",
+    "entropyWarning": "会话熵值过高，建议重启会话",
+    "workflowButton": "📋 OpenSpec 工作流",
+    "noChats": "暂无对话数据",
+    "noChatsDesc": "开始新的会话以查看数据",
+    "unnamedSession": "未命名会话",
+    "lines": "行",
+    "files": "个文件"
+  },
+  "marketplace": {
+    "title": "插件市场",
+    "subtitle": "发现并安装强大的扩展插件",
+    "searchPlaceholder": "搜索插件...",
+    "categories": {
+      "all": "全部",
+      "tools": "工具",
+      "integration": "集成",
+      "ai": "AI",
+      "theme": "主题",
+      "other": "其他"
+    },
+    "installed": "已安装",
+    "install": "安装",
+    "installing": "安装中...",
+    "uninstall": "卸载",
+    "uninstalling": "卸载中...",
+    "installSuccess": "安装成功！",
+    "installFailed": "安装失败",
+    "installFailedRetry": "安装失败，请稍后重试",
+    "uninstallSuccess": "卸载成功！",
+    "uninstallFailed": "卸载失败",
+    "uninstallFailedRetry": "卸载失败，请稍后重试",
+    "loadFailed": "加载插件失败：",
+    "noPlugins": "暂无插件",
+    "noPluginsDesc": "尝试调整搜索条件或筛选器",
+    "viewDetails": "查看详情",
+    "collapseDetails": "收起详情",
+    "usageInstructions": "使用说明"
+  },
+  "sessions": {
+    "title": "最近对话",
+    "detail": "会话详情",
+    "searchPlaceholder": "搜索会话...",
+    "loading": "加载中...",
+    "error": "错误",
+    "noSessions": "暂无会话",
+    "totalSessions": "共 {{count}} 个会话",
+    "loadMore": "加载更多",
+    "createdAt": "创建时间",
+    "lastUpdated": "最后更新",
+    "totalMessages": "总消息数",
+    "user": "用户",
+    "ai": "AI",
+    "tools": "工具",
+    "referencedFiles": "引用文件",
+    "loadMoreMessages": "加载更多消息",
+    "noMessages": "暂无消息",
+    "unnamedSession": "未命名会话"
+  },
+  "workflows": {
+    "title": "OpenSpec 工作流",
+    "list": "工作流",
+    "detail": "工作流详情",
+    "notFound": "工作流不存在",
+    "backToList": "返回列表",
+    "loading": "加载中...",
+    "error": "错误",
+    "noWorkflows": "暂无工作流数据",
+    "refresh": "刷新",
+    "status": {
+      "all": "全部状态",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "paused": "已暂停"
+    },
+    "stage": {
+      "init": "初始化",
+      "proposal": "提案",
+      "apply": "实施",
+      "archive": "归档"
+    },
+    "basicInfo": "基本信息",
+    "workspaceId": "工作区 ID",
+    "changeId": "变更 ID",
+    "startTime": "开始时间",
+    "updateTime": "更新时间",
+    "progressInfo": "进度信息",
+    "taskProgress": "任务进度",
+    "timeSpent": "耗时",
+    "changedFiles": "变更文件",
+    "summary": "工作总结",
+    "metadata": "元数据",
+    "progress": "进度",
+    "tasks": "任务"
+  },
+  "workAnalysis": {
+    "title": "工作分析",
+    "allProjects": "所有项目",
+    "week": {
+      "thisWeek": "本周",
+      "lastWeek": "上周",
+      "twoWeeksAgo": "上上周",
+      "custom": "自定义周"
+    },
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "to": "至",
+    "loading": "加载中...",
+    "error": "错误",
+    "sessionHealth": {
+      "title": "会话健康状态",
+      "entropy": "熵值",
+      "status": "状态",
+      "healthy": "健康",
+      "subHealthy": "亚健康",
+      "dangerous": "危险",
+      "unknown": "未知"
+    },
+    "overview": {
+      "codeChanges": "代码变更",
+      "added": "添加",
+      "removed": "删除",
+      "files": "文件",
+      "acceptanceRate": "接受率",
+      "activeSessions": "活跃会话",
+      "aiInteraction": "AI 交互",
+      "prompts": "Prompts",
+      "generations": "Generations"
+    },
+    "charts": {
+      "codeChangesTrend": "代码变更趋势",
+      "addedLines": "添加行数",
+      "removedLines": "删除行数",
+      "fileChanges": "文件变更"
+    },
+    "topFiles": {
+      "title": "最常编辑文件",
+      "edits": "次编辑"
+    },
+    "efficiency": {
+      "title": "效率指标",
+      "avgEntropy": "平均熵值",
+      "avgContextUsage": "平均上下文使用率"
+    }
+  },
+  "navigation": {
+    "home": "首页",
+    "sessionDetail": "会话详情",
+    "workflow": "工作流",
+    "workflowDetail": "工作流详情",
+    "workAnalysis": "工作分析",
+    "recentSessions": "最近对话",
+    "marketplace": "插件市场"
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "error": "Error",
+    "back": "Back",
+    "home": "Home",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "none": "None",
+    "unknown": "Unknown"
+  },
+  "app": {
+    "title": "CoCursor Dashboard",
+    "loadingChats": "Loading chats...",
+    "entropyWarning": "Session entropy is too high, consider restarting the session",
+    "workflowButton": "📋 OpenSpec Workflow",
+    "noChats": "No chat data",
+    "noChatsDesc": "Start a new session to view data",
+    "unnamedSession": "Unnamed Session",
+    "lines": "lines",
+    "files": "files"
+  },
+  "marketplace": {
+    "title": "Marketplace",
+    "subtitle": "Discover and install powerful extensions",
+    "searchPlaceholder": "Search plugins...",
+    "categories": {
+      "all": "All",
+      "tools": "Tools",
+      "integration": "Integration",
+      "ai": "AI",
+      "theme": "Theme",
+      "other": "Other"
+    },
+    "installed": "Installed",
+    "install": "Install",
+    "installing": "Installing...",
+    "uninstall": "Uninstall",
+    "uninstalling": "Uninstalling...",
+    "installSuccess": "Installation successful!",
+    "installFailed": "Installation failed",
+    "installFailedRetry": "Installation failed, please try again later",
+    "uninstallSuccess": "Uninstallation successful!",
+    "uninstallFailed": "Uninstallation failed",
+    "uninstallFailedRetry": "Uninstallation failed, please try again later",
+    "loadFailed": "Failed to load plugins:",
+    "noPlugins": "No plugins",
+    "noPluginsDesc": "Try adjusting search criteria or filters",
+    "viewDetails": "View Details",
+    "collapseDetails": "Collapse Details",
+    "usageInstructions": "Usage Instructions"
+  },
+  "sessions": {
+    "title": "Recent Sessions",
+    "detail": "Session Detail",
+    "searchPlaceholder": "Search sessions...",
+    "loading": "Loading...",
+    "error": "Error",
+    "noSessions": "No sessions",
+    "totalSessions": "Total {{count}} sessions",
+    "loadMore": "Load More",
+    "createdAt": "Created At",
+    "lastUpdated": "Last Updated",
+    "totalMessages": "Total Messages",
+    "user": "User",
+    "ai": "AI",
+    "tools": "Tools",
+    "referencedFiles": "Referenced Files",
+    "loadMoreMessages": "Load More Messages",
+    "noMessages": "No messages",
+    "unnamedSession": "Unnamed Session"
+  },
+  "workflows": {
+    "title": "OpenSpec Workflow",
+    "list": "Workflows",
+    "detail": "Workflow Detail",
+    "notFound": "Workflow not found",
+    "backToList": "Back to List",
+    "loading": "Loading...",
+    "error": "Error",
+    "noWorkflows": "No workflow data",
+    "refresh": "Refresh",
+    "status": {
+      "all": "All Status",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "paused": "Paused"
+    },
+    "stage": {
+      "init": "Init",
+      "proposal": "Proposal",
+      "apply": "Apply",
+      "archive": "Archive"
+    },
+    "basicInfo": "Basic Information",
+    "workspaceId": "Workspace ID",
+    "changeId": "Change ID",
+    "startTime": "Start Time",
+    "updateTime": "Update Time",
+    "progressInfo": "Progress Information",
+    "taskProgress": "Task Progress",
+    "timeSpent": "Time Spent",
+    "changedFiles": "Changed Files",
+    "summary": "Summary",
+    "metadata": "Metadata",
+    "progress": "Progress",
+    "tasks": "tasks"
+  },
+  "workAnalysis": {
+    "title": "Work Analysis",
+    "allProjects": "All Projects",
+    "week": {
+      "thisWeek": "This Week",
+      "lastWeek": "Last Week",
+      "twoWeeksAgo": "Two Weeks Ago",
+    "custom": "Custom Week"
+    },
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "to": "to",
+    "loading": "Loading...",
+    "error": "Error",
+    "sessionHealth": {
+      "title": "Session Health Status",
+      "entropy": "Entropy",
+      "status": "Status",
+      "healthy": "Healthy",
+      "subHealthy": "Sub-Healthy",
+      "dangerous": "Dangerous",
+      "unknown": "Unknown"
+    },
+    "overview": {
+      "codeChanges": "Code Changes",
+      "added": "Added",
+      "removed": "Removed",
+      "files": "Files",
+      "acceptanceRate": "Acceptance Rate",
+      "activeSessions": "Active Sessions",
+      "aiInteraction": "AI Interaction",
+      "prompts": "Prompts",
+      "generations": "Generations"
+    },
+    "charts": {
+      "codeChangesTrend": "Code Changes Trend",
+      "addedLines": "Added Lines",
+      "removedLines": "Removed Lines",
+      "fileChanges": "File Changes"
+    },
+    "topFiles": {
+      "title": "Most Edited Files",
+      "edits": "edits"
+    },
+    "efficiency": {
+      "title": "Efficiency Metrics",
+      "avgEntropy": "Average Entropy",
+      "avgContextUsage": "Average Context Usage"
+    }
+  },
+  "navigation": {
+    "home": "Home",
+    "sessionDetail": "Session Detail",
+    "workflow": "Workflow",
+    "workflowDetail": "Workflow Detail",
+    "workAnalysis": "Work Analysis",
+    "recentSessions": "Recent Sessions",
+    "marketplace": "Marketplace"
+  }
+}

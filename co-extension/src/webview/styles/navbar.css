@@ -1,0 +1,130 @@
+/* ========== 导航栏样式 ========== */
+/* 导航栏样式 - 现代化设计 */
+.cocursor-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: linear-gradient(180deg, 
+    var(--vscode-sideBar-background) 0%,
+    var(--vscode-editor-background) 100%);
+  min-height: 48px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.cocursor-navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocursor-navbar-back {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cocursor-navbar-back:hover {
+  background: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+  transform: translateX(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cocursor-navbar-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  letter-spacing: -0.2px;
+}
+
+.cocursor-navbar-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.cocursor-navbar-separator {
+  color: var(--vscode-descriptionForeground);
+  margin: 0 4px;
+}
+
+.cocursor-navbar-crumb {
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cocursor-navbar-crumb:hover:not(:disabled) {
+  background-color: var(--vscode-list-hoverBackground);
+  color: var(--vscode-textLink-activeForeground);
+  transform: translateY(-1px);
+}
+
+.cocursor-navbar-crumb:disabled {
+  color: var(--vscode-foreground);
+  cursor: default;
+  opacity: 0.8;
+}
+
+.cocursor-navbar-crumb.active {
+  font-weight: 600;
+}
+
+/* Tab 切换样式 */
+.cocursor-navbar-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--vscode-input-background);
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.cocursor-navbar-tab {
+  background: transparent;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.cocursor-navbar-tab:hover {
+  background-color: var(--vscode-list-hoverBackground);
+  color: var(--vscode-foreground);
+}
+
+.cocursor-navbar-tab.active {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-weight: 600;
+}
+
+.cocursor-navbar-tab.active:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -36,6 +37,7 @@ interface SessionDetailData {
 }
 
 export const SessionDetail: React.FC = () => {
+  const { t } = useTranslation();
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ export const SessionDetail: React.FC = () => {
     } catch (err) {
       // 组件已卸载，不更新状态
       if (!isMountedRef.current) return;
-      setError(err instanceof Error ? err.message : "未知错误");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
@@ -91,7 +93,7 @@ export const SessionDetail: React.FC = () => {
 
   const formatTimestamp = (timestamp: number): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString("zh-CN");
+    return date.toLocaleString();
   };
 
   // 合并连续的AI消息
@@ -250,26 +252,26 @@ export const SessionDetail: React.FC = () => {
             color: "var(--vscode-foreground)",
             letterSpacing: "-0.3px"
           }}>
-            {data.session.name || "会话详情"}
+            {data.session.name || t("sessions.detail")}
           </h2>
         </div>
       )}
 
-      {loading && <div className="cocursor-loading">加载中...</div>}
-      {error && <div className="cocursor-error">错误: {error}</div>}
+      {loading && <div className="cocursor-loading">{t("sessions.loading")}</div>}
+      {error && <div className="cocursor-error">{t("sessions.error")}: {error}</div>}
       {data && (
         <>
           <div className="cocursor-session-info">
             <div className="cocursor-info-item">
-              <span className="cocursor-info-label">创建时间</span>
+              <span className="cocursor-info-label">{t("sessions.createdAt")}</span>
               <span className="cocursor-info-value">{formatTimestamp(data.session.createdAt)}</span>
             </div>
             <div className="cocursor-info-item">
-              <span className="cocursor-info-label">最后更新</span>
+              <span className="cocursor-info-label">{t("sessions.lastUpdated")}</span>
               <span className="cocursor-info-value">{formatTimestamp(data.session.lastUpdatedAt)}</span>
             </div>
             <div className="cocursor-info-item">
-              <span className="cocursor-info-label">总消息数</span>
+              <span className="cocursor-info-label">{t("sessions.totalMessages")}</span>
               <span className="cocursor-info-value">{data.total_messages}</span>
             </div>
           </div>
@@ -284,7 +286,7 @@ export const SessionDetail: React.FC = () => {
                   >
                     <div className="cocursor-message-header">
                       <span className="cocursor-message-type">
-                        {message.type === "user" ? "用户" : "AI"}
+                        {message.type === "user" ? t("sessions.user") : t("sessions.ai")}
                       </span>
                       <span className="cocursor-message-time">
                         {formatTimestamp(message.timestamp)}
@@ -308,7 +310,7 @@ export const SessionDetail: React.FC = () => {
                       {message.tools && Array.isArray(message.tools) && message.tools.length > 0 && (
                         <div className="cocursor-message-tools">
                           <div className="cocursor-tools-compact">
-                            <span className="cocursor-tools-label">工具:</span>
+                            <span className="cocursor-tools-label">{t("sessions.tools")}:</span>
                             {message.tools.map((tool, i) => (
                               <span key={i} className="cocursor-tool-badge" title={Object.keys(tool.arguments).length > 0 ? `${tool.name}(${Object.keys(tool.arguments).join(', ')})` : tool.name}>
                                 {tool.name}
@@ -322,7 +324,7 @@ export const SessionDetail: React.FC = () => {
                       )}
                       {message.files && Array.isArray(message.files) && message.files.length > 0 && (
                         <div className="cocursor-message-files">
-                          <strong>引用文件</strong>
+                          <strong>{t("sessions.referencedFiles")}</strong>
                           <ul>
                             {message.files.map((file, i) => (
                               <li key={i}>{file}</li>
@@ -336,7 +338,7 @@ export const SessionDetail: React.FC = () => {
                 {data.has_more && (
                   <div className="cocursor-load-more-messages">
                     <button onClick={() => {/* TODO: 加载更多消息 */}}>
-                      加载更多消息
+                      {t("sessions.loadMoreMessages")}
                     </button>
                   </div>
                 )}
@@ -348,7 +350,7 @@ export const SessionDetail: React.FC = () => {
                 color: "var(--vscode-descriptionForeground)",
                 fontSize: "14px"
               }}>
-                暂无消息
+                {t("sessions.noMessages")}
               </div>
             )}
           </div>

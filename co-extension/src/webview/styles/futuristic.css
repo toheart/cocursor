@@ -1,0 +1,582 @@
+/**
+ * 未来科技感设计系统 CSS
+ * 设计理念：赛博朋克、全息界面、霓虹光效
+ */
+
+/* ========== CSS 变量 ========== */
+:root {
+  /* 主色调 */
+  --cocursor-bg-primary: #0a0e17;
+  --cocursor-bg-secondary: #111827;
+  --cocursor-bg-elevated: #1a2332;
+  --cocursor-bg-hover: #1e2a3d;
+  
+  /* 霓虹强调色 */
+  --cocursor-neon-cyan: #00f5ff;
+  --cocursor-neon-purple: #8b5cf6;
+  --cocursor-neon-pink: #f43f5e;
+  --cocursor-neon-blue: #3b82f6;
+  --cocursor-neon-green: #10b981;
+  
+  /* 功能色 */
+  --cocursor-success: #10b981;
+  --cocursor-warning: #f59e0b;
+  --cocursor-error: #ef4444;
+  
+  /* 渐变 */
+  --cocursor-gradient-primary: linear-gradient(135deg, var(--cocursor-neon-cyan), var(--cocursor-neon-purple));
+  --cocursor-gradient-secondary: linear-gradient(135deg, var(--cocursor-neon-purple), var(--cocursor-neon-pink));
+  --cocursor-gradient-glow: radial-gradient(ellipse at center, rgba(0, 245, 255, 0.15) 0%, transparent 70%);
+  
+  /* 字体 */
+  --cocursor-font-display: 'Orbitron', 'Exo 2', sans-serif;
+  --cocursor-font-body: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
+  --cocursor-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  /* 字体大小 */
+  --cocursor-text-h1: 2rem;
+  --cocursor-text-h2: 1.5rem;
+  --cocursor-text-h3: 1.25rem;
+  --cocursor-text-body: 0.875rem;
+  --cocursor-text-small: 0.75rem;
+  
+  /* 间距 */
+  --cocursor-spacing-xs: 4px;
+  --cocursor-spacing-sm: 8px;
+  --cocursor-spacing-md: 12px;
+  --cocursor-spacing-lg: 16px;
+  --cocursor-spacing-xl: 24px;
+  --cocursor-spacing-2xl: 32px;
+  
+  /* 圆角 */
+  --cocursor-radius-sm: 4px;
+  --cocursor-radius-md: 8px;
+  --cocursor-radius-lg: 12px;
+  --cocursor-radius-xl: 16px;
+  
+  /* 过渡 */
+  --cocursor-transition-fast: 0.15s;
+  --cocursor-transition-normal: 0.3s;
+  --cocursor-transition-slow: 0.5s;
+  --cocursor-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========== 基础样式 ========== */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--cocursor-font-body);
+  color: var(--cocursor-neon-cyan);
+  background: var(--cocursor-bg-primary);
+  overflow-x: hidden;
+}
+
+/* ========== 玻璃态效果 ========== */
+.cocursor-glass {
+  background: rgba(26, 35, 50, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 245, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-radius: var(--cocursor-radius-md);
+}
+
+/* ========== 霓虹发光效果 ========== */
+.cocursor-glow {
+  box-shadow: 
+    0 0 5px var(--cocursor-neon-cyan),
+    0 0 10px rgba(0, 245, 255, 0.5),
+    0 0 20px rgba(0, 245, 255, 0.3);
+}
+
+.cocursor-glow-purple {
+  box-shadow: 
+    0 0 5px var(--cocursor-neon-purple),
+    0 0 10px rgba(139, 92, 246, 0.5),
+    0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+/* ========== 科技边框 ========== */
+.cocursor-tech-border {
+  position: relative;
+  background: var(--cocursor-bg-elevated);
+  border: 1px solid rgba(0, 245, 255, 0.2);
+  border-radius: var(--cocursor-radius-lg);
+  overflow: hidden;
+}
+
+.cocursor-tech-border::before,
+.cocursor-tech-border::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cocursor-neon-cyan);
+  transition: all var(--cocursor-transition-normal) var(--cocursor-easing);
+  opacity: 0.6;
+}
+
+.cocursor-tech-border::before {
+  top: -6px;
+  left: -6px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.cocursor-tech-border::after {
+  bottom: -6px;
+  right: -6px;
+  border-left: none;
+  border-top: none;
+}
+
+.cocursor-tech-border:hover::before,
+.cocursor-tech-border:hover::after {
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+}
+
+/* ========== 扫描线效果 ========== */
+.cocursor-scanline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 245, 255, 0.02) 2px,
+    rgba(0, 245, 255, 0.02) 4px
+  );
+  opacity: 0.3;
+}
+
+/* ========== 网格背景 ========== */
+.cocursor-grid-bg {
+  background-image: 
+    linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ========== 按钮组件 ========== */
+.cocursor-button {
+  background: var(--cocursor-gradient-primary);
+  color: #fff;
+  border: none;
+  padding: var(--cocursor-spacing-md) var(--cocursor-spacing-xl);
+  border-radius: var(--cocursor-radius-sm);
+  font-family: var(--cocursor-font-display);
+  font-size: var(--cocursor-text-body);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--cocursor-transition-normal) var(--cocursor-easing);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cocursor-spacing-sm);
+}
+
+.cocursor-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left var(--cocursor-transition-slow) var(--cocursor-easing);
+}
+
+.cocursor-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(0, 245, 255, 0.4);
+}
+
+.cocursor-button:hover::before {
+  left: 100%;
+}
+
+.cocursor-button:active {
+  transform: translateY(0);
+}
+
+.cocursor-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cocursor-button:disabled::before {
+  display: none;
+}
+
+/* 按钮变体 */
+.cocursor-button-secondary {
+  background: var(--cocursor-bg-elevated);
+  border: 2px solid var(--cocursor-neon-cyan);
+  color: var(--cocursor-neon-cyan);
+}
+
+.cocursor-button-secondary:hover {
+  background: var(--cocursor-gradient-primary);
+  border-color: transparent;
+  color: #fff;
+}
+
+.cocursor-button-danger {
+  background: linear-gradient(135deg, var(--cocursor-neon-pink), #dc2626);
+}
+
+/* 按钮尺寸 */
+.cocursor-button-small {
+  padding: var(--cocursor-spacing-sm) var(--cocursor-spacing-md);
+  font-size: var(--cocursor-text-small);
+}
+
+.cocursor-button-large {
+  padding: var(--cocursor-spacing-lg) var(--cocursor-spacing-2xl);
+  font-size: var(--cocursor-text-h3);
+}
+
+/* 按钮加载状态 */
+.cocursor-button-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cocursor-spin 0.8s linear infinite;
+}
+
+.cocursor-button-icon {
+  display: flex;
+  align-items: center;
+  font-size: 1.1em;
+}
+
+@keyframes cocursor-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== 卡片组件 ========== */
+.cocursor-card {
+  background: var(--cocursor-bg-elevated);
+  border: 1px solid rgba(0, 245, 255, 0.15);
+  border-radius: var(--cocursor-radius-lg);
+  padding: var(--cocursor-spacing-xl);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--cocursor-transition-normal) var(--cocursor-easing);
+}
+
+.cocursor-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--cocursor-gradient-primary);
+  opacity: 0.5;
+}
+
+.cocursor-card-hoverable:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(0, 245, 255, 0.15);
+  border-color: rgba(0, 245, 255, 0.4);
+}
+
+.cocursor-card-hoverable:hover::before {
+  opacity: 1;
+}
+
+.cocursor-card h3 {
+  margin: 0 0 var(--cocursor-spacing-lg) 0;
+  font-size: var(--cocursor-text-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--cocursor-neon-cyan);
+  opacity: 0.8;
+}
+
+/* ========== 加载状态 ========== */
+.cocursor-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cocursor-spacing-2xl);
+  color: var(--cocursor-neon-cyan);
+}
+
+.cocursor-loading-small {
+  padding: var(--cocursor-spacing-lg);
+}
+
+.cocursor-loading-medium {
+  padding: var(--cocursor-spacing-xl);
+}
+
+.cocursor-loading-large {
+  padding: var(--cocursor-spacing-2xl);
+}
+
+.cocursor-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 245, 255, 0.2);
+  border-top-color: var(--cocursor-neon-cyan);
+  border-radius: 50%;
+  animation: cocursor-rotate-glow 1s linear infinite;
+}
+
+.cocursor-loading-text {
+  margin-top: var(--cocursor-spacing-md);
+  font-size: var(--cocursor-text-body);
+  color: var(--cocursor-neon-cyan);
+  opacity: 0.8;
+}
+
+@keyframes cocursor-rotate-glow {
+  0% {
+    transform: rotate(0deg);
+    border-color: var(--cocursor-neon-cyan);
+    box-shadow: 0 0 5px var(--cocursor-neon-cyan);
+  }
+  50% {
+    border-color: var(--cocursor-neon-purple);
+    box-shadow: 0 0 15px var(--cocursor-neon-purple);
+  }
+  100% {
+    transform: rotate(360deg);
+    border-color: var(--cocursor-neon-cyan);
+    box-shadow: 0 0 5px var(--cocursor-neon-cyan);
+  }
+}
+
+/* ========== 空状态 ========== */
+.cocursor-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cocursor-spacing-2xl);
+  text-align: center;
+}
+
+.cocursor-empty-state-icon {
+  font-size: 64px;
+  opacity: 0.5;
+  margin-bottom: var(--cocursor-spacing-lg);
+  animation: cocursor-float 3s ease-in-out infinite;
+}
+
+.cocursor-empty-state-title {
+  margin: 0 0 var(--cocursor-spacing-sm) 0;
+  font-size: var(--cocursor-text-h2);
+  font-weight: 600;
+  color: var(--cocursor-neon-cyan);
+}
+
+.cocursor-empty-state-description {
+  margin: 0 0 var(--cocursor-spacing-lg) 0;
+  font-size: var(--cocursor-text-body);
+  color: rgba(0, 245, 255, 0.7);
+  line-height: 1.6;
+}
+
+.cocursor-empty-state-action {
+  margin-top: var(--cocursor-spacing-lg);
+}
+
+@keyframes cocursor-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* ========== 错误状态 ========== */
+.cocursor-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cocursor-spacing-2xl);
+  text-align: center;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: var(--cocursor-radius-lg);
+}
+
+.cocursor-error-state-icon {
+  font-size: 48px;
+  margin-bottom: var(--cocursor-spacing-md);
+  color: var(--cocursor-neon-pink);
+}
+
+.cocursor-error-state-message {
+  margin: 0 0 var(--cocursor-spacing-lg) 0;
+  font-size: var(--cocursor-text-body);
+  color: var(--cocursor-neon-pink);
+  line-height: 1.6;
+}
+
+.cocursor-error-state-retry {
+  margin-top: var(--cocursor-spacing-md);
+  padding: var(--cocursor-spacing-md) var(--cocursor-spacing-xl);
+  background: var(--cocursor-gradient-secondary);
+  border: none;
+  border-radius: var(--cocursor-radius-sm);
+  color: #fff;
+  font-size: var(--cocursor-text-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--cocursor-transition-normal) var(--cocursor-easing);
+}
+
+.cocursor-error-state-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(244, 67, 54, 0.4);
+}
+
+/* ========== 输入框 ========== */
+.cocursor-input {
+  background: rgba(26, 35, 50, 0.8);
+  border: 1px solid rgba(0, 245, 255, 0.2);
+  border-radius: var(--cocursor-radius-sm);
+  padding: var(--cocursor-spacing-md) var(--cocursor-spacing-lg);
+  color: #fff;
+  font-family: var(--cocursor-font-body);
+  font-size: var(--cocursor-text-body);
+  transition: all var(--cocursor-transition-normal) var(--cocursor-easing);
+  width: 100%;
+}
+
+.cocursor-input::placeholder {
+  color: rgba(0, 245, 255, 0.5);
+}
+
+.cocursor-input:focus {
+  outline: none;
+  border-color: var(--cocursor-neon-cyan);
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+}
+
+/* ========== 标题 ========== */
+.cocursor-h1 {
+  font-size: var(--cocursor-text-h1);
+  font-weight: 700;
+  color: var(--cocursor-neon-cyan);
+  background: var(--cocursor-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+}
+
+.cocursor-h2 {
+  font-size: var(--cocursor-text-h2);
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.3px;
+  position: relative;
+  padding-bottom: var(--cocursor-spacing-sm);
+}
+
+.cocursor-h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--cocursor-gradient-primary);
+  border-radius: var(--cocursor-radius-sm);
+}
+
+.cocursor-h3 {
+  font-size: var(--cocursor-text-h3);
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 var(--cocursor-spacing-md) 0;
+}
+
+/* ========== 动画 ========== */
+.cocursor-animate-in {
+  animation: cocursor-fade-in-up 0.5s ease-out;
+}
+
+@keyframes cocursor-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cocursor-animate-scale {
+  animation: cocursor-scale-in 0.3s ease-out;
+}
+
+@keyframes cocursor-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ========== 进场动画延迟 ========== */
+.cocursor-delay-1 { animation-delay: 80ms; }
+.cocursor-delay-2 { animation-delay: 160ms; }
+.cocursor-delay-3 { animation-delay: 240ms; }
+.cocursor-delay-4 { animation-delay: 320ms; }
+.cocursor-delay-5 { animation-delay: 400ms; }
+.cocursor-delay-6 { animation-delay: 480ms; }
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+  :root {
+    --cocursor-text-h1: 1.5rem;
+    --cocursor-text-h2: 1.25rem;
+    --cocursor-text-h3: 1.1rem;
+  }
+  
+  .cocursor-button {
+    padding: var(--cocursor-spacing-sm) var(--cocursor-spacing-md);
+    font-size: var(--cocursor-text-small);
+  }
+  
+  .cocursor-card {
+    padding: var(--cocursor-spacing-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cocursor-text-h1: 1.25rem;
+    --cocursor-text-h2: 1.1rem;
+    --cocursor-text-h3: 1rem;
+  }
+}

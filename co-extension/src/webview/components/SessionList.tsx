@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { FixedSizeList as List } from "react-window";
 import { apiService } from "../services/api";
 
@@ -21,6 +22,7 @@ interface SessionListState {
 }
 
 export const SessionList: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export const SessionList: React.FC = () => {
     } catch (err) {
       // 组件已卸载，不更新状态
       if (!isMountedRef.current) return;
-      setError(err instanceof Error ? err.message : "未知错误");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
@@ -111,7 +113,7 @@ export const SessionList: React.FC = () => {
 
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString("zh-CN");
+    return date.toLocaleString();
   };
 
   const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
@@ -125,12 +127,12 @@ export const SessionList: React.FC = () => {
         onClick={() => handleSessionClick(session.composerId)}
       >
         <div className="cocursor-session-header">
-          <h3>{session.name || "未命名会话"}</h3>
+          <h3>{session.name || t("sessions.unnamedSession")}</h3>
           <span className="cocursor-session-time">{formatDate(session.lastUpdatedAt)}</span>
         </div>
         <div className="cocursor-session-stats">
-          <span>+{session.totalLinesAdded} / -{session.totalLinesRemoved} 行</span>
-          <span>{session.filesChangedCount} 个文件</span>
+          <span>+{session.totalLinesAdded} / -{session.totalLinesRemoved} {t("app.lines")}</span>
+          <span>{session.filesChangedCount} {t("app.files")}</span>
         </div>
       </div>
     );
@@ -141,7 +143,7 @@ export const SessionList: React.FC = () => {
       <div className="cocursor-search">
         <input
           type="text"
-          placeholder="搜索会话..."
+          placeholder={t("sessions.searchPlaceholder")}
           value={search}
           onChange={(e) => {
             const newSearch = e.target.value;
@@ -153,12 +155,12 @@ export const SessionList: React.FC = () => {
       </div>
 
       <main className="cocursor-main" style={{ padding: "20px" }}>
-        {loading && <div className="cocursor-loading">加载中...</div>}
-        {error && <div className="cocursor-error">错误: {error}</div>}
+        {loading && <div className="cocursor-loading">{t("sessions.loading")}</div>}
+        {error && <div className="cocursor-error">{t("sessions.error")}: {error}</div>}
         {!loading && !error && (
           <>
             {sessions.length === 0 ? (
-              <div className="cocursor-empty">暂无会话</div>
+              <div className="cocursor-empty">{t("sessions.noSessions")}</div>
             ) : (
               <>
                 {total > 0 && (
@@ -168,7 +170,7 @@ export const SessionList: React.FC = () => {
                     color: "var(--vscode-descriptionForeground)",
                     fontWeight: 500
                   }}>
-                    共 {total} 个会话
+                    {t("sessions.totalSessions", { count: total })}
                   </div>
                 )}
                 <List
@@ -188,7 +190,7 @@ export const SessionList: React.FC = () => {
                     }}
                     className="cocursor-load-more"
                   >
-                    加载更多
+                    {t("sessions.loadMore")}
                   </button>
                 )}
               </>

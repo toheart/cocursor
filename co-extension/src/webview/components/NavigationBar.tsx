@@ -1,5 +1,7 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 
 interface BreadcrumbItem {
   label: string;
@@ -7,6 +9,7 @@ interface BreadcrumbItem {
 }
 
 export const NavigationBar: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | undefined;
@@ -22,14 +25,14 @@ export const NavigationBar: React.FC = () => {
     }
 
     // 非首页才添加首页面包屑
-    crumbs.push({ label: "首页", path: "/" });
+    crumbs.push({ label: t("navigation.home"), path: "/" });
 
     if (path.startsWith("/sessions/")) {
-      crumbs.push({ label: "会话详情", path: path });
+      crumbs.push({ label: t("navigation.sessionDetail"), path: path });
     } else if (path === "/workflows" || path.startsWith("/workflows/")) {
-      crumbs.push({ label: "工作流", path: "/workflows" });
+      crumbs.push({ label: t("navigation.workflow"), path: "/workflows" });
       if (path.startsWith("/workflows/") && path !== "/workflows") {
-        crumbs.push({ label: "详情", path: path });
+        crumbs.push({ label: t("navigation.workflowDetail"), path: path });
       }
     }
 
@@ -57,21 +60,21 @@ export const NavigationBar: React.FC = () => {
   const getPageTitle = (): string => {
     const path = location.pathname;
     if (viewType === "recentSessions") {
-      if (path.startsWith("/sessions/")) return "会话详情";
-      return "最近对话";
+      if (path.startsWith("/sessions/")) return t("navigation.sessionDetail");
+      return t("navigation.recentSessions");
     }
     if (viewType === "marketplace") {
-      return "插件市场";
+      return t("navigation.marketplace");
     }
-    if (path === "/work-analysis") return "工作分析";
+    if (path === "/work-analysis") return t("navigation.workAnalysis");
     if (path === "/workflows" || path.startsWith("/workflows/")) {
       if (path.startsWith("/workflows/") && path !== "/workflows") {
-        return "工作流详情";
+        return t("navigation.workflowDetail");
       }
-      return "工作流";
+      return t("navigation.workflow");
     }
-    if (path.startsWith("/sessions/")) return "会话详情";
-    return "工作分析";
+    if (path.startsWith("/sessions/")) return t("navigation.sessionDetail");
+    return t("navigation.workAnalysis");
   };
 
   return (
@@ -81,9 +84,9 @@ export const NavigationBar: React.FC = () => {
           <button
             className="cocursor-navbar-back"
             onClick={handleBack}
-            title="返回"
+            title={t("common.back")}
           >
-            ← 返回
+            ← {t("common.back")}
           </button>
         )}
         <h2 className="cocursor-navbar-title">{getPageTitle()}</h2>

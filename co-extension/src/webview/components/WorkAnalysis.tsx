@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { apiService, SessionHealth, getVscodeApi } from "../services/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
@@ -47,6 +48,7 @@ interface ProjectOption {
 }
 
 export const WorkAnalysis: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -239,12 +241,12 @@ export const WorkAnalysis: React.FC = () => {
         }
         setData(workData);
       } else {
-        setError("返回数据格式错误");
+        setError(t("common.error"));
       }
     } catch (err) {
       // 组件已卸载，不更新状态
       if (!isMountedRef.current) return;
-      setError(err instanceof Error ? err.message : "未知错误");
+      setError(err instanceof Error ? err.message : t("common.error"));
       setData(null);
     } finally {
       if (isMountedRef.current) {
@@ -264,16 +266,7 @@ export const WorkAnalysis: React.FC = () => {
   };
 
   const getEntropyStatusText = (status: string): string => {
-    switch (status) {
-      case "healthy":
-        return "健康";
-      case "sub_healthy":
-        return "亚健康";
-      case "dangerous":
-        return "危险";
-      default:
-        return "未知";
-    }
+    return t(`workAnalysis.sessionHealth.${status}`) || t("common.unknown");
   };
 
 
@@ -285,7 +278,7 @@ export const WorkAnalysis: React.FC = () => {
           onChange={(e) => setProjectName(e.target.value)}
           disabled={loadingProjects}
         >
-          <option value="">所有项目</option>
+          <option value="">{t("workAnalysis.allProjects")}</option>
           {Array.isArray(projects) && projects.map((project) => (
             <option key={project.project_name} value={project.project_name}>
               {project.project_name}
@@ -296,10 +289,10 @@ export const WorkAnalysis: React.FC = () => {
           value={weekOption}
           onChange={(e) => handleWeekChange(e.target.value as WeekOption)}
         >
-          <option value="thisWeek">本周</option>
-          <option value="lastWeek">上周</option>
-          <option value="twoWeeksAgo">上上周</option>
-          <option value="custom">自定义周</option>
+          <option value="thisWeek">{t("workAnalysis.week.thisWeek")}</option>
+          <option value="lastWeek">{t("workAnalysis.week.lastWeek")}</option>
+          <option value="twoWeeksAgo">{t("workAnalysis.week.twoWeeksAgo")}</option>
+          <option value="custom">{t("workAnalysis.week.custom")}</option>
         </select>
         {weekOption === "custom" && (
           <>
@@ -307,38 +300,38 @@ export const WorkAnalysis: React.FC = () => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              placeholder="开始日期"
+              placeholder={t("workAnalysis.startDate")}
               style={{ minWidth: "140px" }}
             />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              placeholder="结束日期"
+              placeholder={t("workAnalysis.endDate")}
               style={{ minWidth: "140px" }}
             />
           </>
         )}
         {weekOption !== "custom" && (
           <span className="cocursor-week-range">
-            {startDate} 至 {endDate}
+            {startDate} {t("workAnalysis.to")} {endDate}
           </span>
         )}
       </div>
 
       <main className="cocursor-main" style={{ padding: "16px" }}>
-        {loading && <div className="cocursor-loading">加载中...</div>}
-        {error && <div className="cocursor-error">错误: {error}</div>}
+        {loading && <div className="cocursor-loading">{t("workAnalysis.loading")}</div>}
+        {error && <div className="cocursor-error">{t("workAnalysis.error")}: {error}</div>}
         
         {/* 会话健康状态 */}
         {sessionHealth && (
           <div className="cocursor-session-health" style={{ marginBottom: "24px" }}>
             <div className="cocursor-session-health-header">
-              <h2>会话健康状态</h2>
+              <h2>{t("workAnalysis.sessionHealth.title")}</h2>
             </div>
             <div className="cocursor-entropy-display">
               <div className="cocursor-entropy-value">
-                <span className="cocursor-entropy-label">熵值:</span>
+                <span className="cocursor-entropy-label">{t("workAnalysis.sessionHealth.entropy")}:</span>
                 <span
                   className="cocursor-entropy-number"
                   style={{
@@ -350,7 +343,7 @@ export const WorkAnalysis: React.FC = () => {
                 </span>
               </div>
               <div className="cocursor-entropy-status">
-                <span className="cocursor-entropy-label">状态:</span>
+                <span className="cocursor-entropy-label">{t("workAnalysis.sessionHealth.status")}:</span>
                 <span
                   className="cocursor-entropy-status-text"
                   style={{
@@ -396,39 +389,39 @@ export const WorkAnalysis: React.FC = () => {
             {/* 概览卡片 */}
             <div className="cocursor-overview-cards">
               <div className="cocursor-card">
-                <h3>代码变更</h3>
+                <h3>{t("workAnalysis.overview.codeChanges")}</h3>
                 <div className="cocursor-stat">
-                  <span className="cocursor-stat-label">添加:</span>
+                  <span className="cocursor-stat-label">{t("workAnalysis.overview.added")}:</span>
                   <span className="cocursor-stat-value">{data.overview.total_lines_added}</span>
                 </div>
                 <div className="cocursor-stat">
-                  <span className="cocursor-stat-label">删除:</span>
+                  <span className="cocursor-stat-label">{t("workAnalysis.overview.removed")}:</span>
                   <span className="cocursor-stat-value">{data.overview.total_lines_removed}</span>
                 </div>
                 <div className="cocursor-stat">
-                  <span className="cocursor-stat-label">文件:</span>
+                  <span className="cocursor-stat-label">{t("workAnalysis.overview.files")}:</span>
                   <span className="cocursor-stat-value">{data.overview.files_changed}</span>
                 </div>
               </div>
               <div className="cocursor-card">
-                <h3>接受率</h3>
+                <h3>{t("workAnalysis.overview.acceptanceRate")}</h3>
                 <div className="cocursor-stat-large">
                   {data.overview.acceptance_rate.toFixed(1)}%
                 </div>
               </div>
               <div className="cocursor-card">
-                <h3>活跃会话</h3>
+                <h3>{t("workAnalysis.overview.activeSessions")}</h3>
                 <div className="cocursor-stat-large">{data.overview.active_sessions}</div>
               </div>
               {data.overview.total_prompts !== undefined && (
                 <div className="cocursor-card">
-                  <h3>AI 交互</h3>
+                  <h3>{t("workAnalysis.overview.aiInteraction")}</h3>
                   <div className="cocursor-stat">
-                    <span className="cocursor-stat-label">Prompts:</span>
+                    <span className="cocursor-stat-label">{t("workAnalysis.overview.prompts")}:</span>
                     <span className="cocursor-stat-value">{data.overview.total_prompts}</span>
                   </div>
                   <div className="cocursor-stat">
-                    <span className="cocursor-stat-label">Generations:</span>
+                    <span className="cocursor-stat-label">{t("workAnalysis.overview.generations")}:</span>
                     <span className="cocursor-stat-value">{data.overview.total_generations || 0}</span>
                   </div>
                 </div>
@@ -438,15 +431,15 @@ export const WorkAnalysis: React.FC = () => {
             {/* 代码变更趋势图表 */}
             {data.code_changes_trend && Array.isArray(data.code_changes_trend) && data.code_changes_trend.length > 0 && (
               <div className="cocursor-chart-section">
-                <h2>代码变更趋势</h2>
+                <h2>{t("workAnalysis.charts.codeChangesTrend")}</h2>
                 <div className="cocursor-chart-container">
                   <ResponsiveContainer width="100%" height={300}>
                     <AreaChart
                       data={data.code_changes_trend.map(item => ({
                         date: item.date,
-                        添加行数: item.lines_added,
-                        删除行数: item.lines_removed,
-                        文件变更: item.files_changed
+                        [t("workAnalysis.charts.addedLines")]: item.lines_added,
+                        [t("workAnalysis.charts.removedLines")]: item.lines_removed,
+                        [t("workAnalysis.charts.fileChanges")]: item.files_changed
                       }))}
                       margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                     >
@@ -484,14 +477,14 @@ export const WorkAnalysis: React.FC = () => {
                       />
                       <Area 
                         type="monotone" 
-                        dataKey="添加行数" 
+                        dataKey={t("workAnalysis.charts.addedLines")} 
                         stroke="var(--vscode-textLink-foreground)" 
                         fillOpacity={1} 
                         fill="url(#colorAdded)" 
                       />
                       <Area 
                         type="monotone" 
-                        dataKey="删除行数" 
+                        dataKey={t("workAnalysis.charts.removedLines")} 
                         stroke="var(--vscode-errorForeground)" 
                         fillOpacity={1} 
                         fill="url(#colorRemoved)" 
@@ -505,7 +498,7 @@ export const WorkAnalysis: React.FC = () => {
             {/* Top 文件 - 紧凑横向卡片布局 */}
             {data.top_files && Array.isArray(data.top_files) && data.top_files.length > 0 && (
               <div className="cocursor-section">
-                <h2>最常编辑文件</h2>
+                <h2>{t("workAnalysis.topFiles.title")}</h2>
                 <div className="cocursor-file-cards">
                   {data.top_files.slice(0, 5).map((file, index) => (
                     <div key={index} className="cocursor-file-card">
@@ -519,7 +512,7 @@ export const WorkAnalysis: React.FC = () => {
                           : file.file_name}
                       </div>
                       <div className="cocursor-file-card-count">
-                        {file.reference_count} 次编辑
+                        {file.reference_count} {t("workAnalysis.topFiles.edits")}
                       </div>
                     </div>
                   ))}
@@ -530,11 +523,11 @@ export const WorkAnalysis: React.FC = () => {
             {/* 效率指标 */}
             {data.efficiency_metrics && (
               <div className="cocursor-section">
-                <h2>效率指标</h2>
+                <h2>{t("workAnalysis.efficiency.title")}</h2>
                 <div className="cocursor-efficiency-metrics">
                   {data.efficiency_metrics.avg_session_entropy !== undefined && (
                     <div className="cocursor-metric">
-                      <span className="cocursor-metric-label">平均熵值:</span>
+                      <span className="cocursor-metric-label">{t("workAnalysis.efficiency.avgEntropy")}:</span>
                       <span className="cocursor-metric-value">
                         {data.efficiency_metrics.avg_session_entropy.toFixed(2)}
                       </span>
@@ -542,7 +535,7 @@ export const WorkAnalysis: React.FC = () => {
                   )}
                   {data.efficiency_metrics.avg_context_usage !== undefined && (
                     <div className="cocursor-metric">
-                      <span className="cocursor-metric-label">平均上下文使用率:</span>
+                      <span className="cocursor-metric-label">{t("workAnalysis.efficiency.avgContextUsage")}:</span>
                       <span className="cocursor-metric-value">
                         {data.efficiency_metrics.avg_context_usage.toFixed(2)}%
                       </span>

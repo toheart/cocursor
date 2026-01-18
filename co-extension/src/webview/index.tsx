@@ -1,7 +1,20 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { Router } from "./Router";
-import "./index.css";
+
+// 导入所有样式模块
+import "./styles/base.css";
+import "./styles/animations.css";
+import "./styles/navbar.css";
+import "./styles/components.css";
+import "./styles/sessions.css";
+import "./styles/work-analysis.css";
+import "./styles/markdown.css";
+import "./styles/marketplace.css";
+import "./styles/futuristic.css";
+
+// 初始化 i18n
+import "./i18n/config";
 
 // 初始化 React 应用
 console.log("Webview: 开始初始化 React 应用");

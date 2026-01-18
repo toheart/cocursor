@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { WorkAnalysis } from "./components/WorkAnalysis";
 import { SessionList } from "./components/SessionList";
 import { SessionDetail } from "./components/SessionDetail";
@@ -11,6 +12,7 @@ import { getVscodeApi } from "./services/api";
 
 // 内部组件：处理初始路由导航
 const RouterContent: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | undefined;
@@ -43,22 +45,22 @@ const RouterContent: React.FC = () => {
   useEffect(() => {
     const titles: Record<string, string> = {
       "/": 
-        viewType === "recentSessions" ? "最近对话 - CoCursor" :
-        viewType === "marketplace" ? "插件市场 - CoCursor" :
-        "工作分析 - CoCursor",
-      "/work-analysis": "工作分析 - CoCursor",
-      "/marketplace": "插件市场 - CoCursor",
-      "/workflows": "工作流 - CoCursor",
+        viewType === "recentSessions" ? `${t("navigation.recentSessions")} - CoCursor` :
+        viewType === "marketplace" ? `${t("navigation.marketplace")} - CoCursor` :
+        `${t("navigation.workAnalysis")} - CoCursor`,
+      "/work-analysis": `${t("navigation.workAnalysis")} - CoCursor`,
+      "/marketplace": `${t("navigation.marketplace")} - CoCursor`,
+      "/workflows": `${t("navigation.workflow")} - CoCursor`,
     };
     
     const title = titles[location.pathname] || 
       (location.pathname.startsWith("/sessions/") 
-        ? "会话详情 - CoCursor"
+        ? `${t("navigation.sessionDetail")} - CoCursor`
         : location.pathname.startsWith("/workflows/")
-        ? "工作流详情 - CoCursor"
-        : viewType === "recentSessions" ? "最近对话 - CoCursor" 
-        : viewType === "marketplace" ? "插件市场 - CoCursor"
-        : "工作分析 - CoCursor");
+        ? `${t("navigation.workflowDetail")} - CoCursor`
+        : viewType === "recentSessions" ? `${t("navigation.recentSessions")} - CoCursor` 
+        : viewType === "marketplace" ? `${t("navigation.marketplace")} - CoCursor`
+        : `${t("navigation.workAnalysis")} - CoCursor`);
     
     document.title = title;
     

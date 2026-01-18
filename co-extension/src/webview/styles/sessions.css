@@ -1,0 +1,563 @@
+/* 会话健康状态样式 */
+.cocursor-session-health {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-session-health-header h2 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-entropy-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-entropy-value,
+.cocursor-entropy-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-entropy-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-entropy-number {
+  font-size: 18px;
+}
+
+.cocursor-entropy-status-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cocursor-entropy-progress {
+  width: 100%;
+  height: 8px;
+  background-color: var(--vscode-progressBar-background);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.cocursor-entropy-progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+/* 会话列表页面样式 */
+.cocursor-session-list {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.cocursor-search {
+  margin-left: auto;
+}
+
+.cocursor-search {
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding: 16px 20px;
+}
+
+.cocursor-search input {
+  padding: 10px 16px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  font-size: 13px;
+  width: 100%;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.cocursor-search input:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 3px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
+}
+
+.cocursor-search input::placeholder {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
+.cocursor-session-item {
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  background: linear-gradient(145deg, 
+    var(--vscode-sideBar-background) 0%, 
+    var(--vscode-editor-background) 100%);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.cocursor-session-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, 
+    var(--vscode-textLink-foreground) 0%,
+    var(--vscode-button-background) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cocursor-session-item:hover {
+  background: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-focusBorder);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
+              0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cocursor-session-item:hover::before {
+  opacity: 1;
+}
+
+.cocursor-session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.cocursor-session-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  line-height: 1.4;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.cocursor-session-time {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.cocursor-session-stats {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--vscode-panel-border-rgb, 128, 128, 128), 0.2);
+}
+
+.cocursor-session-stats span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.cocursor-session-stats span:first-child::before {
+  content: '📝';
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.cocursor-session-stats span:last-child::before {
+  content: '📁';
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.cocursor-load-more {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, 
+    var(--vscode-button-background) 0%,
+    var(--vscode-button-secondaryBackground) 100%);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cocursor-load-more:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-load-more:active {
+  transform: translateY(0);
+}
+/* 会话详情页面样式 - 精致极简主义设计 */
+.cocursor-session-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--vscode-editor-background);
+}
+
+/* 会话信息卡片 - 现代化设计 */
+.cocursor-session-info {
+  display: flex;
+  gap: 32px;
+  padding: 20px 24px;
+  background: linear-gradient(145deg, 
+    var(--vscode-sideBar-background) 0%, 
+    var(--vscode-editor-background) 100%);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.cocursor-session-info::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%,
+    var(--vscode-panel-border) 50%,
+    transparent 100%);
+}
+
+.cocursor-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  padding-left: 16px;
+}
+
+.cocursor-info-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, 
+    var(--vscode-textLink-foreground) 0%,
+    transparent 100%);
+  opacity: 0.6;
+}
+
+.cocursor-info-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.cocursor-info-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 消息容器 - 优雅的对话布局 */
+.cocursor-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--vscode-editor-background);
+  position: relative;
+}
+
+/* 消息气泡 - 清晰的视觉区分 */
+.cocursor-message {
+  margin-bottom: 20px;
+  padding: 0;
+  border-radius: 0;
+  position: relative;
+  animation: messageFadeIn 0.3s ease-out;
+}
+
+.cocursor-message-user {
+  margin-left: auto;
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.cocursor-message-ai {
+  margin-right: auto;
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* 用户消息气泡 */
+.cocursor-message-user .cocursor-message-content {
+  background: linear-gradient(135deg, 
+    var(--vscode-button-background) 0%,
+    var(--vscode-button-secondaryBackground) 100%);
+  color: var(--vscode-button-foreground);
+  padding: 14px 18px;
+  border-radius: 18px 18px 4px 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(var(--vscode-button-border-rgb, 128, 128, 128), 0.2);
+  position: relative;
+}
+
+.cocursor-message-user .cocursor-message-content::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-left-color: var(--vscode-button-background);
+  border-bottom: 0;
+  border-right: 0;
+  margin-bottom: -8px;
+}
+
+/* AI 消息气泡 */
+.cocursor-message-ai .cocursor-message-content {
+  background: linear-gradient(145deg, 
+    var(--vscode-sideBar-background) 0%,
+    var(--vscode-editor-background) 100%);
+  color: var(--vscode-foreground);
+  padding: 14px 18px;
+  border-radius: 18px 18px 18px 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--vscode-panel-border);
+  position: relative;
+}
+
+.cocursor-message-ai .cocursor-message-content::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-right-color: var(--vscode-sideBar-background);
+  border-bottom: 0;
+  border-left: 0;
+  margin-bottom: -8px;
+}
+
+.cocursor-message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 11px;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+
+.cocursor-message-type {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+}
+
+.cocursor-message-time {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+}
+
+.cocursor-message-content {
+  line-height: 1.7;
+  font-size: 14px;
+  word-wrap: break-word;
+}
+
+/* 代码块样式 - 精致设计 */
+.cocursor-code-block {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--vscode-panel-border);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.cocursor-code-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    var(--vscode-textLink-foreground) 0%,
+    transparent 100%);
+  opacity: 0.3;
+}
+
+.cocursor-code-block code {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* 文件列表样式 */
+.cocursor-message-files {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--vscode-editor-background);
+  border-radius: 8px;
+  font-size: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-left: 3px solid var(--vscode-textLink-foreground);
+}
+
+.cocursor-message-files strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--vscode-foreground);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+
+.cocursor-message-files ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.cocursor-message-files li {
+  margin-bottom: 6px;
+  padding-left: 20px;
+  position: relative;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+}
+
+.cocursor-message-files li::before {
+  content: '📄';
+  position: absolute;
+  left: 0;
+  opacity: 0.6;
+}
+
+/* 工具调用样式 - 紧凑设计 */
+.cocursor-message-tools {
+  margin-top: 12px;
+  padding: 0;
+}
+
+.cocursor-tools-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cocursor-tools-label {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+  margin-right: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cocursor-tool-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--vscode-textCodeBlock-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  color: var(--vscode-textLink-foreground);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.cocursor-tool-badge:hover {
+  background: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-textLink-foreground);
+  transform: translateY(-1px);
+}
+
+.cocursor-tool-arg-count {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+/* 加载更多消息按钮 */
+.cocursor-load-more-messages {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.cocursor-load-more-messages button {
+  padding: 10px 24px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.cocursor-load-more-messages button:hover {
+  background: var(--vscode-button-hoverBackground);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+

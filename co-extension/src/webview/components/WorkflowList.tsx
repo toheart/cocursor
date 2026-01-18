@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { apiService } from "../services/api";
 
 interface WorkflowSummary {
@@ -24,6 +25,7 @@ interface WorkflowItem {
 }
 
 export const WorkflowList: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export const WorkflowList: React.FC = () => {
       }
     } catch (err) {
       console.error("[WorkflowList] Failed to load workflows:", err);
-      setError(err instanceof Error ? err.message : "未知错误");
+      setError(err instanceof Error ? err.message : t("common.error"));
       setWorkflows([]);
     } finally {
       setLoading(false);
@@ -89,7 +91,7 @@ export const WorkflowList: React.FC = () => {
 
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString("zh-CN", {
+    return date.toLocaleString({
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -99,22 +101,11 @@ export const WorkflowList: React.FC = () => {
   };
 
   const getStageLabel = (stage: string): string => {
-    const labels: Record<string, string> = {
-      init: "初始化",
-      proposal: "提案",
-      apply: "实施",
-      archive: "归档"
-    };
-    return labels[stage] || stage;
+    return t(`workflows.stage.${stage}`) || stage;
   };
 
   const getStatusLabel = (status: string): string => {
-    const labels: Record<string, string> = {
-      in_progress: "进行中",
-      completed: "已完成",
-      paused: "已暂停"
-    };
-    return labels[status] || status;
+    return t(`workflows.status.${status}`) || status;
   };
 
   const getStatusColor = (status: string): string => {
@@ -147,7 +138,7 @@ export const WorkflowList: React.FC = () => {
   return (
     <div className="cocursor-workflow-list">
       <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--vscode-panel-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>OpenSpec 工作流</h2>
+        <h2 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>{t("workflows.title")}</h2>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <select
             value={statusFilter}
@@ -161,17 +152,17 @@ export const WorkflowList: React.FC = () => {
               borderRadius: "2px"
             }}
           >
-            <option value="all">全部状态</option>
-            <option value="in_progress">进行中</option>
-            <option value="completed">已完成</option>
-            <option value="paused">已暂停</option>
+            <option value="all">{t("workflows.status.all")}</option>
+            <option value="in_progress">{t("workflows.status.inProgress")}</option>
+            <option value="completed">{t("workflows.status.completed")}</option>
+            <option value="paused">{t("workflows.status.paused")}</option>
           </select>
           <button
             onClick={loadWorkflows}
             disabled={loading}
             style={{ padding: "4px 8px", fontSize: "12px" }}
           >
-            {loading ? "加载中..." : "刷新"}
+            {loading ? t("workflows.loading") : t("workflows.refresh")}
           </button>
         </div>
       </div>
@@ -179,17 +170,17 @@ export const WorkflowList: React.FC = () => {
       <main style={{ padding: "16px" }}>
         {error && (
           <div className="cocursor-error" style={{ padding: "12px", marginBottom: "16px", backgroundColor: "var(--vscode-inputValidation-errorBackground)", color: "var(--vscode-errorForeground)", borderRadius: "4px" }}>
-            错误: {error}
+            {t("workflows.error")}: {error}
           </div>
         )}
 
         {loading ? (
           <div className="cocursor-loading" style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
-            加载中...
+            {t("workflows.loading")}
           </div>
         ) : workflows.length === 0 ? (
           <div className="cocursor-empty" style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
-            暂无工作流数据
+            {t("workflows.noWorkflows")}
           </div>
         ) : (
           <div className="cocursor-workflows">
@@ -246,8 +237,8 @@ export const WorkflowList: React.FC = () => {
                       </div>
                     </div>
                     <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)", textAlign: "right" }}>
-                      <div>开始: {formatDate(workflow.started_at)}</div>
-                      <div>更新: {formatDate(workflow.updated_at)}</div>
+                      <div>{t("workflows.startTime")}: {formatDate(workflow.started_at)}</div>
+                      <div>{t("workflows.updateTime")}: {formatDate(workflow.updated_at)}</div>
                     </div>
                   </div>
 
@@ -256,11 +247,11 @@ export const WorkflowList: React.FC = () => {
                     <div style={{ marginTop: "8px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                         <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
-                          进度: {progress}%
+                          {t("workflows.progress")}: {progress}%
                         </span>
                         {workflow.summary && (
                           <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
-                            {workflow.summary.tasks_completed} / {workflow.summary.tasks_total} 任务
+                            {workflow.summary.tasks_completed} / {workflow.summary.tasks_total} {t("workflows.tasks")}
                           </span>
                         )}
                       </div>
@@ -288,7 +279,7 @@ export const WorkflowList: React.FC = () => {
                   {/* 文件变更统计 */}
                   {workflow.summary && workflow.summary.files_changed && workflow.summary.files_changed.length > 0 && (
                     <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
-                      变更文件: {workflow.summary.files_changed.length} 个
+                      {t("workflows.changedFiles")}: {workflow.summary.files_changed.length}
                     </div>
                   )}
                 </div>

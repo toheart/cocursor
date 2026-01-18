@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { apiService } from "../services/api";
 
 interface WorkflowSummary {
@@ -24,6 +25,7 @@ interface WorkflowItem {
 }
 
 export const WorkflowDetail: React.FC = () => {
+  const { t } = useTranslation();
   const { changeId } = useParams<{ changeId: string }>();
   const navigate = useNavigate();
   const [workflow, setWorkflow] = useState<WorkflowItem | null>(null);
@@ -65,7 +67,7 @@ export const WorkflowDetail: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to load workflow detail:", err);
-      setError(err instanceof Error ? err.message : "未知错误");
+      setError(err instanceof Error ? err.message : t("common.error"));
       setWorkflow(null);
     } finally {
       setLoading(false);
@@ -74,7 +76,7 @@ export const WorkflowDetail: React.FC = () => {
 
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString("zh-CN", {
+    return date.toLocaleString({
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -85,22 +87,11 @@ export const WorkflowDetail: React.FC = () => {
   };
 
   const getStageLabel = (stage: string): string => {
-    const labels: Record<string, string> = {
-      init: "初始化",
-      proposal: "提案",
-      apply: "实施",
-      archive: "归档"
-    };
-    return labels[stage] || stage;
+    return t(`workflows.stage.${stage}`) || stage;
   };
 
   const getStatusLabel = (status: string): string => {
-    const labels: Record<string, string> = {
-      in_progress: "进行中",
-      completed: "已完成",
-      paused: "已暂停"
-    };
-    return labels[status] || status;
+    return t(`workflows.status.${status}`) || status;
   };
 
   const getStatusColor = (status: string): string => {
@@ -115,7 +106,7 @@ export const WorkflowDetail: React.FC = () => {
   if (loading) {
     return (
       <div style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
-        加载中...
+        {t("workflows.loading")}
       </div>
     );
   }
@@ -124,13 +115,13 @@ export const WorkflowDetail: React.FC = () => {
     return (
       <div style={{ padding: "16px" }}>
         <div className="cocursor-error" style={{ padding: "12px", backgroundColor: "var(--vscode-inputValidation-errorBackground)", color: "var(--vscode-errorForeground)", borderRadius: "4px" }}>
-          错误: {error}
+          {t("workflows.error")}: {error}
         </div>
         <button
           onClick={() => navigate("/workflows")}
           style={{ marginTop: "16px", padding: "8px 16px" }}
         >
-          返回列表
+          {t("workflows.backToList")}
         </button>
       </div>
     );
@@ -139,12 +130,12 @@ export const WorkflowDetail: React.FC = () => {
   if (!workflow) {
     return (
       <div style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
-        工作流不存在
+        {t("workflows.notFound")}
         <button
           onClick={() => navigate("/workflows")}
           style={{ marginTop: "16px", padding: "8px 16px", display: "block", margin: "16px auto 0" }}
         >
-          返回列表
+          {t("workflows.backToList")}
         </button>
       </div>
     );
@@ -192,22 +183,22 @@ export const WorkflowDetail: React.FC = () => {
 
       {/* 基本信息 */}
       <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>基本信息</h3>
+        <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.basicInfo")}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "12px" }}>
           <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>工作区 ID</div>
+            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.workspaceId")}</div>
             <div style={{ color: "var(--vscode-foreground)" }}>{workflow.workspace_id}</div>
           </div>
           <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>变更 ID</div>
+            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.changeId")}</div>
             <div style={{ color: "var(--vscode-foreground)" }}>{workflow.change_id}</div>
           </div>
           <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>开始时间</div>
+            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.startTime")}</div>
             <div style={{ color: "var(--vscode-foreground)" }}>{formatDate(workflow.started_at)}</div>
           </div>
           <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>更新时间</div>
+            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.updateTime")}</div>
             <div style={{ color: "var(--vscode-foreground)" }}>{formatDate(workflow.updated_at)}</div>
           </div>
         </div>
@@ -216,11 +207,11 @@ export const WorkflowDetail: React.FC = () => {
       {/* 进度信息 */}
       {workflow.summary && (
         <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>进度信息</h3>
+          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.progressInfo")}</h3>
           <div style={{ marginBottom: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
               <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
-                任务进度
+                {t("workflows.taskProgress")}
               </span>
               <span style={{ fontSize: "12px", color: "var(--vscode-foreground)", fontWeight: 600 }}>
                 {workflow.summary.tasks_completed} / {workflow.summary.tasks_total} ({progress}%)
@@ -247,7 +238,7 @@ export const WorkflowDetail: React.FC = () => {
           </div>
           {workflow.summary.time_spent && (
             <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
-              耗时: {workflow.summary.time_spent}
+              {t("workflows.timeSpent")}: {workflow.summary.time_spent}
             </div>
           )}
         </div>
@@ -257,7 +248,7 @@ export const WorkflowDetail: React.FC = () => {
       {workflow.summary && workflow.summary.files_changed && workflow.summary.files_changed.length > 0 && (
         <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
           <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>
-            变更文件 ({workflow.summary.files_changed.length})
+            {t("workflows.changedFiles")} ({workflow.summary.files_changed.length})
           </h3>
           <div style={{ maxHeight: "200px", overflowY: "auto" }}>
             {workflow.summary.files_changed.map((file, index) => (
@@ -281,7 +272,7 @@ export const WorkflowDetail: React.FC = () => {
       {/* 工作总结 */}
       {workflow.summary && workflow.summary.summary && (
         <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>工作总结</h3>
+          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.summary")}</h3>
           <div
             style={{
               fontSize: "12px",
@@ -298,7 +289,7 @@ export const WorkflowDetail: React.FC = () => {
       {/* 元数据 */}
       {workflow.metadata && Object.keys(workflow.metadata).length > 0 && (
         <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>元数据</h3>
+          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.metadata")}</h3>
           <pre
             style={{
               fontSize: "11px",
@@ -323,7 +314,7 @@ export const WorkflowDetail: React.FC = () => {
           onClick={() => navigate("/workflows")}
           style={{ padding: "8px 16px", fontSize: "12px" }}
         >
-          返回列表
+          {t("workflows.backToList")}
         </button>
       </div>
     </div>
