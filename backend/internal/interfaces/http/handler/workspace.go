@@ -1,21 +1,22 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
-	"github.com/cocursor/backend/internal/application/workspace"
+	"github.com/cocursor/backend/internal/application/cursor"
 	"github.com/gin-gonic/gin"
 )
 
 // WorkspaceHandler 工作区处理器
 type WorkspaceHandler struct {
-	manager *workspace.Manager
+	projectManager *cursor.ProjectManager
 }
 
 // NewWorkspaceHandler 创建 WorkspaceHandler
-func NewWorkspaceHandler(manager *workspace.Manager) *WorkspaceHandler {
+func NewWorkspaceHandler(projectManager *cursor.ProjectManager) *WorkspaceHandler {
 	return &WorkspaceHandler{
-		manager: manager,
+		projectManager: projectManager,
 	}
 }
 
@@ -39,15 +40,15 @@ func (h *WorkspaceHandler) Register(c *gin.Context) {
 		return
 	}
 
-	ws, err := h.manager.Register(req.Path)
+	state, err := h.projectManager.RegisterWorkspace(req.Path)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, RegisterResponse{
-		WorkspaceID: ws.ID,
-		Path:        ws.Path,
+		WorkspaceID: state.WorkspaceID,
+		Path:        state.Path,
 	})
 }
 
@@ -62,20 +63,26 @@ type FocusRequest struct {
 func (h *WorkspaceHandler) Focus(c *gin.Context) {
 	var req FocusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[WorkspaceHandler.Focus] 解析请求失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Printf("[WorkspaceHandler.Focus] 收到请求: workspaceID=%s, path=%s", req.WorkspaceID, req.Path)
+
 	if req.WorkspaceID == "" && req.Path == "" {
+		log.Printf("[WorkspaceHandler.Focus] 参数错误: workspaceID 和 path 都为空")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "either workspaceID or path must be provided"})
 		return
 	}
 
-	err := h.manager.UpdateFocus(req.WorkspaceID, req.Path)
+	err := h.projectManager.UpdateWorkspaceFocus(req.WorkspaceID, req.Path)
 	if err != nil {
+		log.Printf("[WorkspaceHandler.Focus] UpdateWorkspaceFocus 失败: workspaceID=%s, path=%s, error=%v", req.WorkspaceID, req.Path, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Printf("[WorkspaceHandler.Focus] 成功: workspaceID=%s, path=%s", req.WorkspaceID, req.Path)
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

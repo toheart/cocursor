@@ -1,7 +1,13 @@
 package cursor
 
 import (
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestGetWorkspaceIDByPath 测试根据项目路径查找工作区 ID
@@ -60,4 +66,227 @@ func TestGetWorkspaceStorageDir(t *testing.T) {
 	}
 
 	t.Logf("工作区存储目录: %s", dir)
+}
+
+// TestParseFolderURI_WindowsPathWithLeadingBackslash 测试 Windows 路径解析时开头的反斜杠问题
+// 问题：file:///c%3A/Users/... 解析后可能变成 \c:\Users\...，需要清理开头的反斜杠
+func TestParseFolderURI_WindowsPathWithLeadingBackslash(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("此测试仅在 Windows 上运行")
+	}
+
+	resolver := NewPathResolver()
+
+	tests := []struct {
+		name     string
+		uri      string
+		expected string // 期望的路径（不包含开头的反斜杠）
+		wantErr  bool
+	}{
+		{
+			name:     "URL encoded Windows path with leading backslash",
+			uri:      "file:///c%3A/Users/TANG/Videos/goanalysis",
+			expected: "c:/Users/TANG/Videos/goanalysis", // 不应该有开头的反斜杠
+			wantErr:  false,
+		},
+		{
+			name:     "Windows path with drive letter",
+			uri:      "file:///d:/code/cocursor",
+			expected: "d:/code/cocursor",
+			wantErr:  false,
+		},
+		{
+			name:     "Windows path with URL encoding",
+			uri:      "file:///d%3A/code/cocursor",
+			expected: "d:/code/cocursor",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolver.parseFolderURI(tt.uri)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				
+				// 规范化路径用于比较（统一使用正斜杠）
+				resultNormalized := filepath.ToSlash(result)
+				expectedNormalized := filepath.ToSlash(tt.expected)
+				
+				// 检查路径不应该以单个反斜杠开头（除非是 UNC 路径）
+				if strings.HasPrefix(result, "\\") && !strings.HasPrefix(result, "\\\\") {
+					t.Errorf("路径不应该以单个反斜杠开头: %s", result)
+				}
+				
+				// 检查路径匹配（不区分大小写）
+				if !strings.EqualFold(resultNormalized, expectedNormalized) {
+					t.Errorf("路径不匹配: 期望 %s, 得到 %s", expectedNormalized, resultNormalized)
+				}
+			}
+		})
+	}
+}
+
+// TestParseFolderURI_UnixPaths 测试 Unix 路径解析（macOS/Linux）
+// 确保 Unix 路径不受 Windows 清理逻辑影响
+func TestParseFolderURI_UnixPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("此测试在非 Windows 系统上运行")
+	}
+
+	resolver := NewPathResolver()
+
+	tests := []struct {
+		name     string
+		uri      string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "macOS path",
+			uri:      "file:///Users/user/project",
+			expected: "/Users/user/project",
+			wantErr:  false,
+		},
+		{
+			name:     "Linux path",
+			uri:      "file:///home/user/project",
+			expected: "/home/user/project",
+			wantErr:  false,
+		},
+		{
+			name:     "Unix path with spaces",
+			uri:      "file:///Users/user/my%20project",
+			expected: "/Users/user/my project",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolver.parseFolderURI(tt.uri)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				
+				// Unix 路径应该保留开头的斜杠
+				if !strings.HasPrefix(result, "/") {
+					t.Errorf("Unix 路径应该以斜杠开头: %s", result)
+				}
+				
+				// 检查路径匹配
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestNormalizePath_CrossPlatform 测试路径规范化在不同平台上的行为
+func TestNormalizePath_CrossPlatform(t *testing.T) {
+	resolver := NewPathResolver()
+
+	tests := []struct {
+		name     string
+		path     string
+		wantErr  bool
+		checkFn  func(t *testing.T, normalized string)
+	}{
+		{
+			name:    "relative path",
+			path:    "./code/project",
+			wantErr: false,
+			checkFn: func(t *testing.T, normalized string) {
+				// 应该转换为绝对路径
+				assert.True(t, filepath.IsAbs(normalized) || strings.HasPrefix(normalized, "/"))
+				// 应该使用正斜杠
+				assert.NotContains(t, normalized, "\\")
+			},
+		},
+		{
+			name:    "path with trailing slash",
+			path:    "/path/to/project/",
+			wantErr: false,
+			checkFn: func(t *testing.T, normalized string) {
+				// 末尾斜杠应该被移除
+				assert.False(t, strings.HasSuffix(normalized, "/"))
+			},
+		},
+		{
+			name:    "Windows path with backslashes",
+			path:    "C:\\Users\\project",
+			wantErr: false,
+			checkFn: func(t *testing.T, normalized string) {
+				// 应该转换为正斜杠
+				assert.NotContains(t, normalized, "\\")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolver.normalizePath(tt.path)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				if tt.checkFn != nil {
+					tt.checkFn(t, result)
+				}
+			}
+		})
+	}
+}
+
+// TestGetWorkspaceIDByPath_PathMatching 测试路径匹配逻辑
+// 验证规范化后的路径能够正确匹配
+func TestGetWorkspaceIDByPath_PathMatching(t *testing.T) {
+	resolver := NewPathResolver()
+
+	// 这个测试需要真实的工作区环境，所以只测试路径规范化逻辑
+	tests := []struct {
+		name        string
+		path1       string
+		path2       string
+		shouldMatch bool
+	}{
+		{
+			name:        "same path different separators",
+			path1:       "C:/Users/project",
+			path2:       "C:\\Users\\project",
+			shouldMatch: true,
+		},
+		{
+			name:        "case insensitive on Windows",
+			path1:       "C:/Users/PROJECT",
+			path2:       "c:/users/project",
+			shouldMatch: runtime.GOOS == "windows",
+		},
+		{
+			name:        "different paths",
+			path1:       "C:/Users/project1",
+			path2:       "C:/Users/project2",
+			shouldMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			norm1, err1 := resolver.normalizePath(tt.path1)
+			norm2, err2 := resolver.normalizePath(tt.path2)
+			
+			require.NoError(t, err1)
+			require.NoError(t, err2)
+			
+			// 使用 EqualFold 进行不区分大小写的比较（Windows 路径不区分大小写）
+			matches := strings.EqualFold(norm1, norm2)
+			
+			if matches != tt.shouldMatch {
+				t.Errorf("路径匹配结果不符合预期: %s vs %s, 期望 %v, 得到 %v",
+					norm1, norm2, tt.shouldMatch, matches)
+			}
+		})
+	}
 }

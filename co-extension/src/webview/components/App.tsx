@@ -1,15 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
-import { apiService, SessionHealth } from "../services/api";
+import { useNavigate } from "react-router-dom";
+import { apiService, SessionHealth, getVscodeApi } from "../services/api";
+
+interface ChatItem {
+  composerId: string;
+  name: string;
+  lastUpdatedAt: number;
+  totalLinesAdded?: number;
+  totalLinesRemoved?: number;
+  filesChangedCount?: number;
+}
 
 interface AppState {
   loading: boolean;
   error: string | null;
-  chats: unknown[];
+  chats: ChatItem[];
   sessionHealth: SessionHealth | null;
   previousEntropy: number | null;
 }
 
 export const App: React.FC = () => {
+  const navigate = useNavigate();
   const [state, setState] = useState<AppState>({
     loading: true,
     error: null,
@@ -19,36 +30,63 @@ export const App: React.FC = () => {
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     console.log("App: 组件已挂载，开始加载对话");
+    isMountedRef.current = true;
     loadChats();
     loadSessionHealth();
 
     // 设置定时器，每 30 秒轮询一次会话健康状态
     intervalRef.current = setInterval(() => {
-      loadSessionHealth();
+      if (isMountedRef.current) {
+        loadSessionHealth();
+      }
     }, 30000);
 
     // 清理定时器
     return () => {
+      isMountedRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, []);
 
   const loadChats = async (): Promise<void> => {
+    if (!isMountedRef.current) return;
+    
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
-      const chats = await apiService.getChats();
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: null,
-        chats: Array.isArray(chats) ? chats : []
-      }));
+      // 使用会话列表 API 替代 chats API
+      const result = await apiService.getSessionList("", 10, 0, "");
+      
+      // 检查组件是否已卸载
+      if (!isMountedRef.current) return;
+      
+      if (result && typeof result === "object" && "data" in result) {
+        const response = result as any;
+        const sessions = (response.data || []) as ChatItem[];
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: null,
+          chats: Array.isArray(sessions) ? sessions : []
+        }));
+      } else {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: null,
+          chats: []
+        }));
+      }
     } catch (error) {
+      // 检查组件是否已卸载
+      if (!isMountedRef.current) return;
+      
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -58,9 +96,34 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleChatClick = (chat: ChatItem): void => {
+    if (chat.composerId) {
+      navigate(`/sessions/${chat.composerId}`);
+    }
+  };
+
+  const formatDate = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
   const loadSessionHealth = async (): Promise<void> => {
+    if (!isMountedRef.current) return;
+    
     try {
-      const health = await apiService.getCurrentSessionHealth();
+      // 获取当前工作区路径
+      const workspacePath = (window as any).__WORKSPACE_PATH__;
+      const health = await apiService.getCurrentSessionHealth(workspacePath);
+      
+      // 检查组件是否已卸载
+      if (!isMountedRef.current) return;
+      
       setState((prev) => {
         // 检查熵值是否从健康变为危险
         const wasHealthy = prev.previousEntropy === null || prev.previousEntropy < 70;
@@ -69,14 +132,18 @@ export const App: React.FC = () => {
 
         if (shouldNotify && prev.sessionHealth) {
           // 发送消息到 Extension，触发 VS Code 通知
-          const vscode = acquireVsCodeApi();
-          vscode.postMessage({
-            command: "showEntropyWarning",
-            payload: {
-              entropy: health.entropy,
-              message: "会话熵值过高，建议重启会话"
-            }
-          });
+          try {
+            const vscode = getVscodeApi();
+            vscode.postMessage({
+              command: "showEntropyWarning",
+              payload: {
+                entropy: health.entropy,
+                message: "会话熵值过高，建议重启会话"
+              }
+            });
+          } catch (err) {
+            console.error("发送熵值警告失败:", err);
+          }
         }
 
         return {
@@ -86,6 +153,8 @@ export const App: React.FC = () => {
         };
       });
     } catch (error) {
+      // 组件已卸载，不更新状态
+      if (!isMountedRef.current) return;
       console.error("加载会话健康状态失败:", error);
       // 不显示错误，静默失败
     }
@@ -116,14 +185,14 @@ export const App: React.FC = () => {
 
   return (
     <div className="cocursor-app">
-      <header className="cocursor-header">
-        <h1>CoCursor</h1>
-        <button onClick={loadChats} disabled={state.loading}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--vscode-panel-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>CoCursor 仪表板</h2>
+        <button onClick={loadChats} disabled={state.loading} style={{ padding: "4px 8px", fontSize: "12px" }}>
           {state.loading ? "加载中..." : "刷新"}
         </button>
-      </header>
+      </div>
 
-      <main className="cocursor-main">
+      <main className="cocursor-main" style={{ padding: "16px" }}>
         {/* 会话熵值展示 */}
         {state.sessionHealth && (
           <div className="cocursor-session-health">
@@ -195,11 +264,47 @@ export const App: React.FC = () => {
         ) : (
           <div className="cocursor-chats">
             {state.chats.length === 0 ? (
-              <div className="cocursor-empty">暂无对话</div>
+              <div className="cocursor-empty" style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
+                暂无对话数据
+              </div>
             ) : (
-              <ul>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                 {state.chats.map((chat, index) => (
-                  <li key={index}>{JSON.stringify(chat)}</li>
+                  <li
+                    key={chat.composerId || index}
+                    onClick={() => handleChatClick(chat)}
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: "1px solid var(--vscode-panel-border)",
+                      cursor: "pointer",
+                      transition: "background-color 0.2s"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>
+                        {chat.name || "未命名会话"}
+                      </h3>
+                      <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+                        {formatDate(chat.lastUpdatedAt)}
+                      </span>
+                    </div>
+                    {(chat.totalLinesAdded !== undefined || chat.totalLinesRemoved !== undefined || chat.filesChangedCount !== undefined) && (
+                      <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)", display: "flex", gap: "12px" }}>
+                        {chat.totalLinesAdded !== undefined && chat.totalLinesRemoved !== undefined && (
+                          <span>+{chat.totalLinesAdded} / -{chat.totalLinesRemoved} 行</span>
+                        )}
+                        {chat.filesChangedCount !== undefined && (
+                          <span>{chat.filesChangedCount} 个文件</span>
+                        )}
+                      </div>
+                    )}
+                  </li>
                 ))}
               </ul>
             )}

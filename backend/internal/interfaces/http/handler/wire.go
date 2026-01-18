@@ -6,5 +6,8 @@ import "github.com/google/wire"
 var ProviderSet = wire.NewSet(
 	NewNotificationHandler,
 	NewStatsHandler,
+	NewProjectHandler,
+	NewAnalyticsHandler,
+	NewWorkspaceHandler,
 	// 可以继续添加其他 Handler
 )

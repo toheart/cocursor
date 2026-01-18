@@ -1,4 +1,4 @@
-.PHONY: all build build-all test clean clean-data clean-all run lint lint-fix fmt wire
+.PHONY: all build build-all test clean clean-data clean-all run lint lint-fix fmt wire swagger
 
 # 版本信息
 VERSION ?= 0.1.0
@@ -26,6 +26,19 @@ test-coverage:
 # 生成 Wire 代码
 wire:
 	cd internal/wire && go run github.com/google/wire/cmd/wire
+
+# 生成 Swagger 文档
+# 注意：如果生成的 docs.go 包含 LeftDelim/RightDelim 字段导致编译错误，
+# 会自动移除这些字段以兼容旧版本的 swag 库
+swagger:
+	@echo "生成 Swagger 文档..."
+	@go run github.com/swaggo/swag/cmd/swag@latest init -g cmd/server/main.go -o docs --parseDependency --parseInternal
+	@if [ -f docs/docs.go ]; then \
+		sed -i.bak '/LeftDelim:/d; /RightDelim:/d' docs/docs.go 2>/dev/null || \
+		(if command -v sed >/dev/null 2>&1; then sed -i '' '/LeftDelim:/d; /RightDelim:/d' docs/docs.go; fi); \
+		rm -f docs/docs.go.bak 2>/dev/null || true; \
+	fi
+	@echo "Swagger 文档已生成到 docs/ 目录"
 
 # 本地构建
 build: wire

@@ -26,6 +26,9 @@ type HTTPServer struct {
 func NewServer(
 	notificationHandler *handler.NotificationHandler,
 	statsHandler *handler.StatsHandler,
+	projectHandler *handler.ProjectHandler,
+	analyticsHandler *handler.AnalyticsHandler,
+	workspaceHandler *handler.WorkspaceHandler,
 	mcpServer *mcp.MCPServer,
 ) *HTTPServer {
 	router := gin.Default()
@@ -39,6 +42,24 @@ func NewServer(
 		api.GET("/stats/conversation-overview", statsHandler.ConversationOverview)
 		api.GET("/stats/file-references", statsHandler.FileReferences)
 		api.GET("/stats/daily-report", statsHandler.DailyReport)
+
+		// 分析相关路由
+		api.GET("/stats/token-usage", analyticsHandler.TokenUsage)
+		api.GET("/stats/work-analysis", analyticsHandler.WorkAnalysis)
+		api.GET("/sessions/list", analyticsHandler.SessionList)
+		api.GET("/sessions/:sessionId/detail", analyticsHandler.SessionDetail)
+
+		// 项目相关路由
+		api.GET("/project/list", projectHandler.ListProjects)
+		api.POST("/project/activate", projectHandler.ActivateProject)
+		api.GET("/project/:project_name/prompts", projectHandler.GetProjectPrompts)
+		api.GET("/project/:project_name/generations", projectHandler.GetProjectGenerations)
+		api.GET("/project/:project_name/sessions", projectHandler.GetProjectSessions)
+		api.GET("/project/:project_name/stats/acceptance", projectHandler.GetProjectAcceptanceStats)
+
+		// 工作区相关路由
+		api.POST("/workspace/register", workspaceHandler.Register)
+		api.POST("/workspace/focus", workspaceHandler.Focus)
 	}
 
 	// 健康检查

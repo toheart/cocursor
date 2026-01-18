@@ -89,6 +89,58 @@ func (r *DBReader) ReadWorkspaceData(workspaceID string, key string) ([]byte, er
 	return r.ReadValueFromWorkspaceDB(dbPath, key)
 }
 
+// QueryAllKeys 查询所有键（支持模糊匹配）
+// dbPath: 数据库文件路径
+// pattern: 键的模式（支持 % 通配符），如 "aiService.%" 或 "%token%"
+// 返回: 键列表
+func (r *DBReader) QueryAllKeys(dbPath string, pattern string) ([]string, error) {
+	// 检查源文件是否存在
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, fmt.Errorf("database file not found: %w", err)
+	}
+
+	// 创建临时文件路径
+	tmpDir := os.TempDir()
+	tmpFileName := fmt.Sprintf("cocursor_tmp_%s.db", filepath.Base(dbPath))
+	tmpPath := filepath.Join(tmpDir, tmpFileName)
+
+	// 复制数据库文件到临时目录
+	if err := r.copyFile(dbPath, tmpPath); err != nil {
+		return nil, fmt.Errorf("failed to copy database file: %w", err)
+	}
+
+	// 确保清理临时文件
+	defer func() {
+		os.Remove(tmpPath)
+	}()
+
+	// 打开临时数据库文件
+	db, err := sql.Open("sqlite", tmpPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	// 查询所有匹配的键
+	var keys []string
+	query := "SELECT key FROM ItemTable WHERE key LIKE ? ORDER BY key"
+	rows, err := db.Query(query, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query database: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			continue
+		}
+		keys = append(keys, key)
+	}
+
+	return keys, nil
+}
+
 // copyFile 复制文件
 func (r *DBReader) copyFile(src, dst string) error {
 	// 打开源文件

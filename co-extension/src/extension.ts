@@ -4,6 +4,8 @@ import { WebviewPanel } from "./webviewPanel";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
 import { DaemonManager } from "./daemon/daemonManager";
 import { configureMCPServer } from "./utils/mcpConfig";
+import { checkAndReportProject } from "./utils/projectReporter";
+import { watchWorkspaceChanges } from "./utils/workspaceDetector";
 
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
@@ -44,12 +46,12 @@ export function activate(context: vscode.ExtensionContext): void {
   const daemonPort = config.get<number>("daemon.port", 19960);
 
   // 配置 MCP 服务器（在启动后端之前）
-  // 注意：此操作会自动将 MCP 服务器添加到 Cursor 的设置中
+  // 注意：此操作会自动将 MCP 服务器添加到 Cursor 的 mcp.json 配置文件中
   try {
     const mcpUrl = `http://localhost:${daemonPort}/mcp/sse`;
     const configured = configureMCPServer(mcpUrl, "cocursor");
     if (configured) {
-      console.log("MCP 服务器已自动配置到 Cursor 设置中");
+      console.log("MCP 服务器已自动配置到 Cursor MCP 配置文件中");
       // 仅在首次配置时提示用户重启 Cursor
       vscode.window.showInformationMessage(
         "CoCursor MCP 服务器已自动配置，请重启 Cursor 以使配置生效",
@@ -70,16 +72,29 @@ export function activate(context: vscode.ExtensionContext): void {
     startBackendServer(context).then(() => {
       // 后端启动后注册工作区
       registerWorkspace();
+      // 检测并上报当前项目
+      checkAndReportProject();
     });
   } else {
     // 即使不自动启动，也尝试注册（可能后端已手动启动）
     registerWorkspace();
+    // 检测并上报当前项目
+    checkAndReportProject();
   }
+
+  // 监听工作区变化
+  const workspaceWatcher = watchWorkspaceChanges((newPath) => {
+    console.log(`CoCursor: 检测到工作区变化: ${newPath}`);
+    checkAndReportProject();
+  });
+  context.subscriptions.push(workspaceWatcher);
 
   // 监听窗口焦点变化
   windowStateListener = vscode.window.onDidChangeWindowState((e) => {
     if (e.focused) {
       updateWorkspaceFocus();
+      // 焦点变化时也上报项目（确保状态同步）
+      checkAndReportProject();
     }
   });
   context.subscriptions.push(windowStateListener);
@@ -89,11 +104,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("cocursor.openDashboard", () => {
       console.log("命令 cocursor.openDashboard 被调用");
       try {
-        WebviewPanel.createOrShow(context.extensionUri);
+        WebviewPanel.createOrShow(context.extensionUri, "recentSessions");
         console.log("WebviewPanel.createOrShow 调用成功");
       } catch (error) {
-        console.error("打开仪表板失败:", error);
-        vscode.window.showErrorMessage(`打开仪表板失败: ${error instanceof Error ? error.message : String(error)}`);
+        console.error("打开最近对话失败:", error);
+        vscode.window.showErrorMessage(`打开最近对话失败: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );
@@ -129,6 +144,24 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.refreshSidebar", () => {
       sidebarProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openWorkAnalysis", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "workAnalysis");
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openSessions", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "recentSessions");
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openMarketplace", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "marketplace");
     })
   );
 
@@ -235,12 +268,13 @@ async function updateWorkspaceFocus(): Promise<void> {
     const fsPath = workspaceFolders[0].uri.fsPath;
     console.log(`CoCursor: 更新工作区焦点: ${fsPath}`);
 
-    // 调用后端 API 更新焦点
-    await axios.post(
-      "http://localhost:19960/api/v1/workspace/focus",
-      { path: fsPath },
-      { timeout: 5000 }
-    );
+      // 调用后端 API 更新焦点
+      await axios.post(
+        "http://localhost:19960/api/v1/workspace/focus",
+        { path: fsPath },
+        { timeout: 5000 }
+      );
+      
   } catch (error) {
     // 静默失败
     const message = error instanceof Error ? error.message : String(error);

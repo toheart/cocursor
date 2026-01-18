@@ -47,6 +47,18 @@
         "command": "cocursor.refreshSidebar",
         "title": "刷新侧边栏",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "cocursor.openWorkAnalysis",
+        "title": "打开工作分析"
+      },
+      {
+        "command": "cocursor.openSessions",
+        "title": "打开会话列表"
+      },
+      {
+        "command": "cocursor.openMarketplace",
+        "title": "打开插件市场"
       }
     ],
     "views": {
@@ -94,6 +106,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/react-window": "^1.8.8",
     "@types/vscode": "^1.80.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
@@ -104,7 +117,14 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
+    "highlight.js": "^11.9.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.20.0",
+    "react-window": "^1.8.10",
+    "recharts": "^2.10.3",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
   }
 }

@@ -1,6 +1,9 @@
 package cursor
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // ComposerData Composer 会话数据
 type ComposerData struct {
@@ -72,22 +75,54 @@ func (c *ComposerData) GetTotalLinesChanged() int {
 
 // DailyAcceptanceStats 每日接受率统计
 type DailyAcceptanceStats struct {
-	Date                   string  `json:"date"`                    // 日期 YYYY-MM-DD
-	TabSuggestedLines      int     `json:"tabSuggestedLines"`      // Tab 建议的代码行数
-	TabAcceptedLines       int     `json:"tabAcceptedLines"`        // Tab 接受的代码行数
-	TabAcceptanceRate      float64  `json:"tab_acceptance_rate"`     // Tab 接受率（百分比，计算字段）
-	ComposerSuggestedLines int     `json:"composerSuggestedLines"`  // Composer 建议的代码行数
-	ComposerAcceptedLines  int     `json:"composerAcceptedLines"`    // Composer 接受的代码行数
-	ComposerAcceptanceRate float64 `json:"composer_acceptance_rate"` // Composer 接受率（百分比，计算字段）
+	Date                   string  `json:"date"`                      // 日期 YYYY-MM-DD
+	TabSuggestedLines      int     `json:"tabSuggestedLines"`         // Tab 建议的代码行数
+	TabAcceptedLines       int     `json:"tabAcceptedLines"`          // Tab 接受的代码行数
+	TabAcceptanceRate      float64 `json:"tab_acceptance_rate"`       // Tab 接受率（百分比，计算字段）
+	ComposerSuggestedLines int     `json:"composerSuggestedLines"`    // Composer 建议的代码行数
+	ComposerAcceptedLines  int     `json:"composerAcceptedLines"`     // Composer 接受的代码行数
+	ComposerAcceptanceRate float64 `json:"composer_acceptance_rate"`  // Composer 接受率（百分比，计算字段）
+	DataQuality            string  `json:"data_quality,omitempty"`    // 数据质量标识：normal/warning/invalid
+	WarningMessage         string  `json:"warning_message,omitempty"` // 警告信息
 }
 
-// CalculateAcceptanceRate 计算接受率
+// CalculateAcceptanceRate 计算接受率，并检测数据质量
 func (s *DailyAcceptanceStats) CalculateAcceptanceRate() {
+	s.DataQuality = "normal"
+	s.WarningMessage = ""
+
+	// 计算 Tab 接受率
 	if s.TabSuggestedLines > 0 {
 		s.TabAcceptanceRate = float64(s.TabAcceptedLines) / float64(s.TabSuggestedLines) * 100
+		if s.TabAcceptanceRate > 100 {
+			s.TabAcceptanceRate = 100
+			s.DataQuality = "warning"
+			if s.WarningMessage != "" {
+				s.WarningMessage += "; "
+			}
+			s.WarningMessage += fmt.Sprintf("Tab 接受率异常：建议 %d 行，接受 %d 行", s.TabSuggestedLines, s.TabAcceptedLines)
+		}
 	}
+
+	// 计算 Composer 接受率
 	if s.ComposerSuggestedLines > 0 {
 		s.ComposerAcceptanceRate = float64(s.ComposerAcceptedLines) / float64(s.ComposerSuggestedLines) * 100
+		if s.ComposerAcceptanceRate > 100 {
+			s.ComposerAcceptanceRate = 100
+			s.DataQuality = "warning"
+			if s.WarningMessage != "" {
+				s.WarningMessage += "; "
+			}
+			s.WarningMessage += fmt.Sprintf("Composer 接受率异常：建议 %d 行，接受 %d 行", s.ComposerSuggestedLines, s.ComposerAcceptedLines)
+		}
+	} else if s.ComposerAcceptedLines > 0 && s.ComposerSuggestedLines == 0 {
+		// 建议行数为 0 但有接受行数，说明数据可能有问题
+		s.DataQuality = "warning"
+		s.ComposerAcceptanceRate = 0
+		if s.WarningMessage != "" {
+			s.WarningMessage += "; "
+		}
+		s.WarningMessage += fmt.Sprintf("Composer 数据异常：建议 0 行，但接受 %d 行（可能需要重新统计）", s.ComposerAcceptedLines)
 	}
 }
 
@@ -140,4 +175,135 @@ type SessionSummary struct {
 	FilesChanged int     `json:"files_changed"` // 变更文件数
 	Entropy      float64 `json:"entropy"`       // 熵值
 	Duration     float64 `json:"duration"`      // 持续时间（分钟）
+}
+
+// ProjectInfo 项目信息（包含多个工作区）
+type ProjectInfo struct {
+	ProjectName   string           `json:"project_name"`             // 项目名称（唯一）
+	ProjectID     string           `json:"project_id"`               // 项目唯一 ID
+	Workspaces    []*WorkspaceInfo `json:"workspaces"`               // 包含的所有工作区
+	GitRemoteURL  string           `json:"git_remote_url,omitempty"` // Git 远程仓库 URL（如果有）
+	GitBranch     string           `json:"git_branch,omitempty"`     // Git 分支（如果有）
+	CreatedAt     time.Time        `json:"created_at"`               // 项目首次发现时间
+	LastUpdatedAt time.Time        `json:"last_updated_at"`          // 最后更新时间
+}
+
+// WorkspaceInfo 单个工作区信息
+type WorkspaceInfo struct {
+	WorkspaceID  string `json:"workspace_id"`             // Cursor 工作区 ID
+	Path         string `json:"path"`                     // 项目路径
+	ProjectName  string `json:"project_name"`             // 所属项目名
+	GitRemoteURL string `json:"git_remote_url,omitempty"` // Git 远程 URL
+	GitBranch    string `json:"git_branch,omitempty"`     // Git 分支
+	IsActive     bool   `json:"is_active"`                // 是否为当前活跃的工作区
+	IsPrimary    bool   `json:"is_primary"`               // 是否为主工作区（最新的）
+}
+
+// ProjectMatchReason 项目匹配原因
+type ProjectMatchReason struct {
+	Priority   string  `json:"priority"`       // 优先级：P0/P1/P2
+	Method     string  `json:"method"`         // 匹配方法：git_remote_url/physical_path/path_similarity
+	Confidence float64 `json:"confidence"`     // 置信度（0.0-1.0）
+	Note       string  `json:"note,omitempty"` // 备注
+}
+
+// TokenUsage Token 使用统计
+type TokenUsage struct {
+	Date        string      `json:"date"`         // 日期 YYYY-MM-DD
+	TotalTokens int         `json:"total_tokens"` // 总 Token 数
+	ByType      TokenByType `json:"by_type"`      // 按类型分类
+	Trend       string      `json:"trend"`        // 趋势（与昨日对比），如 "+15%" 或 "-5%"
+}
+
+// TokenByType 按类型分类的 Token
+type TokenByType struct {
+	Tab      int `json:"tab"`      // Tab 自动补全
+	Composer int `json:"composer"` // Composer 模式
+	Chat     int `json:"chat"`     // 普通聊天
+}
+
+// WorkAnalysis 工作分析数据
+type WorkAnalysis struct {
+	Overview          *WorkAnalysisOverview   `json:"overview"`           // 概览指标
+	CodeChangesTrend  []*DailyCodeChanges     `json:"code_changes_trend"` // 代码变更趋势
+	TopFiles          []*FileReference        `json:"top_files"`          // Top N 文件引用
+	TimeDistribution  []*TimeDistributionItem `json:"time_distribution"`  // 时间分布（用于热力图）
+	EfficiencyMetrics *EfficiencyMetrics      `json:"efficiency_metrics"` // 效率指标
+}
+
+// WorkAnalysisOverview 工作分析概览
+type WorkAnalysisOverview struct {
+	TotalLinesAdded   int     `json:"total_lines_added"`   // 总添加行数
+	TotalLinesRemoved int     `json:"total_lines_removed"` // 总删除行数
+	FilesChanged      int     `json:"files_changed"`       // 变更文件数
+	AcceptanceRate    float64 `json:"acceptance_rate"`     // 平均接受率
+	ActiveSessions    int     `json:"active_sessions"`     // 活跃会话数
+	TotalPrompts      int     `json:"total_prompts"`       // 总 Prompts 数（用户输入）
+	TotalGenerations  int     `json:"total_generations"`   // 总 Generations 数（AI 回复）
+}
+
+// DailyCodeChanges 每日代码变更
+type DailyCodeChanges struct {
+	Date         string `json:"date"`          // 日期 YYYY-MM-DD
+	LinesAdded   int    `json:"lines_added"`   // 添加行数
+	LinesRemoved int    `json:"lines_removed"` // 删除行数
+	FilesChanged int    `json:"files_changed"` // 变更文件数
+}
+
+// TimeDistributionItem 时间分布项（用于热力图）
+type TimeDistributionItem struct {
+	Hour  int `json:"hour"`  // 小时（0-23）
+	Day   int `json:"day"`   // 星期几（0=周日, 1=周一, ...）
+	Count int `json:"count"` // 该时段的活跃次数
+}
+
+// EfficiencyMetrics 效率指标
+type EfficiencyMetrics struct {
+	AvgSessionEntropy float64             `json:"avg_session_entropy"` // 平均会话熵值
+	AvgContextUsage   float64             `json:"avg_context_usage"`   // 平均上下文使用率
+	EntropyTrend      []*EntropyTrendItem `json:"entropy_trend"`       // 熵值趋势
+}
+
+// EntropyTrendItem 熵值趋势项
+type EntropyTrendItem struct {
+	Date  string  `json:"date"`  // 日期 YYYY-MM-DD
+	Value float64 `json:"value"` // 熵值
+}
+
+// SessionDetail 会话详情（包含消息列表）
+type SessionDetail struct {
+	Session       *ComposerData `json:"session"`        // 会话元数据
+	Messages      []*Message    `json:"messages"`       // 消息列表（按时间排序）
+	TotalMessages int           `json:"total_messages"` // 总消息数
+	HasMore       bool          `json:"has_more"`       // 是否还有更多消息
+}
+
+// Message 消息模型
+type Message struct {
+	Type       MessageType  `json:"type"`                  // 消息类型：user/ai
+	Text       string       `json:"text"`                  // 消息文本
+	Timestamp  int64        `json:"timestamp"`             // 时间戳（毫秒）
+	CodeBlocks []*CodeBlock `json:"code_blocks,omitempty"` // 代码块（如果有）
+	Files      []string     `json:"files,omitempty"`       // 引用的文件（如果有）
+	Tools      []*ToolCall  `json:"tools,omitempty"`       // 工具调用（如果有）
+}
+
+// ToolCall 工具调用
+type ToolCall struct {
+	Name      string            `json:"name"`      // 工具名称
+	Arguments map[string]string `json:"arguments"` // 工具参数（简化处理，都转为字符串）
+}
+
+// MessageType 消息类型
+type MessageType string
+
+const (
+	MessageTypeUser MessageType = "user" // 用户消息
+	MessageTypeAI   MessageType = "ai"   // AI 消息
+)
+
+// CodeBlock 代码块
+type CodeBlock struct {
+	Language string `json:"language"` // 语言（如 "go", "typescript"）
+	Code     string `json:"code"`     // 代码内容
 }

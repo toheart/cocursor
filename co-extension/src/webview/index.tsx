@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./components/App";
+import { Router } from "./Router";
 import "./index.css";
 
 // 初始化 React 应用
@@ -15,10 +15,12 @@ if (!container) {
 console.log("Webview: 找到 root 元素，创建 React root");
 const root = createRoot(container);
 
+// 路由导航消息在 Router 组件中处理
+
 try {
   root.render(
     <React.StrictMode>
-      <App />
+      <Router />
     </React.StrictMode>
   );
   console.log("Webview: React 应用已渲染");

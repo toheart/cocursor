@@ -192,6 +192,19 @@ func (p *PathResolver) parseFolderURI(uri string) (string, error) {
 	// 转换为系统路径格式（Windows 会使用反斜杠，Unix 保持正斜杠）
 	systemPath := filepath.FromSlash(decodedPath)
 
+	// 清理路径：移除开头的单个反斜杠（仅 Windows，且非 UNC 路径）
+	// Windows 路径问题：file:///c%3A/... 解析后可能变成 \c:\...
+	// 例如：\c:\Users\... -> c:\Users\...
+	// 但 UNC 路径 \\server\share 需要保留双反斜杠
+	if runtime.GOOS == "windows" && len(systemPath) > 0 && systemPath[0] == '\\' {
+		// 检查是否是 UNC 路径（\\server\share），如果是则保留
+		if len(systemPath) <= 1 || systemPath[1] != '\\' {
+			// 单个反斜杠，移除它
+			systemPath = systemPath[1:]
+		}
+		// 如果是 UNC 路径（双反斜杠），保持不变
+	}
+
 	return systemPath, nil
 }
 

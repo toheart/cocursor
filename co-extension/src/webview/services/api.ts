@@ -2,11 +2,21 @@
 
 import { ExtensionMessage } from "../../types/message";
 
+// VS Code API 单例管理器（每个 webview 实例只能获取一次）
+let vscodeApiInstance: ReturnType<typeof acquireVsCodeApi> | null = null;
+
+export function getVscodeApi(): ReturnType<typeof acquireVsCodeApi> {
+  if (!vscodeApiInstance) {
+    vscodeApiInstance = acquireVsCodeApi();
+  }
+  return vscodeApiInstance;
+}
+
 class ApiService {
   private vscode: ReturnType<typeof acquireVsCodeApi>;
 
   constructor() {
-    this.vscode = acquireVsCodeApi();
+    this.vscode = getVscodeApi();
   }
 
   // 发送消息到 Extension
@@ -58,6 +68,21 @@ class ApiService {
   // 获取当前会话健康状态
   async getCurrentSessionHealth(projectPath?: string): Promise<SessionHealth> {
     return this.postMessage("fetchCurrentSessionHealth", { projectPath }) as Promise<SessionHealth>;
+  }
+
+  // 获取工作分析数据
+  async getWorkAnalysis(startDate?: string, endDate?: string, projectName?: string): Promise<unknown> {
+    return this.postMessage("fetchWorkAnalysis", { startDate, endDate, projectName });
+  }
+
+  // 获取会话列表
+  async getSessionList(projectName?: string, limit?: number, offset?: number, search?: string): Promise<unknown> {
+    return this.postMessage("fetchSessionList", { projectName, limit, offset, search });
+  }
+
+  // 获取会话详情
+  async getSessionDetail(sessionId: string, limit?: number): Promise<unknown> {
+    return this.postMessage("fetchSessionDetail", { sessionId, limit });
   }
 }
 

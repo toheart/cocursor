@@ -16,11 +16,13 @@ all: compile-debug
 # 开发构建（带 sourcemap）
 compile-debug: build-extension build-webview
 	@echo "构建完成"
+	@echo "✓ Extension: $(DIST_DIR)/extension.js"
+	@echo "✓ Webview: $(DIST_DIR)/webview/index.js"
 
 # 构建 Extension
 build-extension:
 	@echo "构建 Extension（开发模式）..."
-	@mkdir -p $(DIST_DIR)
+	@-powershell -NoProfile -Command "if (-not (Test-Path '$(DIST_DIR)')) { New-Item -ItemType Directory -Path '$(DIST_DIR)' -Force | Out-Null }" 2>nul || -mkdir -p "$(DIST_DIR)" 2>/dev/null || true
 	$(ESBUILD) $(EXTENSION_ENTRY) \
 		--bundle \
 		--platform=node \
@@ -35,7 +37,7 @@ build-extension:
 # 构建 Webview
 build-webview:
 	@echo "构建 Webview（开发模式）..."
-	@mkdir -p $(DIST_DIR)/webview
+	@-powershell -NoProfile -Command "if (-not (Test-Path '$(DIST_DIR)/webview')) { New-Item -ItemType Directory -Path '$(DIST_DIR)/webview' -Force | Out-Null }" 2>nul || -mkdir -p "$(DIST_DIR)/webview" 2>/dev/null || true
 	$(ESBUILD) $(WEBVIEW_ENTRY) \
 		--bundle \
 		--platform=browser \
@@ -44,8 +46,10 @@ build-webview:
 		--outfile=$(DIST_DIR)/webview/index.js \
 		--jsx=automatic \
 		--sourcemap \
-		--minify=false
-	@cp $(WEBVIEW_CSS) $(DIST_DIR)/webview/index.css
+		--minify=false \
+		--define:process.env.NODE_ENV='"development"' \
+		--global-name=cocursor
+	@-powershell -NoProfile -Command "Copy-Item '$(WEBVIEW_CSS)' '$(DIST_DIR)/webview/index.css' -Force -ErrorAction SilentlyContinue" 2>nul || -cp "$(WEBVIEW_CSS)" "$(DIST_DIR)/webview/index.css" 2>/dev/null || true
 	@echo "Webview 构建完成: $(DIST_DIR)/webview/index.js"
 
 # 生产构建
@@ -55,7 +59,7 @@ build: build-extension-prod build-webview-prod
 # 构建 Extension（生产模式）
 build-extension-prod:
 	@echo "构建 Extension（生产模式）..."
-	@mkdir -p $(DIST_DIR)
+	@-powershell -NoProfile -Command "if (-not (Test-Path '$(DIST_DIR)')) { New-Item -ItemType Directory -Path '$(DIST_DIR)' -Force | Out-Null }" 2>nul || -mkdir -p "$(DIST_DIR)" 2>/dev/null || true
 	$(ESBUILD) $(EXTENSION_ENTRY) \
 		--bundle \
 		--platform=node \
@@ -70,7 +74,7 @@ build-extension-prod:
 # 构建 Webview（生产模式）
 build-webview-prod:
 	@echo "构建 Webview（生产模式）..."
-	@mkdir -p $(DIST_DIR)/webview
+	@-powershell -NoProfile -Command "if (-not (Test-Path '$(DIST_DIR)/webview')) { New-Item -ItemType Directory -Path '$(DIST_DIR)/webview' -Force | Out-Null }" 2>nul || -mkdir -p "$(DIST_DIR)/webview" 2>/dev/null || true
 	$(ESBUILD) $(WEBVIEW_ENTRY) \
 		--bundle \
 		--platform=browser \
@@ -79,14 +83,16 @@ build-webview-prod:
 		--outfile=$(DIST_DIR)/webview/index.js \
 		--jsx=automatic \
 		--sourcemap \
-		--minify
-	@cp $(WEBVIEW_CSS) $(DIST_DIR)/webview/index.css
+		--minify \
+		--define:process.env.NODE_ENV='"production"' \
+		--global-name=cocursor
+	@-powershell -NoProfile -Command "Copy-Item '$(WEBVIEW_CSS)' '$(DIST_DIR)/webview/index.css' -Force -ErrorAction SilentlyContinue" 2>nul || -cp "$(WEBVIEW_CSS)" "$(DIST_DIR)/webview/index.css" 2>/dev/null || true
 	@echo "Webview 构建完成: $(DIST_DIR)/webview/index.js"
 
 # 监听模式
 watch:
 	@echo "启动监听模式（Extension + Webview）..."
-	@mkdir -p $(DIST_DIR)/webview
+	@-powershell -NoProfile -Command "if (-not (Test-Path '$(DIST_DIR)/webview')) { New-Item -ItemType Directory -Path '$(DIST_DIR)/webview' -Force | Out-Null }" 2>nul || -mkdir -p "$(DIST_DIR)/webview" 2>/dev/null || true
 	@$(ESBUILD) $(EXTENSION_ENTRY) \
 		--bundle \
 		--platform=node \
@@ -104,13 +110,15 @@ watch:
 		--outfile=$(DIST_DIR)/webview/index.js \
 		--jsx=automatic \
 		--sourcemap \
-		--watch &
+		--watch \
+		--define:process.env.NODE_ENV='"development"' \
+		--global-name=cocursor &
 	@echo "监听模式已启动，按 Ctrl+C 停止"
 
 # 清理
 clean:
 	@echo "清理构建产物..."
-	rm -rf $(DIST_DIR)
+	@-powershell -NoProfile -Command "if (Test-Path '$(DIST_DIR)') { Remove-Item -Recurse -Force '$(DIST_DIR)' -ErrorAction SilentlyContinue }" 2>nul || -rm -rf "$(DIST_DIR)" 2>/dev/null || true
 	@echo "清理完成"
 
 # 安装依赖

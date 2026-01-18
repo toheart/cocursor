@@ -15,7 +15,7 @@ import (
 func TestStatsHandler_AcceptanceRate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := NewStatsHandler(appCursor.NewStatsService())
+	handler := NewStatsHandler(appCursor.NewStatsService(), appCursor.NewProjectManager())
 
 	tests := []struct {
 		name           string
@@ -84,7 +84,7 @@ func TestStatsHandler_AcceptanceRate(t *testing.T) {
 func TestStatsHandler_FileReferences(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := NewStatsHandler(appCursor.NewStatsService())
+	handler := NewStatsHandler(appCursor.NewStatsService(), appCursor.NewProjectManager())
 
 	tests := []struct {
 		name           string
@@ -94,41 +94,41 @@ func TestStatsHandler_FileReferences(t *testing.T) {
 	}{
 		{
 			name:           "默认 top_n=10",
-			queryParams:    "?project_path=/tmp",
-			expectedStatus: http.StatusNotFound, // 工作区不存在时返回 404
+			queryParams:    "?project_name=nonexistent",
+			expectedStatus: http.StatusNotFound, // 项目不存在时返回 404
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
-				// 工作区不存在时返回 404
+				// 项目不存在时返回 404
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 		{
 			name:           "指定 top_n=5",
-			queryParams:    "?project_path=/tmp&top_n=5",
+			queryParams:    "?project_name=nonexistent&top_n=5",
 			expectedStatus: http.StatusNotFound,
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 		{
 			name:           "top_n 超过最大值（50）",
-			queryParams:    "?project_path=/tmp&top_n=100",
+			queryParams:    "?project_name=nonexistent&top_n=100",
 			expectedStatus: http.StatusNotFound,
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
-				// 参数验证在服务层，404 是因为工作区不存在
+				// 参数验证在服务层，404 是因为项目不存在
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 		{
 			name:           "top_n 小于最小值（1）",
-			queryParams:    "?project_path=/tmp&top_n=0",
+			queryParams:    "?project_name=nonexistent&top_n=0",
 			expectedStatus: http.StatusNotFound,
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
-				// 参数验证在服务层，404 是因为工作区不存在
+				// 参数验证在服务层，404 是因为项目不存在
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 	}
@@ -158,7 +158,7 @@ func TestStatsHandler_FileReferences(t *testing.T) {
 func TestStatsHandler_DailyReport(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := NewStatsHandler(appCursor.NewStatsService())
+	handler := NewStatsHandler(appCursor.NewStatsService(), appCursor.NewProjectManager())
 
 	tests := []struct {
 		name           string
@@ -168,30 +168,30 @@ func TestStatsHandler_DailyReport(t *testing.T) {
 	}{
 		{
 			name:           "默认参数",
-			queryParams:    "?project_path=/tmp",
-			expectedStatus: http.StatusNotFound, // 工作区不存在时返回 404
+			queryParams:    "?project_name=nonexistent",
+			expectedStatus: http.StatusNotFound, // 项目不存在时返回 404
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 		{
 			name:           "指定日期和 top_n 参数",
-			queryParams:    "?project_path=/tmp&date=2026-01-17&top_n_sessions=3&top_n_files=5",
+			queryParams:    "?project_name=nonexistent&date=2026-01-17&top_n_sessions=3&top_n_files=5",
 			expectedStatus: http.StatusNotFound,
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 		{
 			name:           "top_n_sessions 超过最大值",
-			queryParams:    "?project_path=/tmp&top_n_sessions=100",
+			queryParams:    "?project_name=nonexistent&top_n_sessions=100",
 			expectedStatus: http.StatusNotFound,
 			validateFunc: func(t *testing.T, body map[string]interface{}) {
-				// 参数验证在服务层，404 是因为工作区不存在
+				// 参数验证在服务层，404 是因为项目不存在
 				code := int(body["code"].(float64))
-				assert.Equal(t, 700001, code, "应该返回资源不存在错误")
+				assert.Equal(t, 800001, code, "应该返回资源不存在错误")
 			},
 		},
 	}
