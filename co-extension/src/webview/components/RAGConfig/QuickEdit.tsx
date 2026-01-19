@@ -22,7 +22,6 @@ interface QuickEditProps {
   llm?: {
     url: string;
     model: string;
-    language: string;
   };
   qdrant: {
     version: string;
@@ -160,7 +159,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 if (onEditEmbedding) {
                   onEditEmbedding();
                 } else {
-                  showToast(t("rag.config.quickEdit.edit") + " 功能待实现", "success");
+                  showToast(t("rag.config.quickEdit.edit") + t("rag.config.quickEdit.featureNotImplemented"), "success");
                 }
               }}
             >
@@ -173,7 +172,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 if (onTestConnection) {
                   onTestConnection();
                 } else {
-                  showToast(t("rag.config.quickEdit.test") + " 功能待实现", "success");
+                  showToast(t("rag.config.quickEdit.test") + t("rag.config.quickEdit.featureNotImplemented"), "success");
                 }
               }}
             >
@@ -213,13 +212,13 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               <button
                 type="button"
                 className="cocursor-rag-quick-edit-card-action"
-                onClick={() => {
-                  if (onStartQdrant) {
-                    onStartQdrant();
-                  } else {
-                    showToast(t("rag.config.start") + " 功能待实现", "success");
-                  }
-                }}
+              onClick={() => {
+                if (onStartQdrant) {
+                  onStartQdrant();
+                } else {
+                  showToast(t("rag.config.actions.start") + t("rag.config.quickEdit.featureNotImplemented"), "success");
+                }
+              }}
               >
                 {t("rag.config.start")}
               </button>
@@ -228,13 +227,13 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               <button
                 type="button"
                 className="cocursor-rag-quick-edit-card-action"
-                onClick={() => {
-                  if (onStopQdrant) {
-                    onStopQdrant();
-                  } else {
-                    showToast(t("rag.config.stop") + " 功能待实现", "success");
-                  }
-                }}
+              onClick={() => {
+                if (onStopQdrant) {
+                  onStopQdrant();
+                } else {
+                  showToast(t("rag.config.actions.stop") + t("rag.config.quickEdit.featureNotImplemented"), "success");
+                }
+              }}
               >
                 {t("rag.config.stop")}
               </button>
@@ -246,7 +245,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 if (onRestartQdrant) {
                   onRestartQdrant();
                 } else {
-                  showToast(t("rag.config.restart") + " 功能待实现", "success");
+                  showToast(t("rag.config.actions.restart") + t("rag.config.quickEdit.featureNotImplemented"), "success");
                 }
               }}
             >
@@ -287,7 +286,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 if (onEditScan) {
                   onEditScan();
                 } else {
-                  showToast(t("rag.config.quickEdit.edit") + " 功能待实现", "success");
+                  showToast(t("rag.config.quickEdit.edit") + t("rag.config.quickEdit.featureNotImplemented"), "success");
                 }
               }}
             >
@@ -300,7 +299,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 if (onScanNow) {
                   onScanNow();
                 } else {
-                  showToast(t("rag.config.quickEdit.scanNow") + " 功能待实现", "success");
+                  showToast(t("rag.config.quickEdit.scanNow") + t("rag.config.quickEdit.featureNotImplemented"), "success");
                 }
               }}
             >
@@ -329,18 +328,14 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 <strong>{t("rag.config.model")}:</strong>
                 <span>{llm.model || t("common.none")}</span>
               </div>
-              <div className="cocursor-rag-quick-edit-card-item">
-                <strong>{t("rag.config.llm.language")}:</strong>
-                <span>{llm.language === 'zh-CN' ? '中文' : 'English'}</span>
-              </div>
             </div>
             <div className="cocursor-rag-quick-edit-card-actions">
               <button
                 type="button"
                 className="cocursor-rag-quick-edit-card-action"
-                onClick={() => {
-                  showToast(t("rag.config.llm.title") + " 功能待实现", "success");
-                }}
+              onClick={() => {
+                showToast(t("rag.config.llm.title") + t("rag.config.quickEdit.featureNotImplemented"), "success");
+              }}
               >
                 {t("rag.config.quickEdit.edit")}
               </button>
@@ -386,7 +381,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               type="button"
               className="cocursor-rag-quick-edit-card-action"
               onClick={() => {
-                showToast(t("rag.config.indexStatus") + " 详情功能待实现", "success");
+                showToast(t("rag.config.indexStatus") + t("rag.config.actions.indexStatusDetail"), "success");
               }}
             >
               {t("rag.config.summary.status")}
@@ -404,11 +399,11 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
             if (onTriggerFullIndex) {
               onTriggerFullIndex();
             } else {
-              showToast("全量建索引" + " 功能待实现", "success");
+              showToast(t("rag.config.actions.fullIndex") + t("rag.config.quickEdit.featureNotImplemented"), "success");
             }
           }}
         >
-          🔄 全量建索引
+          🔄 {t("rag.config.actions.fullIndex")}
         </button>
         <button
           type="button"
@@ -419,11 +414,11 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
                 onClearAllData();
               }
             } else {
-              showToast("清空数据" + " 功能待实现", "success");
+              showToast(t("rag.config.actions.clearData") + t("rag.config.quickEdit.featureNotImplemented"), "success");
             }
           }}
         >
-          🗑️ 清空所有数据
+          🗑️ {t("rag.config.actions.clearData")}
         </button>
         <button
           type="button"

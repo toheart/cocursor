@@ -14,9 +14,8 @@ interface Step1_5Props {
     url: string;
     apiKey: string;
     model: string;
-    language: 'zh-CN' | 'en-US';
   };
-  onChange: (data: { url: string; apiKey: string; model: string; language: 'zh-CN' | 'en-US' }) => void;
+  onChange: (data: { url: string; apiKey: string; model: string }) => void;
   onStepComplete: (completed: boolean) => void;
   autoAdvance?: boolean; // 是否自动进入下一步
 }
@@ -52,7 +51,6 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
       url: templateData.url,
       apiKey: '',
       model: templateData.model,
-      language: 'zh-CN',
     });
 
     // 清除错误
@@ -69,7 +67,7 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
     } = {};
 
     if (!llm.url.trim()) {
-      newErrors.url = t('rag.config.apiUrlRequired');
+      newErrors.url = t('rag.config.urlRequired');
     }
     if (!llm.apiKey.trim()) {
       newErrors.apiKey = t('rag.config.apiKeyRequired');
@@ -177,21 +175,21 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
             className={`cocursor-rag-template-button ${selectedTemplate === 'openai' ? 'active' : ''}`}
             onClick={() => handleTemplateSelect('openai')}
           >
-            OpenAI
+            {t('rag.config.template.openai')}
           </button>
           <button
             type="button"
             className={`cocursor-rag-template-button ${selectedTemplate === 'azure' ? 'active' : ''}`}
             onClick={() => handleTemplateSelect('azure')}
           >
-            Azure OpenAI
+            {t('rag.config.template.azure')}
           </button>
           <button
             type="button"
             className={`cocursor-rag-template-button ${selectedTemplate === 'custom' ? 'active' : ''}`}
             onClick={() => handleTemplateSelect('custom')}
           >
-            {t('rag.config.custom')}
+            {t('rag.config.template.custom')}
           </button>
         </div>
       </div>
@@ -257,26 +255,6 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
           ))}
         </datalist>
         {errors.model && <div className="cocursor-rag-error">{errors.model}</div>}
-      </div>
-
-      {/* Language */}
-      <div className="cocursor-rag-field">
-        <label className="cocursor-rag-label">
-          {t('rag.config.llm.language')}
-        </label>
-        <select
-          className="cocursor-rag-select"
-          value={llm.language}
-          onChange={(e) => {
-            onChange({ ...llm, language: e.target.value as 'zh-CN' | 'en-US' });
-          }}
-        >
-          <option value="zh-CN">中文 (Chinese)</option>
-          <option value="en-US">English</option>
-        </select>
-        <div className="cocursor-rag-hint">
-          {t('rag.config.llm.languageHint')}
-        </div>
       </div>
 
       {/* 测试连接按钮 */}

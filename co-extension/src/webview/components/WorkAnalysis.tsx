@@ -277,32 +277,6 @@ export const WorkAnalysis: React.FC = () => {
             </span>
           )}
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button
-            onClick={handleRAGSearchClick}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "var(--vscode-button-secondaryBackground)",
-              color: "var(--vscode-button-secondaryForeground)",
-              border: "1px solid var(--vscode-button-border)",
-              cursor: "pointer",
-            }}
-          >
-            🔍 {t("sidebar.ragSearch")}
-          </button>
-          <button
-            onClick={handleRAGConfigClick}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "var(--vscode-button-secondaryBackground)",
-              color: "var(--vscode-button-secondaryForeground)",
-              border: "1px solid var(--vscode-button-border)",
-              cursor: "pointer",
-            }}
-          >
-            ⚙️ {t("sidebar.ragConfig")}
-          </button>
-        </div>
       </div>
 
       <main className="cocursor-main" style={{ padding: "16px" }}>

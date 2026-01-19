@@ -358,10 +358,27 @@
       "intervalManual": "Manual",
       "batchSize": "Batch Size",
       "concurrency": "Concurrency",
-      "template": "Configuration Template",
+      "template": {
+        "openai": "OpenAI",
+        "azure": "Azure OpenAI",
+        "custom": "Custom"
+      },
       "step1": {
         "title": "Configure Embedding API",
         "description": "Select or configure the API service for vector embeddings"
+      },
+      "llm": {
+        "title": "Configure LLM Chat API",
+        "description": "Configure LLM API service for conversation summarization (required)",
+        "urlPlaceholder": "e.g., https://api.openai.com/v1",
+        "modelPlaceholder": "e.g., gpt-4, gpt-3.5-turbo",
+        "testSuccess": "LLM connection test successful",
+        "saveRequired": "Please complete LLM configuration to continue",
+        "helpTitle": "About LLM Chat API",
+        "helpText": "LLM Chat API is used to intelligently summarize conversation content and extract key points.",
+        "help1": "Supports OpenAI compatible API endpoints",
+        "help2": "Recommend using gpt-3.5-turbo to balance cost and effectiveness",
+        "help3": "Summary results will be used for vectorization to improve search accuracy"
       },
       "step2": {
         "title": "Qdrant Status Check",
@@ -399,7 +416,8 @@
         "resetConfig": "Reset Configuration",
         "edit": "Edit",
         "test": "Test Connection",
-        "scanNow": "Scan Now"
+        "scanNow": "Scan Now",
+        "featureNotImplemented": " feature not implemented"
       },
       "summary": {
         "embedding": "Embedding API",
@@ -422,6 +440,17 @@
         "description": "Qdrant is a high-performance vector search engine for storing and retrieving embedding vectors",
         "performance": "High performance, low latency, suitable for real-time retrieval",
         "docs": "Visit Qdrant official documentation to learn more"
+      },
+      "actions": {
+        "start": "Start",
+        "stop": "Stop",
+        "restart": "Restart",
+        "startNotImplemented": "Start feature not implemented",
+        "stopNotImplemented": "Stop feature not implemented",
+        "restartNotImplemented": "Restart feature not implemented",
+        "fullIndex": "Full Index",
+        "clearData": "Clear Data",
+        "indexStatusDetail": "Index status detail feature not implemented"
       },
       "useRecommended": "Use Recommended Config",
       "enableAutoScanHelper": "Periodically scan workspace and update index automatically",

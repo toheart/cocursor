@@ -25,7 +25,6 @@ interface RAGConfig {
   llm_chat_api: {
     url: string;
     model: string;
-    language: string;
   };
   qdrant: {
     version: string;
@@ -70,7 +69,6 @@ export const RAGConfig: React.FC = () => {
       url: '',
       apiKey: '',
       model: '',
-      language: 'zh-CN',
     },
     qdrant: {
       version: '',
@@ -108,7 +106,6 @@ export const RAGConfig: React.FC = () => {
             url: response.llm_chat_api?.url || '',
             apiKey: '',
             model: response.llm_chat_api?.model || '',
-            language: (response.llm_chat_api?.language || 'zh-CN') as 'zh-CN' | 'en-US',
           },
           qdrant: {
             version: response.qdrant?.version || '',
@@ -202,7 +199,7 @@ export const RAGConfig: React.FC = () => {
     });
   };
 
-  const handleLLMChange = (data: { url: string; apiKey: string; model: string; language: 'zh-CN' | 'en-US' }) => {
+  const handleLLMChange = (data: { url: string; apiKey: string; model: string }) => {
     setConfigState(prev => ({ ...prev, llm: data }));
   };
 
@@ -247,7 +244,6 @@ export const RAGConfig: React.FC = () => {
           url: llm.url,
           model: llm.model,
           api_key: llm.apiKey,
-          language: llm.language,
         },
         scan_config: {
           enabled: scan.enabled,

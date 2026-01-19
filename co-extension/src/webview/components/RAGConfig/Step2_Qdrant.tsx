@@ -127,7 +127,7 @@ export const Step2_Qdrant: React.FC<Step2Props> = ({
                   className="cocursor-rag-qdrant-action-button"
                   onClick={() => {
                     // TODO: 实现启动 Qdrant
-                    showToast("启动功能待实现", "info");
+                    showToast(t("rag.config.actions.startNotImplemented"), "success");
                   }}
                 >
                   {t("rag.config.start")}
@@ -139,7 +139,7 @@ export const Step2_Qdrant: React.FC<Step2Props> = ({
                   className="cocursor-rag-qdrant-action-button"
                   onClick={() => {
                     // TODO: 实现停止 Qdrant
-                    showToast("停止功能待实现", "info");
+                    showToast(t("rag.config.actions.stopNotImplemented"), "success");
                   }}
                 >
                   {t("rag.config.stop")}
@@ -150,7 +150,7 @@ export const Step2_Qdrant: React.FC<Step2Props> = ({
                 className="cocursor-rag-qdrant-action-button"
                 onClick={() => {
                   // TODO: 实现重启 Qdrant
-                  showToast("重启功能待实现", "info");
+                  showToast(t("rag.config.actions.restartNotImplemented"), "success");
                 }}
               >
                 {t("rag.config.restart")}

@@ -136,16 +136,17 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
         //   },
         //   "comment-discussion"
         // ),
-        new SidebarItem(
-          t("sidebar.ragSearch"),
-          vscode.TreeItemCollapsibleState.None,
-          {
-            command: "cocursor.openRAGSearch",
-            title: t("sidebar.openRAGSearch"),
-            arguments: []
-          },
-          "search"
-        ),
+        // 隐藏 RAG 搜索功能
+        // new SidebarItem(
+        //   t("sidebar.ragSearch"),
+        //   vscode.TreeItemCollapsibleState.None,
+        //   {
+        //     command: "cocursor.openRAGSearch",
+        //     title: t("sidebar.openRAGSearch"),
+        //     arguments: []
+        //   },
+        //   "search"
+        // ),
         new SidebarItem(
           t("sidebar.marketplace"),
           vscode.TreeItemCollapsibleState.None,

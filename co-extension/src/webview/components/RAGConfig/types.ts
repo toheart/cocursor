@@ -25,7 +25,6 @@ export interface ConfigState {
     url: string;
     apiKey: string;
     model: string;
-    language: 'zh-CN' | 'en-US';
   };
   qdrant: {
     version: string;
@@ -55,12 +54,12 @@ export interface ConfigTemplateData {
 // 预定义模板
 export const CONFIG_TEMPLATES: Record<ConfigTemplate, ConfigTemplateData> = {
   openai: {
-    name: 'OpenAI',
+    name: 'rag.config.template.openai',
     url: 'https://api.openai.com/v1',
     model: 'text-embedding-ada-002',
   },
   azure: {
-    name: 'Azure OpenAI',
+    name: 'rag.config.template.azure',
     url: 'https://your-resource.openai.azure.com',
     model: 'text-embedding-ada-002',
     additionalFields: {
@@ -68,7 +67,7 @@ export const CONFIG_TEMPLATES: Record<ConfigTemplate, ConfigTemplateData> = {
     },
   },
   custom: {
-    name: '自定义',
+    name: 'rag.config.template.custom',
     url: '',
     model: '',
   },

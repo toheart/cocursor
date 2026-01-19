@@ -13,7 +13,6 @@ interface Step4Props {
   llm?: {
     url: string;
     model: string;
-    language: string;
   };
   qdrant: {
     version: string;
@@ -120,10 +119,6 @@ export const Step4_Summary: React.FC<Step4Props> = ({
               <div className="cocursor-rag-summary-item">
                 <strong>{t("rag.config.model")}:</strong>
                 <span>{llm.model || t("common.none")}</span>
-              </div>
-              <div className="cocursor-rag-summary-item">
-                <strong>{t("rag.config.llm.language")}:</strong>
-                <span>{llm.language === 'zh-CN' ? '中文' : 'English'}</span>
               </div>
             </div>
           </div>

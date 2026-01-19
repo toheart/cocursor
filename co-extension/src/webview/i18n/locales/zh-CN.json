@@ -359,7 +359,11 @@
       "intervalManual": "手动",
       "batchSize": "批次大小",
       "concurrency": "并发数",
-      "template": "配置模板",
+      "template": {
+        "openai": "OpenAI",
+        "azure": "Azure OpenAI",
+        "custom": "自定义"
+      },
       "step1": {
         "title": "配置 Embedding API",
         "description": "选择或配置用于生成向量嵌入的 API 服务"
@@ -369,8 +373,6 @@
         "description": "配置用于对话总结的 LLM API 服务（必填）",
         "urlPlaceholder": "如 https://api.openai.com/v1",
         "modelPlaceholder": "如 gpt-4, gpt-3.5-turbo",
-        "language": "总结语言",
-        "languageHint": "LLM 将使用此语言生成总结",
         "testSuccess": "LLM 连接测试成功",
         "saveRequired": "请完成 LLM 配置后继续",
         "helpTitle": "关于 LLM Chat API",
@@ -415,7 +417,8 @@
         "resetConfig": "重置配置",
         "edit": "编辑",
         "test": "测试连接",
-        "scanNow": "立即扫描"
+        "scanNow": "立即扫描",
+        "featureNotImplemented": " 功能待实现"
       },
       "summary": {
         "embedding": "Embedding API",
@@ -439,6 +442,17 @@
         "description": "Qdrant 是高性能向量搜索引擎，用于存储和检索嵌入向量",
         "performance": "高性能、低延迟，适合实时检索",
         "docs": "查看 Qdrant 官方文档了解更多"
+      },
+      "actions": {
+        "start": "启动",
+        "stop": "停止",
+        "restart": "重启",
+        "startNotImplemented": "启动功能待实现",
+        "stopNotImplemented": "停止功能待实现",
+        "restartNotImplemented": "重启功能待实现",
+        "fullIndex": "全量建索引",
+        "clearData": "清空数据",
+        "indexStatusDetail": "索引状态详情功能待实现"
       },
       "useRecommended": "使用推荐配置",
       "enableAutoScanHelper": "定期自动扫描工作区并更新索引",
