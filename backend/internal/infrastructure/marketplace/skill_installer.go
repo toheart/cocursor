@@ -5,7 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"log/slog"
+
 	domainMarketplace "github.com/cocursor/backend/internal/domain/marketplace"
+	"github.com/cocursor/backend/internal/infrastructure/log"
 )
 
 // SkillInstaller Skill 安装器
@@ -13,6 +16,7 @@ type SkillInstaller struct {
 	pluginLoader  *PluginLoader
 	stateManager  *StateManager
 	agentsUpdater *AgentsUpdater
+	logger        *slog.Logger
 }
 
 // NewSkillInstaller 创建 Skill 安装器
@@ -21,6 +25,7 @@ func NewSkillInstaller(pluginLoader *PluginLoader, stateManager *StateManager, a
 		pluginLoader:  pluginLoader,
 		stateManager:  stateManager,
 		agentsUpdater: agentsUpdater,
+		logger:        log.NewModuleLogger("marketplace", "skill_installer"),
 	}
 }
 
@@ -162,7 +167,11 @@ func (s *SkillInstaller) InstallSkill(pluginID string, skill *domainMarketplace.
 			if err == nil {
 				if err := s.agentsUpdater.AddSkillToAgentsMD(agentsPath, metadata); err != nil {
 					// 记录错误但不影响安装流程
-					// TODO: 使用日志记录错误
+					s.logger.Warn("Failed to add skill to AGENTS.md",
+						"skill_name", skill.SkillName,
+						"workspace_path", workspacePath,
+						"error", err,
+					)
 				}
 			}
 		}
@@ -198,7 +207,11 @@ func (s *SkillInstaller) UninstallSkill(skillName string, workspacePath string) 
 		if err == nil {
 			if err := s.agentsUpdater.RemoveSkillFromAgentsMD(agentsPath, skillName); err != nil {
 				// 记录错误但不影响卸载流程
-				// TODO: 使用日志记录错误
+				s.logger.Warn("Failed to remove skill from AGENTS.md",
+					"skill_name", skillName,
+					"workspace_path", workspacePath,
+					"error", err,
+				)
 			}
 		}
 	}

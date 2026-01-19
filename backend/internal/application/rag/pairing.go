@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
+	domainRAG "github.com/cocursor/backend/internal/domain/rag"
 )
 
 // ConversationTurn 对话对
@@ -20,6 +21,8 @@ type ConversationTurn struct {
 	TurnIndex      int
 	Timestamp      int64
 	IsIncomplete   bool
+	VectorID       string                 // 生成的向量 ID（用于元数据）
+	Summary        *domainRAG.TurnSummary // 对话总结（运行时使用，不持久化）
 }
 
 // IndexedMessage 带索引信息的消息
@@ -27,6 +30,7 @@ type IndexedMessage struct {
 	Message   *domainCursor.Message
 	MessageID string
 	Index     int
+	VectorID  string // 生成的向量 ID（用于元数据）
 }
 
 // PairMessages 将消息配对为对话对

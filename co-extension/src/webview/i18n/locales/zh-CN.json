@@ -16,7 +16,8 @@
     "filter": "筛选",
     "all": "全部",
     "none": "暂无",
-    "unknown": "未知"
+    "unknown": "未知",
+    "copied": "已复制"
   },
   "app": {
     "title": "CoCursor 仪表板",
@@ -296,7 +297,7 @@
     }
   },
   "rag": {
-    "search": {
+      "search": {
       "title": "RAG 搜索",
       "placeholder": "输入搜索关键词...",
       "queryRequired": "请输入搜索关键词",
@@ -310,7 +311,8 @@
       "expand": "展开",
       "messages": "条消息",
       "messagesInTurn": "本轮消息",
-      "noResults": "未找到相关结果"
+      "noResults": "未找到相关结果",
+      "notConfigured": "请先配置 RAG 服务"
     },
     "config": {
       "title": "RAG 配置",
@@ -331,6 +333,13 @@
       "qdrantVersion": "版本",
       "qdrantPath": "路径",
       "qdrantNotInstalled": "Qdrant 未安装",
+      "qdrantRunning": "运行中",
+      "qdrantInstalled": "已安装",
+      "qdrantStopped": "已停止",
+      "qdrantUnknown": "未知状态",
+      "start": "启动",
+      "stop": "停止",
+      "restart": "重启",
       "downloadQdrant": "下载 Qdrant",
       "downloading": "下载中...",
       "qdrantDownloadSuccess": "Qdrant 下载成功",
@@ -349,7 +358,93 @@
       "interval24h": "24 小时",
       "intervalManual": "手动",
       "batchSize": "批次大小",
-      "concurrency": "并发数"
+      "concurrency": "并发数",
+      "template": "配置模板",
+      "step1": {
+        "title": "配置 Embedding API",
+        "description": "选择或配置用于生成向量嵌入的 API 服务"
+      },
+      "llm": {
+        "title": "配置 LLM Chat API",
+        "description": "配置用于对话总结的 LLM API 服务（必填）",
+        "urlPlaceholder": "如 https://api.openai.com/v1",
+        "modelPlaceholder": "如 gpt-4, gpt-3.5-turbo",
+        "language": "总结语言",
+        "languageHint": "LLM 将使用此语言生成总结",
+        "testSuccess": "LLM 连接测试成功",
+        "saveRequired": "请完成 LLM 配置后继续",
+        "helpTitle": "关于 LLM Chat API",
+        "helpText": "LLM Chat API 用于智能总结对话内容，提取关键知识点。",
+        "help1": "支持 OpenAI 兼容的 API 端点",
+        "help2": "推荐使用 gpt-3.5-turbo 以平衡成本和效果",
+        "help3": "总结结果将用于向量化，提升搜索准确性"
+      },
+      "step2": {
+        "title": "Qdrant 状态检查",
+        "description": "检查并配置本地 Qdrant 实例"
+      },
+      "step3": {
+        "title": "扫描策略配置",
+        "description": "设置自动扫描和索引更新规则"
+      },
+      "step4": {
+        "title": "配置确认",
+        "description": "检查并确认您的配置"
+      },
+      "urlRequired": "请输入有效的 URL",
+      "invalidUrl": "URL 格式不正确",
+      "apiKeyRequired": "请输入 API Key",
+      "modelRequired": "请输入模型名称",
+      "copy": "复制",
+      "clear": "清除",
+      "show": "显示",
+      "hide": "隐藏",
+      "copied": "已复制",
+      "wizard": {
+        "title": "RAG 配置向导",
+        "next": "下一步",
+        "previous": "上一步",
+        "skip": "跳过",
+        "saveAndEnable": "保存并启用",
+        "step": "步骤"
+      },
+      "quickEdit": {
+        "title": "RAG 配置",
+        "switchToWizard": "切换到引导模式",
+        "saveChanges": "保存更改",
+        "resetConfig": "重置配置",
+        "edit": "编辑",
+        "test": "测试连接",
+        "scanNow": "立即扫描"
+      },
+      "summary": {
+        "embedding": "Embedding API",
+        "llm": "LLM Chat API",
+        "qdrant": "Qdrant",
+        "scan": "扫描配置",
+        "provider": "服务提供商",
+        "status": "状态",
+        "path": "路径",
+        "enabled": "已启用",
+        "disabled": "已禁用"
+      },
+      "advanced": {
+        "title": "高级选项",
+        "incrementalScan": "启用增量扫描",
+        "maxFileSize": "最大文件大小 (MB)",
+        "ignorePatterns": "忽略文件模式"
+      },
+      "qdrantHelp": {
+        "title": "什么是 Qdrant",
+        "description": "Qdrant 是高性能向量搜索引擎，用于存储和检索嵌入向量",
+        "performance": "高性能、低延迟，适合实时检索",
+        "docs": "查看 Qdrant 官方文档了解更多"
+      },
+      "useRecommended": "使用推荐配置",
+      "enableAutoScanHelper": "定期自动扫描工作区并更新索引",
+      "batchSizeHelper": "每次扫描处理的文件数量（1-100）",
+      "concurrencyHelper": "同时处理的任务数量（1-10）",
+      "saveWarning": "保存配置后，系统将开始扫描工作区并创建索引，这可能需要一些时间"
     }
   }
 }

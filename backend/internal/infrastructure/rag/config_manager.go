@@ -43,6 +43,13 @@ type RAGConfig struct {
 		Model  string `json:"model"`   // 模型名称
 	} `json:"embedding_api"`
 
+	// LLM Chat API 配置
+	LLMChatAPI struct {
+		URL    string `json:"url"`     // API URL (如 https://api.openai.com/v1)
+		APIKey string `json:"api_key"` // API Key（加密存储）
+		Model  string `json:"model"`   // 模型名称 (如 gpt-4, gpt-3.5-turbo)
+	} `json:"llm_chat_api"`
+
 	// Qdrant 配置
 	Qdrant struct {
 		Version    string `json:"version"`     // 已下载的版本
@@ -81,11 +88,20 @@ func (c *ConfigManager) ReadConfig() (*RAGConfig, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// 解密 API Key
+	// 解密 Embedding API Key
 	if config.EmbeddingAPI.APIKey != "" {
 		decrypted, err := c.encryptKey.Decrypt(config.EmbeddingAPI.APIKey)
 		if err == nil {
 			config.EmbeddingAPI.APIKey = decrypted
+		}
+		// 如果解密失败，保持原值（可能是未加密的旧数据）
+	}
+
+	// 解密 LLM Chat API Key
+	if config.LLMChatAPI.APIKey != "" {
+		decrypted, err := c.encryptKey.Decrypt(config.LLMChatAPI.APIKey)
+		if err == nil {
+			config.LLMChatAPI.APIKey = decrypted
 		}
 		// 如果解密失败，保持原值（可能是未加密的旧数据）
 	}
@@ -98,12 +114,22 @@ func (c *ConfigManager) WriteConfig(config *RAGConfig) error {
 	// 创建配置副本以避免修改原始配置
 	configCopy := *config
 
-	// 加密 API Key（如果未加密）
+	// 加密 Embedding API Key（如果未加密）
 	if configCopy.EmbeddingAPI.APIKey != "" {
 		// 检查是否已经是加密格式（base64）
 		encrypted, err := c.encryptKey.Encrypt(configCopy.EmbeddingAPI.APIKey)
 		if err == nil {
 			configCopy.EmbeddingAPI.APIKey = encrypted
+		}
+		// 如果加密失败，保持原值
+	}
+
+	// 加密 LLM Chat API Key（如果未加密）
+	if configCopy.LLMChatAPI.APIKey != "" {
+		// 检查是否已经是加密格式（base64）
+		encrypted, err := c.encryptKey.Encrypt(configCopy.LLMChatAPI.APIKey)
+		if err == nil {
+			configCopy.LLMChatAPI.APIKey = encrypted
 		}
 		// 如果加密失败，保持原值
 	}

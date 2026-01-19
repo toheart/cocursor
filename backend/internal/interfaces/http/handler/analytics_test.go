@@ -14,6 +14,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// mockWorkspaceSessionRepository 模拟 WorkspaceSessionRepository
+type mockWorkspaceSessionRepository struct{}
+
+func (m *mockWorkspaceSessionRepository) Save(session *storage.WorkspaceSession) error {
+	return nil
+}
+
+func (m *mockWorkspaceSessionRepository) FindByWorkspaceID(workspaceID string) ([]*storage.WorkspaceSession, error) {
+	return []*storage.WorkspaceSession{}, nil
+}
+
+func (m *mockWorkspaceSessionRepository) FindByWorkspaceIDAndComposerID(workspaceID, composerID string) (*storage.WorkspaceSession, error) {
+	return nil, nil
+}
+
+func (m *mockWorkspaceSessionRepository) FindByWorkspacesAndDateRange(workspaceIDs []string, startDate, endDate string) ([]*storage.WorkspaceSession, error) {
+	return []*storage.WorkspaceSession{}, nil
+}
+
+func (m *mockWorkspaceSessionRepository) FindByWorkspaces(workspaceIDs []string, search string, limit, offset int) ([]*storage.WorkspaceSession, int, error) {
+	return []*storage.WorkspaceSession{}, 0, nil
+}
+
+func (m *mockWorkspaceSessionRepository) GetCachedComposerIDs(workspaceID string) ([]string, error) {
+	return []string{}, nil
+}
+
 func TestAnalyticsHandler_WorkAnalysis(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -23,9 +50,9 @@ func TestAnalyticsHandler_WorkAnalysis(t *testing.T) {
 	dbReader := infraCursor.NewDBReader()
 	dataMerger := appCursor.NewDataMerger(dbReader, mockGlobalDBReader2)
 	// 创建 mock sessionRepo（测试中可能不需要实际数据）
-	var sessionRepo storage.WorkspaceSessionRepository = nil
-	workAnalysisService, _ := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, dataMerger)
-	sessionService, _ := appCursor.NewSessionService(appCursor.NewProjectManager())
+	sessionRepo := &mockWorkspaceSessionRepository{}
+	workAnalysisService := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, dataMerger)
+	sessionService := appCursor.NewSessionService(appCursor.NewProjectManager(), sessionRepo)
 	handler := NewAnalyticsHandler(
 		appCursor.NewTokenService(),
 		workAnalysisService,

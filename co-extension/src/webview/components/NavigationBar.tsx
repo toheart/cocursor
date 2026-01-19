@@ -17,7 +17,7 @@ export const NavigationBar: React.FC = () => {
   const [currentLanguage, setCurrentLanguage] = useState<string>(i18nInstance.language);
 
   // 根据路径生成面包屑
-  const getBreadcrumbs = (): BreadcrumbItem[] => {
+  const getBreadcrumbs = useCallback((): BreadcrumbItem[] => {
     const path = location.pathname;
     const crumbs: BreadcrumbItem[] = [];
 
@@ -33,18 +33,21 @@ export const NavigationBar: React.FC = () => {
       crumbs.push({ label: t("navigation.sessionDetail"), path: path });
     } else if (viewType === "workflow") {
       if (path.startsWith("/workflows/") && path !== "/workflows") {
-        crumbs.push({ label: t("navigation.workflow"), path: "/" });
+        // 工作流页面已经添加了首页，不再重复添加工作流根路径
         crumbs.push({ label: t("navigation.workflowDetail"), path: path });
+      } else if (path === "/workflows") {
+        crumbs.push({ label: t("navigation.workflow"), path: "/" });
       }
     } else if (viewType === "ragSearch") {
       if (path === "/config") {
-        crumbs.push({ label: t("navigation.ragSearch"), path: "/" });
         crumbs.push({ label: t("navigation.ragConfig"), path: path });
+      } else {
+        crumbs.push({ label: t("navigation.ragSearch"), path: "/" });
       }
     }
 
     return crumbs;
-  };
+  }, [location.pathname, viewType, t]);
 
   const breadcrumbs = getBreadcrumbs();
   // 只有在有面包屑且不是首页时才显示返回按钮
@@ -96,7 +99,7 @@ export const NavigationBar: React.FC = () => {
     }
   };
 
-  const getPageTitle = (): string => {
+  const getPageTitle = useCallback((): string => {
     const path = location.pathname;
     if (viewType === "recentSessions") {
       if (path.startsWith("/sessions/")) return t("navigation.sessionDetail");
@@ -118,7 +121,7 @@ export const NavigationBar: React.FC = () => {
     if (path === "/work-analysis") return t("navigation.workAnalysis");
     if (path.startsWith("/sessions/")) return t("navigation.sessionDetail");
     return t("navigation.workAnalysis");
-  };
+  }, [location.pathname, viewType, t]);
 
   return (
     <div className="cocursor-navbar">

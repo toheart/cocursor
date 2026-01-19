@@ -1,0 +1,270 @@
+/* ========== 工作流样式 ========== */
+
+/* 工作流列表容器 */
+.cocursor-workflow-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 工作流列表头部 */
+.cocursor-workflow-list-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--vscode-sideBar-background);
+}
+
+.cocursor-workflow-list-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-workflow-list-header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 工作流列表项 */
+.cocursor-workflow-item {
+  padding: 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cocursor-workflow-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-workflow-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.cocursor-workflow-item-left {
+  flex: 1;
+}
+
+.cocursor-workflow-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cocursor-workflow-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-workflow-item-path {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+.cocursor-workflow-item-meta {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  text-align: right;
+}
+
+.cocursor-workflow-item-progress {
+  margin-top: 8px;
+}
+
+.cocursor-workflow-item-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.cocursor-workflow-item-progress-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-workflow-item-files {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 工作流详情容器 */
+.cocursor-workflow-detail {
+  padding: 16px;
+}
+
+.cocursor-workflow-detail-header {
+  margin-bottom: 24px;
+}
+
+.cocursor-workflow-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cocursor-workflow-detail-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cocursor-workflow-detail-path {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 工作流信息卡片 */
+.cocursor-workflow-info-card {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--vscode-editor-background);
+  border-radius: 4px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-workflow-info-card-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-workflow-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-workflow-info-row:last-child {
+  border-bottom: none;
+}
+
+.cocursor-workflow-info-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-workflow-info-value {
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  font-weight: 500;
+}
+
+/* 工作流阶段图 */
+.cocursor-workflow-stages {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--vscode-editor-background);
+  border-radius: 4px;
+  border: 1px solid var(--vscode-panel-border);
+  overflow-x: auto;
+}
+
+.cocursor-workflow-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+
+.cocursor-workflow-stage-button {
+  padding: 8px 12px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid var(--vscode-button-border);
+  min-width: 70px;
+}
+
+.cocursor-workflow-stage-name {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+}
+
+.cocursor-workflow-stage-arrow {
+  font-size: 16px;
+  color: var(--vscode-foreground);
+  margin: 0 4px;
+}
+
+/* 工作流任务列表 */
+.cocursor-workflow-tasks {
+  margin-bottom: 24px;
+}
+
+.cocursor-workflow-tasks-title {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-workflow-task-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.cocursor-workflow-task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cocursor-workflow-task-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-workflow-task-status {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.cocursor-workflow-task-description {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .cocursor-workflow-detail-title-row {
+    flex-wrap: wrap;
+  }
+
+  .cocursor-workflow-stages {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cocursor-workflow-stage-arrow {
+    transform: rotate(90deg);
+    margin: 4px 0;
+  }
+}

@@ -138,20 +138,13 @@ export const WorkflowList: React.FC = () => {
 
   return (
     <div className="cocursor-workflow-list">
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--vscode-panel-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>{t("workflows.title")}</h2>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+      <div className="cocursor-workflow-list-header">
+        <h2>{t("workflows.title")}</h2>
+        <div className="cocursor-workflow-list-header-controls">
           <select
+            className="cocursor-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: "4px 8px",
-              fontSize: "12px",
-              backgroundColor: "var(--vscode-dropdown-background)",
-              color: "var(--vscode-dropdown-foreground)",
-              border: "1px solid var(--vscode-dropdown-border)",
-              borderRadius: "2px"
-            }}
           >
             <option value="all">{t("workflows.status.all")}</option>
             <option value="in_progress">{t("workflows.status.inProgress")}</option>
@@ -159,31 +152,31 @@ export const WorkflowList: React.FC = () => {
             <option value="paused">{t("workflows.status.paused")}</option>
           </select>
           <button
+            className="cocursor-btn cocursor-btn-small"
             onClick={loadWorkflows}
             disabled={loading}
-            style={{ padding: "4px 8px", fontSize: "12px" }}
           >
             {loading ? t("workflows.loading") : t("workflows.refresh")}
           </button>
         </div>
       </div>
 
-      <main style={{ padding: "16px" }}>
+      <main className="cocursor-main">
         {/* 可折叠帮助区域 */}
         <WorkflowHelpSection />
 
         {error && (
-          <div className="cocursor-error" style={{ padding: "12px", marginBottom: "16px", backgroundColor: "var(--vscode-inputValidation-errorBackground)", color: "var(--vscode-errorForeground)", borderRadius: "4px" }}>
+          <div className="cocursor-error">
             {t("workflows.error")}: {error}
           </div>
         )}
 
         {loading ? (
-          <div className="cocursor-loading" style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
+          <div className="cocursor-loading">
             {t("workflows.loading")}
           </div>
         ) : workflows.length === 0 ? (
-          <div className="cocursor-empty" style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
+          <div className="cocursor-empty">
             {t("workflows.noWorkflows")}
           </div>
         ) : (
@@ -193,54 +186,33 @@ export const WorkflowList: React.FC = () => {
               return (
                 <div
                   key={workflow.id}
+                  className="cocursor-workflow-item"
                   onClick={() => handleWorkflowClick(workflow)}
-                  style={{
-                    padding: "16px",
-                    borderBottom: "1px solid var(--vscode-panel-border)",
-                    cursor: "pointer",
-                    transition: "background-color 0.2s"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>
+                  <div className="cocursor-workflow-item-header">
+                    <div className="cocursor-workflow-item-left">
+                      <div className="cocursor-workflow-item-title-row">
+                        <h3 className="cocursor-workflow-item-title">
                           {workflow.change_id}
                         </h3>
-                        <span
-                          style={{
-                            padding: "2px 6px",
-                            fontSize: "11px",
-                            borderRadius: "2px",
-                            backgroundColor: "var(--vscode-badge-background)",
-                            color: "var(--vscode-badge-foreground)"
-                          }}
-                        >
+                        <span className="cocursor-badge cocursor-badge-default">
                           {getStageLabel(workflow.stage)}
                         </span>
                         <span
+                          className="cocursor-badge cocursor-badge-outline"
                           style={{
-                            padding: "2px 6px",
-                            fontSize: "11px",
-                            borderRadius: "2px",
                             color: getStatusColor(workflow.status),
-                            border: `1px solid ${getStatusColor(workflow.status)}`
+                            borderColor: getStatusColor(workflow.status)
                           }}
                         >
                           {getStatusLabel(workflow.status)}
                         </span>
                       </div>
-                      <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)", marginBottom: "8px" }}>
+                      <div className="cocursor-workflow-item-path">
                         {workflow.project_path}
                       </div>
                     </div>
-                    <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)", textAlign: "right" }}>
+                    <div className="cocursor-workflow-item-meta">
                       <div>{t("workflows.startTime")}: {formatDate(workflow.started_at)}</div>
                       <div>{t("workflows.updateTime")}: {formatDate(workflow.updated_at)}</div>
                     </div>
@@ -248,32 +220,23 @@ export const WorkflowList: React.FC = () => {
 
                   {/* 进度条 */}
                   {progress > 0 && (
-                    <div style={{ marginTop: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+                    <div className="cocursor-workflow-item-progress">
+                      <div className="cocursor-workflow-item-progress-header">
+                        <span className="cocursor-workflow-item-progress-text">
                           {t("workflows.progress")}: {progress}%
                         </span>
                         {workflow.summary && (
-                          <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+                          <span className="cocursor-workflow-item-progress-text">
                             {workflow.summary.tasks_completed} / {workflow.summary.tasks_total} {t("workflows.tasks")}
                           </span>
                         )}
                       </div>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "4px",
-                          backgroundColor: "var(--vscode-progressBar-background)",
-                          borderRadius: "2px",
-                          overflow: "hidden"
-                        }}
-                      >
+                      <div className="cocursor-progress">
                         <div
+                          className="cocursor-progress-bar"
                           style={{
                             width: `${progress}%`,
-                            height: "100%",
-                            backgroundColor: getStatusColor(workflow.status),
-                            transition: "width 0.3s ease"
+                            backgroundColor: getStatusColor(workflow.status)
                           }}
                         />
                       </div>
@@ -282,7 +245,7 @@ export const WorkflowList: React.FC = () => {
 
                   {/* 文件变更统计 */}
                   {workflow.summary && workflow.summary.files_changed && workflow.summary.files_changed.length > 0 && (
-                    <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+                    <div className="cocursor-workflow-item-files">
                       {t("workflows.changedFiles")}: {workflow.summary.files_changed.length}
                     </div>
                   )}

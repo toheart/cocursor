@@ -2,10 +2,12 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
+	"log/slog"
+
+	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
 	"github.com/gin-gonic/gin"
@@ -20,6 +22,7 @@ type HTTPServer struct {
 	router   *gin.Engine
 	httpPort string
 	server   *http.Server
+	logger   *slog.Logger
 }
 
 // NewServer 创建 HTTP 服务器
@@ -35,6 +38,8 @@ func NewServer(
 	mcpServer *mcp.MCPServer,
 ) *HTTPServer {
 	router := gin.Default()
+
+	logger := log.NewModuleLogger("http", "server")
 
 	// 注册路由
 	api := router.Group("/api/v1")
@@ -90,7 +95,13 @@ func NewServer(
 				rag.GET("/config", ragHandler.GetConfig)
 				rag.POST("/config", ragHandler.UpdateConfig)
 				rag.POST("/config/test", ragHandler.TestConfig)
+				rag.POST("/config/llm/test", ragHandler.TestLLMConnection)
+				rag.POST("/index/full", ragHandler.TriggerFullIndex)
+				rag.DELETE("/data", ragHandler.ClearAllData)
 				rag.POST("/qdrant/download", ragHandler.DownloadQdrant)
+				rag.POST("/qdrant/start", ragHandler.StartQdrant)
+				rag.POST("/qdrant/stop", ragHandler.StopQdrant)
+				rag.GET("/qdrant/status", ragHandler.GetQdrantStatus)
 			}
 		}
 	}
@@ -111,6 +122,7 @@ func NewServer(
 	return &HTTPServer{
 		router:   router,
 		httpPort: ":19960",
+		logger:   logger,
 	}
 }
 
@@ -121,7 +133,10 @@ func (s *HTTPServer) Start() error {
 		Handler: s.router,
 	}
 
-	fmt.Printf("HTTP 服务器启动在端口 %s\n", s.httpPort)
+	s.logger.Info("HTTP server starting",
+		"port", s.httpPort,
+	)
+
 	return s.server.ListenAndServe()
 }
 

@@ -483,3 +483,18 @@ func (r *RAGRepository) UpdateFileMtime(filePath string, mtime int64) error {
 	_, err = r.db.Exec(query, mtime, filePath)
 	return err
 }
+
+// ClearAllMetadata 清空所有元数据
+func (r *RAGRepository) ClearAllMetadata() error {
+	// 清空消息元数据
+	if _, err := r.db.Exec("DELETE FROM rag_message_metadata"); err != nil {
+		return err
+	}
+
+	// 清空对话对元数据
+	if _, err := r.db.Exec("DELETE FROM rag_turn_metadata"); err != nil {
+		return err
+	}
+
+	return nil
+}

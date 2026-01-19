@@ -221,11 +221,20 @@ export class WebviewPanel {
       case "testRAGConfig":
         this._handleTestRAGConfig(message.payload as { config: { url: string; api_key: string; model: string } });
         break;
+      case "testLLMConnection":
+        this._handleTestLLMConnection(message.payload as { config: { url: string; api_key: string; model: string } });
+        break;
       case "searchRAG":
         this._handleSearchRAG(message.payload as { query: string; projectIds?: string[]; limit?: number });
         break;
       case "triggerRAGIndex":
         this._handleTriggerRAGIndex(message.payload as { sessionId?: string });
+        break;
+      case "triggerFullIndex":
+        this._handleTriggerFullIndex();
+        break;
+      case "clearAllData":
+        this._handleClearAllData();
         break;
       case "fetchRAGStats":
         this._handleFetchRAGStats();
@@ -235,9 +244,6 @@ export class WebviewPanel {
         break;
       case "openRAGSearch":
         this._handleOpenRAGSearch(message.payload as { route?: string } | undefined);
-        break;
-      case "changeLanguage":
-        this._handleChangeLanguage(message.payload as { language: string });
         break;
       default:
         console.warn(`未知命令: ${message.command}`);
@@ -907,11 +913,16 @@ export class WebviewPanel {
 
   private async _handleSearchRAG(payload: { query: string; projectIds?: string[]; limit?: number }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/search", {
+      const requestBody: any = {
         query: payload.query,
-        project_ids: payload.projectIds,
         limit: payload.limit || 10
-      }, { timeout: 30000 });
+      };
+      // 只有当 projectIds 有值时才添加到请求体
+      if (payload.projectIds && payload.projectIds.length > 0) {
+        requestBody.project_ids = payload.projectIds;
+      }
+
+      const response = await axios.post("http://localhost:19960/api/v1/rag/search", requestBody, { timeout: 30000 });
       this._sendMessage({
         type: "searchRAG-response",
         data: response.data
@@ -936,6 +947,54 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "triggerRAGIndex-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleTestLLMConnection(payload: { config: { url: string; api_key: string; model: string } }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/config/llm/test", payload.config, { timeout: 30000 });
+      this._sendMessage({
+        type: "testLLMConnection-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "testLLMConnection-response",
+        data: {
+          success: false,
+          error: error instanceof Error ? error.message : "未知错误"
+        }
+      });
+    }
+  }
+
+  private async _handleTriggerFullIndex(): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/index/full", {}, { timeout: 10000 });
+      this._sendMessage({
+        type: "triggerFullIndex-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "triggerFullIndex-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleClearAllData(): Promise<void> {
+    try {
+      const response = await axios.delete("http://localhost:19960/api/v1/rag/data", { timeout: 10000 });
+      this._sendMessage({
+        type: "clearAllData-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "clearAllData-response",
         data: { error: error instanceof Error ? error.message : "未知错误" }
       });
     }

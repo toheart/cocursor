@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,6 +18,9 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
+	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/qdrant/go-client/qdrant"
 )
 
@@ -28,6 +32,8 @@ type QdrantManager struct {
 	httpPort   int
 	cmd        *exec.Cmd
 	client     *qdrant.Client
+	configPath string // 临时配置文件路径（如果使用）
+	logger     *slog.Logger
 }
 
 // NewQdrantManager 创建 Qdrant 管理器
@@ -37,6 +43,7 @@ func NewQdrantManager(binaryPath, dataPath string) *QdrantManager {
 		dataPath:   dataPath,
 		grpcPort:   6334,
 		httpPort:   6333,
+		logger:     log.NewModuleLogger("qdrant", "manager"),
 	}
 }
 
@@ -52,6 +59,24 @@ func (q *QdrantManager) GetDataPath() string {
 
 // Start 启动 Qdrant 服务
 func (q *QdrantManager) Start() error {
+	// 检查是否已在运行
+	if q.IsRunning() {
+		// 如果已有客户端，直接返回
+		if q.client != nil {
+			return nil
+		}
+		// 如果服务在运行但没有客户端，尝试连接
+		client, err := qdrant.NewClient(&qdrant.Config{
+			Host:                   "localhost",
+			Port:                   q.grpcPort,
+			SkipCompatibilityCheck: true,
+		})
+		if err == nil {
+			q.client = client
+			return nil
+		}
+	}
+
 	// 确保数据目录存在
 	if err := os.MkdirAll(q.dataPath, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
@@ -62,20 +87,33 @@ func (q *QdrantManager) Start() error {
 		return fmt.Errorf("qdrant binary not found at %s", q.binaryPath)
 	}
 
-	// 构建启动命令
+	// 创建临时配置文件
+	configPath, err := q.createConfigFile()
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+	q.configPath = configPath // 保存路径，在 Stop() 时删除
+
+	// 构建启动命令（使用配置文件）
 	args := []string{
-		"--config-path", "/dev/null", // 使用命令行参数配置
-		"--storage-path", q.dataPath,
-		"--grpc-port", fmt.Sprintf("%d", q.grpcPort),
-		"--http-port", fmt.Sprintf("%d", q.httpPort),
+		"--config-path", configPath,
 	}
 
 	q.cmd = exec.Command(q.binaryPath, args...)
 	q.cmd.Stdout = os.Stdout
 	q.cmd.Stderr = os.Stderr
 
+	// 设置环境变量（作为备用方案，环境变量会覆盖配置文件中的设置）
+	q.cmd.Env = append(os.Environ(),
+		fmt.Sprintf("QDRANT__STORAGE__STORAGE_PATH=%s", q.dataPath),
+		fmt.Sprintf("QDRANT__SERVICE__HTTP_PORT=%d", q.httpPort),
+		fmt.Sprintf("QDRANT__SERVICE__GRPC_PORT=%d", q.grpcPort),
+	)
+
 	// 启动进程
 	if err := q.cmd.Start(); err != nil {
+		os.Remove(configPath) // 启动失败时立即删除配置文件
+		q.configPath = ""
 		return fmt.Errorf("failed to start qdrant: %w", err)
 	}
 
@@ -87,8 +125,9 @@ func (q *QdrantManager) Start() error {
 
 	// 创建客户端连接
 	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: "localhost",
-		Port: q.grpcPort,
+		Host:                   "localhost",
+		Port:                   q.grpcPort,
+		SkipCompatibilityCheck: true, // 跳过版本检查，避免在服务未就绪时产生警告
 	})
 	if err != nil {
 		q.Stop()
@@ -116,6 +155,12 @@ func (q *QdrantManager) Stop() error {
 		q.client = nil
 	}
 
+	// 删除临时配置文件
+	if q.configPath != "" {
+		os.Remove(q.configPath)
+		q.configPath = ""
+	}
+
 	return nil
 }
 
@@ -124,14 +169,35 @@ func (q *QdrantManager) GetClient() *qdrant.Client {
 	return q.client
 }
 
+// IsRunning 检查 Qdrant 服务是否已在运行
+func (q *QdrantManager) IsRunning() bool {
+	// 如果已有客户端连接，说明服务在运行
+	if q.client != nil {
+		// 测试连接是否有效
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_, err := q.client.ListCollections(ctx)
+		return err == nil
+	}
+
+	// 检查端口是否被占用（简单检查）
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", q.grpcPort), 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
 // waitForReady 等待 Qdrant 服务就绪
 func (q *QdrantManager) waitForReady(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		// 尝试连接 Qdrant
+		// 尝试连接 Qdrant（跳过版本检查避免警告）
 		client, err := qdrant.NewClient(&qdrant.Config{
-			Host: "localhost",
-			Port: q.grpcPort,
+			Host:                   "localhost",
+			Port:                   q.grpcPort,
+			SkipCompatibilityCheck: true, // 跳过版本检查，避免在服务未就绪时产生警告
 		})
 		if err == nil {
 			// 测试连接：尝试列出集合
@@ -145,6 +211,34 @@ func (q *QdrantManager) waitForReady(timeout time.Duration) error {
 		time.Sleep(500 * time.Millisecond)
 	}
 	return fmt.Errorf("timeout waiting for qdrant to be ready")
+}
+
+// createConfigFile 创建临时配置文件
+func (q *QdrantManager) createConfigFile() (string, error) {
+	// 创建临时配置文件
+	tmpFile, err := os.CreateTemp("", "qdrant-config-*.yaml")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp config file: %w", err)
+	}
+	configPath := tmpFile.Name()
+	tmpFile.Close()
+
+	// 写入配置内容
+	configContent := fmt.Sprintf(`storage:
+  storage_path: %s
+
+service:
+  http_port: %d
+  grpc_port: %d
+  host: "127.0.0.1"
+`, q.dataPath, q.httpPort, q.grpcPort)
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		os.Remove(configPath)
+		return "", fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return configPath, nil
 }
 
 // EnsureCollections 确保集合存在
@@ -181,6 +275,42 @@ func (q *QdrantManager) EnsureCollections(vectorSize uint64) error {
 			if err != nil {
 				return fmt.Errorf("failed to create collection %s: %w", collectionName, err)
 			}
+		}
+	}
+
+	return nil
+}
+
+// ClearCollections 清空所有集合中的数据（通过删除并重新创建集合）
+func (q *QdrantManager) ClearCollections() error {
+	if q.client == nil {
+		return fmt.Errorf("qdrant client not initialized")
+	}
+
+	collections := []string{"cursor_sessions_messages", "cursor_sessions_turns"}
+	ctx := context.Background()
+
+	// 获取现有集合列表
+	existingCollections, err := q.client.ListCollections(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list collections: %w", err)
+	}
+
+	// 检查每个集合是否存在
+	collectionMap := make(map[string]bool)
+	for _, col := range existingCollections {
+		collectionMap[col] = true
+	}
+
+	for _, collectionName := range collections {
+		if collectionMap[collectionName] {
+			// 删除集合
+			err := q.client.DeleteCollection(ctx, collectionName)
+			if err != nil {
+				q.logger.Warn("Failed to delete collection", "collection", collectionName, "error", err)
+				continue
+			}
+			q.logger.Info("Collection deleted successfully", "collection", collectionName)
 		}
 	}
 
@@ -258,28 +388,35 @@ func DownloadQdrant(version string) (string, error) {
 		version = "v1.16.3"
 	}
 
+	fmt.Printf("[Qdrant Download] Starting download process for version %s\n", version)
+
 	// 获取平台信息
 	osName, arch := GetPlatformInfo()
+	fmt.Printf("[Qdrant Download] Platform: %s/%s\n", osName, arch)
 
 	// 构建下载 URL
 	downloadURL, err := buildDownloadURL(version, osName, arch)
 	if err != nil {
 		return "", fmt.Errorf("failed to build download URL: %w", err)
 	}
+	fmt.Printf("[Qdrant Download] Download URL: %s\n", downloadURL)
 
 	// 获取安装路径
 	installPath, err := GetQdrantInstallPath()
 	if err != nil {
 		return "", fmt.Errorf("failed to get install path: %w", err)
 	}
+	fmt.Printf("[Qdrant Download] Install path: %s\n", installPath)
 
 	// 检查是否已安装
 	if _, err := os.Stat(installPath); err == nil {
 		// 已安装，检查版本
 		installedVersion, err := getInstalledVersion(installPath)
 		if err == nil && installedVersion == version {
+			fmt.Printf("[Qdrant Download] Already installed with version %s\n", installedVersion)
 			return installPath, nil
 		}
+		fmt.Printf("[Qdrant Download] Installed version %s differs from requested %s, will reinstall\n", installedVersion, version)
 	}
 
 	// 创建临时目录
@@ -287,92 +424,111 @@ func DownloadQdrant(version string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Printf("[Qdrant Download] Warning: failed to remove temp directory %s: %v\n", tmpDir, err)
+		}
+	}()
+	fmt.Printf("[Qdrant Download] Temp directory: %s\n", tmpDir)
 
 	// 下载文件
 	downloadPath := filepath.Join(tmpDir, filepath.Base(downloadURL))
+	fmt.Printf("[Qdrant Download] Starting download to %s\n", downloadPath)
 	if err := downloadFile(downloadURL, downloadPath); err != nil {
-		return "", fmt.Errorf("failed to download qdrant: %w", err)
+		return "", fmt.Errorf("failed to download qdrant from %s: %w", downloadURL, err)
 	}
 
 	// 验证文件完整性（如果有 SHA256 文件）
+	fmt.Printf("[Qdrant Download] Verifying checksum...\n")
 	if err := verifyChecksum(downloadURL, downloadPath); err != nil {
 		// 验证失败，但不阻止安装（某些版本可能没有 checksum 文件）
-		fmt.Printf("Warning: failed to verify checksum: %v\n", err)
+		fmt.Printf("[Qdrant Download] Warning: failed to verify checksum: %v (continuing anyway)\n", err)
+	} else {
+		fmt.Printf("[Qdrant Download] Checksum verified successfully\n")
 	}
 
 	// 解压文件
+	fmt.Printf("[Qdrant Download] Extracting archive...\n")
 	extractDir := filepath.Join(tmpDir, "extracted")
 	if err := extractArchive(downloadPath, extractDir, osName); err != nil {
 		return "", fmt.Errorf("failed to extract archive: %w", err)
 	}
+	fmt.Printf("[Qdrant Download] Archive extracted successfully\n")
 
 	// 查找二进制文件
 	binaryName := "qdrant"
 	if osName == "windows" {
 		binaryName = "qdrant.exe"
 	}
+	fmt.Printf("[Qdrant Download] Looking for binary: %s\n", binaryName)
 	binaryPath := findBinaryInExtracted(extractDir, binaryName)
 	if binaryPath == "" {
-		return "", fmt.Errorf("binary not found in extracted archive")
+		return "", fmt.Errorf("binary %s not found in extracted archive (searched in %s)", binaryName, extractDir)
 	}
+	fmt.Printf("[Qdrant Download] Binary found at: %s\n", binaryPath)
 
 	// 确保安装目录存在
 	installDir := filepath.Dir(installPath)
+	fmt.Printf("[Qdrant Download] Creating install directory: %s\n", installDir)
 	if err := os.MkdirAll(installDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create install directory: %w", err)
+		return "", fmt.Errorf("failed to create install directory %s: %w", installDir, err)
 	}
 
 	// 复制二进制文件
+	fmt.Printf("[Qdrant Download] Copying binary to %s\n", installPath)
 	if err := copyFile(binaryPath, installPath); err != nil {
-		return "", fmt.Errorf("failed to copy binary: %w", err)
+		return "", fmt.Errorf("failed to copy binary from %s to %s: %w", binaryPath, installPath, err)
 	}
 
 	// 设置执行权限（非 Windows）
 	if osName != "windows" {
+		fmt.Printf("[Qdrant Download] Setting executable permissions\n")
 		if err := os.Chmod(installPath, 0755); err != nil {
 			return "", fmt.Errorf("failed to set executable permission: %w", err)
 		}
 	}
 
 	// 验证安装
+	fmt.Printf("[Qdrant Download] Verifying installation...\n")
 	if err := verifyInstallation(installPath); err != nil {
 		return "", fmt.Errorf("failed to verify installation: %w", err)
 	}
+	fmt.Printf("[Qdrant Download] Installation verified successfully\n")
 
+	fmt.Printf("[Qdrant Download] Qdrant %s installed successfully at %s\n", version, installPath)
 	return installPath, nil
 }
 
 // buildDownloadURL 构建下载 URL
 func buildDownloadURL(version, osName, arch string) (string, error) {
 	// Qdrant GitHub Releases URL 格式
-	// https://github.com/qdrant/qdrant/releases/download/v1.16.3/qdrant-1.16.3-x86_64-apple-darwin.zip
+	// https://github.com/qdrant/qdrant/releases/download/v1.16.3/qdrant-x86_64-pc-windows-msvc.zip
+	// 注意：文件名中不包含版本号，版本号只在 URL 路径中
 	baseURL := "https://github.com/qdrant/qdrant/releases/download"
 
-	// 构建文件名
+	// 构建文件名（不包含版本号）
 	var filename string
-	versionNum := strings.TrimPrefix(version, "v")
 
 	switch osName {
 	case "windows":
 		if arch == "x86_64" {
-			filename = fmt.Sprintf("qdrant-%s-x86_64-pc-windows-msvc.zip", versionNum)
+			filename = "qdrant-x86_64-pc-windows-msvc.zip"
 		} else {
 			return "", fmt.Errorf("unsupported architecture for Windows: %s", arch)
 		}
 	case "macos":
 		if arch == "x86_64" {
-			filename = fmt.Sprintf("qdrant-%s-x86_64-apple-darwin.zip", versionNum)
+			filename = "qdrant-x86_64-apple-darwin.zip"
 		} else if arch == "arm64" {
-			filename = fmt.Sprintf("qdrant-%s-aarch64-apple-darwin.zip", versionNum)
+			filename = "qdrant-aarch64-apple-darwin.zip"
 		} else {
 			return "", fmt.Errorf("unsupported architecture for macOS: %s", arch)
 		}
 	case "linux":
 		if arch == "x86_64" {
-			filename = fmt.Sprintf("qdrant-%s-x86_64-unknown-linux-musl.zip", versionNum)
+			filename = "qdrant-x86_64-unknown-linux-musl.tar.gz"
 		} else if arch == "arm64" {
-			filename = fmt.Sprintf("qdrant-%s-aarch64-unknown-linux-musl.zip", versionNum)
+			filename = "qdrant-aarch64-unknown-linux-musl.tar.gz"
 		} else {
 			return "", fmt.Errorf("unsupported architecture for Linux: %s", arch)
 		}
@@ -383,30 +539,80 @@ func buildDownloadURL(version, osName, arch string) (string, error) {
 	return fmt.Sprintf("%s/%s/%s", baseURL, version, filename), nil
 }
 
-// downloadFile 下载文件
+// downloadFile 下载文件（带超时和重试）
 func downloadFile(url, destPath string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to download file: %w", err)
-	}
-	defer resp.Body.Close()
+	const maxRetries = 3
+	const timeout = 5 * time.Minute // 5分钟超时
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download file: status code %d", resp.StatusCode)
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			fmt.Printf("Retrying download (attempt %d/%d)...\n", attempt, maxRetries)
+			time.Sleep(time.Duration(attempt) * time.Second) // 递增延迟
+		}
+
+		// 创建带超时的 HTTP 客户端
+		client := &http.Client{
+			Timeout: timeout,
+		}
+
+		resp, err := client.Get(url)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to download file: %w", err)
+			fmt.Printf("Download attempt %d failed: %v\n", attempt, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("failed to download file: status code %d", resp.StatusCode)
+			fmt.Printf("Download attempt %d failed: HTTP %d\n", attempt, resp.StatusCode)
+			continue
+		}
+
+		// 获取文件大小（用于进度显示）
+		contentLength := resp.ContentLength
+		if contentLength > 0 {
+			fmt.Printf("Downloading %s (%.2f MB)...\n", filepath.Base(destPath), float64(contentLength)/(1024*1024))
+		}
+
+		// 创建目标文件
+		out, err := os.Create(destPath)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to create file: %w", err)
+			fmt.Printf("Download attempt %d failed: %v\n", attempt, err)
+			continue
+		}
+
+		// 复制数据
+		written, err := io.Copy(out, resp.Body)
+		if err != nil {
+			out.Close()
+			os.Remove(destPath) // 删除不完整的文件
+			lastErr = fmt.Errorf("failed to write file: %w", err)
+			fmt.Printf("Download attempt %d failed: %v (written: %d bytes)\n", attempt, err, written)
+			continue
+		}
+
+		if err := out.Close(); err != nil {
+			lastErr = fmt.Errorf("failed to close file: %w", err)
+			fmt.Printf("Download attempt %d failed: %v\n", attempt, err)
+			continue
+		}
+
+		// 验证文件大小
+		if contentLength > 0 && written != contentLength {
+			os.Remove(destPath)
+			lastErr = fmt.Errorf("file size mismatch: expected %d bytes, got %d bytes", contentLength, written)
+			fmt.Printf("Download attempt %d failed: %v\n", attempt, lastErr)
+			continue
+		}
+
+		fmt.Printf("Download completed successfully (%d bytes)\n", written)
+		return nil
 	}
 
-	out, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return nil
+	return fmt.Errorf("download failed after %d attempts: %w", maxRetries, lastErr)
 }
 
 // verifyChecksum 验证文件校验和

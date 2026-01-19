@@ -13,11 +13,15 @@ import (
 	"syscall"
 
 	"github.com/cocursor/backend/internal/infrastructure/config"
+	applog "github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/singleton"
 	"github.com/cocursor/backend/internal/wire"
 )
 
 func main() {
+	// 初始化日志系统
+	applog.Init(nil)
+
 	// 加载配置获取端口
 	cfg := config.NewConfig()
 	port := cfg.Server.HTTPPort
@@ -38,12 +42,18 @@ func main() {
 	// Wire 自动生成的初始化函数
 	app, err := wire.InitializeAll()
 	if err != nil {
-		log.Fatalf("初始化应用失败: %v", err)
+		applog.GetLogger().Error("Failed to initialize application",
+			"error", err,
+		)
+		os.Exit(1)
 	}
 
 	// 启动所有服务
 	if err := app.Start(); err != nil {
-		log.Fatalf("启动应用失败: %v", err)
+		applog.GetLogger().Error("Failed to start application",
+			"error", err,
+		)
+		os.Exit(1)
 	}
 
 	// 优雅关闭
@@ -51,9 +61,11 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("正在关闭应用...")
+	applog.GetLogger().Info("Shutting down application...")
 	if err := app.Stop(); err != nil {
-		log.Printf("关闭应用时出错: %v", err)
+		applog.GetLogger().Error("Error during application shutdown",
+			"error", err,
+		)
 	}
-	log.Println("应用已关闭")
+	applog.GetLogger().Info("Application stopped")
 }

@@ -16,7 +16,6 @@ import (
 func TestStatsHandler_AcceptanceRate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
 	statsService := appCursor.NewStatsService(mockGlobalDBReader)
 	handler := NewStatsHandler(statsService, appCursor.NewProjectManager())
@@ -88,7 +87,6 @@ func TestStatsHandler_AcceptanceRate(t *testing.T) {
 func TestStatsHandler_FileReferences(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
 	statsService := appCursor.NewStatsService(mockGlobalDBReader)
 	handler := NewStatsHandler(statsService, appCursor.NewProjectManager())
@@ -165,7 +163,6 @@ func TestStatsHandler_FileReferences(t *testing.T) {
 func TestStatsHandler_DailyReport(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
 	statsService := appCursor.NewStatsService(mockGlobalDBReader)
 	handler := NewStatsHandler(statsService, appCursor.NewProjectManager())

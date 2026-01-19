@@ -4,13 +4,13 @@
 package wire
 
 import (
-	"github.com/google/wire"
 	"github.com/cocursor/backend/internal/application"
 	appNotification "github.com/cocursor/backend/internal/application/notification"
 	"github.com/cocursor/backend/internal/domain/notification"
 	"github.com/cocursor/backend/internal/infrastructure"
 	infraNotification "github.com/cocursor/backend/internal/infrastructure/notification"
 	"github.com/cocursor/backend/internal/interfaces"
+	"github.com/google/wire"
 )
 
 // InitializeAll 初始化所有服务（HTTP + MCP）

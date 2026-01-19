@@ -40,18 +40,19 @@ type SearchRequest struct {
 
 // SearchResult 搜索结果
 type SearchResult struct {
-	Type        string   `json:"type"`         // "message" 或 "turn"
+	Type        string   `json:"type"` // "message" 或 "turn"
 	SessionID   string   `json:"session_id"`
 	Score       float32  `json:"score"`
 	Content     string   `json:"content"`
-	UserText    string   `json:"user_text,omitempty"`    // 对话对才有
-	AIText      string   `json:"ai_text,omitempty"`      // 对话对才有
-	MessageID   string   `json:"message_id,omitempty"`   // 消息才有
-	TurnIndex   int      `json:"turn_index,omitempty"`   // 对话对才有
+	UserText    string   `json:"user_text,omitempty"`  // 对话对才有
+	AIText      string   `json:"ai_text,omitempty"`    // 对话对才有
+	MessageID   string   `json:"message_id,omitempty"` // 消息才有
+	TurnIndex   int      `json:"turn_index,omitempty"` // 对话对才有
 	ProjectID   string   `json:"project_id"`
 	ProjectName string   `json:"project_name"`
 	Timestamp   int64    `json:"timestamp"`
 	MessageIDs  []string `json:"message_ids,omitempty"` // 对话对包含的消息 ID
+	Summary     string   `json:"summary"`               // 总结 JSON 字符串
 }
 
 // Search 执行语义搜索
@@ -78,22 +79,13 @@ func (s *SearchService) Search(ctx context.Context, req *SearchRequest) ([]*Sear
 		return nil, fmt.Errorf("qdrant client not initialized")
 	}
 
-	// 2. 搜索对话对级别（加权 20%）
+	// 2. 只在对话对级别搜索（总结向量）
 	turnResults, err := s.searchTurns(ctx, client, queryVector, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search turns: %w", err)
 	}
 
-	// 3. 搜索消息级别
-	messageResults, err := s.searchMessages(ctx, client, queryVector, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search messages: %w", err)
-	}
-
-	// 4. 合并结果（对话对加权 20%）
-	mergedResults := s.mergeResults(turnResults, messageResults, req.Limit)
-
-	return mergedResults, nil
+	return turnResults, nil
 }
 
 // searchTurns 搜索对话对级别
@@ -186,7 +178,7 @@ func (s *SearchService) turnHitToResult(hit *qdrant.ScoredPoint) *SearchResult {
 	}
 
 	result := &SearchResult{
-		Type: "turn",
+		Type:  "turn",
 		Score: hit.GetScore(),
 	}
 
@@ -212,6 +204,10 @@ func (s *SearchService) turnHitToResult(hit *qdrant.ScoredPoint) *SearchResult {
 	if val, ok := payload["project_name"]; ok {
 		result.ProjectName = s.extractStringValue(val)
 	}
+	// 提取 summary (JSON 字符串)
+	if val, ok := payload["summary"]; ok {
+		result.Summary = s.extractStringValue(val)
+	}
 
 	return result
 }
@@ -224,7 +220,7 @@ func (s *SearchService) messageHitToResult(hit *qdrant.ScoredPoint) *SearchResul
 	}
 
 	result := &SearchResult{
-		Type: "message",
+		Type:  "message",
 		Score: hit.GetScore(),
 	}
 

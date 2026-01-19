@@ -10,22 +10,26 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
 	domainRAG "github.com/cocursor/backend/internal/domain/rag"
+	"github.com/cocursor/backend/internal/infrastructure/log"
 )
 
 // ScanScheduler 扫描调度器
 type ScanScheduler struct {
-	ragService      *RAGService
-	ragInitializer  *RAGInitializer // 用于延迟初始化
-	projectManager  *appCursor.ProjectManager
-	ragRepo         domainRAG.RAGRepository
-	config          *ScanConfig
-	mu              sync.RWMutex
-	stopChan        chan struct{}
-	ticker          *time.Ticker
-	initialized     bool
+	ragService     *RAGService
+	ragInitializer *RAGInitializer // 用于延迟初始化
+	projectManager *appCursor.ProjectManager
+	ragRepo        domainRAG.RAGRepository
+	config         *ScanConfig
+	mu             sync.RWMutex
+	stopChan       chan struct{}
+	ticker         *time.Ticker
+	initialized    bool
+	logger         *slog.Logger
 }
 
 // ScanConfig 扫描配置
@@ -50,6 +54,7 @@ func NewScanScheduler(
 		config:         config,
 		stopChan:       make(chan struct{}),
 		initialized:    false,
+		logger:         log.NewModuleLogger("rag", "scanner"),
 	}
 }
 
@@ -85,10 +90,8 @@ func (s *ScanScheduler) Start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// 首次全量扫描
-	go s.scanOnce()
-
-	// 启动定时扫描
+	// 不再启动时自动全量扫描，改为手动触发
+	// 只启动定时扫描（如果配置了 interval）
 	if s.config.Interval > 0 {
 		s.ticker = time.NewTicker(s.config.Interval)
 		go s.runPeriodicScan()
@@ -153,7 +156,7 @@ func (s *ScanScheduler) phase1QuickScan() []*FileToUpdate {
 
 		projectKey := entry.Name()
 		transcriptsDir := filepath.Join(projectsDir, projectKey, "agent-transcripts")
-		
+
 		// 检查目录是否存在
 		if _, err := os.Stat(transcriptsDir); os.IsNotExist(err) {
 			continue
@@ -186,7 +189,7 @@ func (s *ScanScheduler) phase1QuickScan() []*FileToUpdate {
 
 			sessionID := strings.TrimSuffix(file.Name(), ".txt")
 			filePath := filepath.Join(transcriptsDir, file.Name())
-			
+
 			fileInfo, err := os.Stat(filePath)
 			if err != nil {
 				continue
@@ -273,8 +276,11 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
 			if s.needsReindex(f.SessionID, f.FilePath) {
 				err := s.ragService.IndexSession(f.SessionID, f.FilePath)
 				if err != nil {
-					// 记录错误但不中断流程
-					fmt.Printf("Failed to index session %s: %v\n", f.SessionID, err)
+					s.logger.Error("Failed to index session",
+						"session_id", f.SessionID,
+						"file_path", f.FilePath,
+						"error", err,
+					)
 				}
 			} else {
 				// 只更新文件修改时间
@@ -358,4 +364,141 @@ func (s *ScanScheduler) toProjectInfo(project *domainCursor.ProjectInfo) *Projec
 // TriggerScan 手动触发扫描
 func (s *ScanScheduler) TriggerScan() {
 	go s.scanOnce()
+}
+
+// UpdateConfig 更新扫描配置
+func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	oldEnabled := s.config.Enabled
+	s.config = config
+
+	// 如果从禁用变为启用，启动调度器
+	if config.Enabled && !oldEnabled {
+		// 尝试初始化 RAG 服务
+		if s.ragService == nil && s.ragInitializer != nil && !s.initialized {
+			ragService, _, _, _, err := s.ragInitializer.InitializeServices()
+			if err == nil && ragService != nil {
+				s.ragService = ragService
+				s.initialized = true
+			} else {
+				// 初始化失败，禁用调度器
+				s.config.Enabled = false
+				return
+			}
+		}
+
+		// 如果有 ragService，启动定时器
+		if s.ragService != nil && config.Interval > 0 {
+			if s.ticker != nil {
+				s.ticker.Stop()
+			}
+			s.ticker = time.NewTicker(config.Interval)
+			go s.runPeriodicScan()
+		}
+	}
+
+	// 如果从启用变为禁用，停止调度器
+	if !config.Enabled && oldEnabled {
+		if s.ticker != nil {
+			s.ticker.Stop()
+			s.ticker = nil
+		}
+	}
+
+	// 如果间隔时间变化，重启定时器
+	if config.Enabled && oldEnabled && config.Interval != s.config.Interval {
+		if s.ticker != nil {
+			s.ticker.Stop()
+		}
+		s.ticker = time.NewTicker(config.Interval)
+		go s.runPeriodicScan()
+	}
+}
+
+// TriggerFullScan 触发全量扫描
+func (s *ScanScheduler) TriggerFullScan(ragService *RAGService) {
+	s.logger.Info("Triggering full RAG index")
+	// 更新 ragService（如果传入）
+	if ragService != nil {
+		s.ragService = ragService
+	}
+	// 执行全量扫描（覆盖 needsUpdate 逻辑）
+	go s.runFullScan()
+}
+
+// runFullScan 执行全量扫描
+func (s *ScanScheduler) runFullScan() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		s.logger.Error("Failed to get home directory", "error", err)
+		return
+	}
+
+	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
+	entries, err := os.ReadDir(projectsDir)
+	if err != nil {
+		s.logger.Error("Failed to read projects directory", "error", err)
+		return
+	}
+
+	var allFiles []*FileToUpdate
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		projectKey := entry.Name()
+		transcriptsDir := filepath.Join(projectsDir, projectKey, "agent-transcripts")
+		
+		// 检查目录是否存在
+		if _, err := os.Stat(transcriptsDir); os.IsNotExist(err) {
+			continue
+		}
+
+		// 获取项目信息
+		project := s.projectManager.GetProject(projectKey)
+		var projectInfo *ProjectInfo
+		if project == nil {
+			projectInfo = &ProjectInfo{
+				ProjectID:   projectKey,
+				ProjectName: projectKey,
+				WorkspaceID: "",
+			}
+		} else {
+			projectInfo = s.toProjectInfo(project)
+		}
+
+		// 扫描所有会话文件（不考虑 mtime）
+		transcriptFiles, err := os.ReadDir(transcriptsDir)
+		if err != nil {
+			continue
+		}
+
+		for _, file := range transcriptFiles {
+			if !strings.HasSuffix(file.Name(), ".txt") {
+				continue
+			}
+
+			sessionID := strings.TrimSuffix(file.Name(), ".txt")
+			filePath := filepath.Join(transcriptsDir, file.Name())
+			
+			// 全量扫描时，添加所有文件
+			allFiles = append(allFiles, &FileToUpdate{
+				SessionID:   sessionID,
+				FilePath:    filePath,
+				ProjectInfo: projectInfo,
+			})
+		}
+	}
+
+	s.logger.Info("Full scan found files", "count", len(allFiles))
+	s.phase2BatchProcess(allFiles)
+}
+
+// ClearMetadata 清空元数据
+func (s *ScanScheduler) ClearMetadata() error {
+	s.logger.Info("Clearing RAG metadata")
+	return s.ragRepo.ClearAllMetadata()
 }

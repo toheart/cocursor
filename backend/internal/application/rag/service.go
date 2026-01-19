@@ -3,43 +3,63 @@ package rag
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"log/slog"
+
+	"github.com/google/uuid"
 
 	domainCursor "github.com/cocursor/backend/internal/application/cursor"
 	domainRAG "github.com/cocursor/backend/internal/domain/rag"
 	"github.com/cocursor/backend/internal/infrastructure/embedding"
+	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/vector"
 	"github.com/qdrant/go-client/qdrant"
 )
 
 // RAGService RAG 服务
 type RAGService struct {
-	sessionService *domainCursor.SessionService
+	sessionService  *domainCursor.SessionService
 	embeddingClient *embedding.Client
-	qdrantManager  *vector.QdrantManager
-	ragRepo        domainRAG.RAGRepository
-	projectManager *domainCursor.ProjectManager
+	llmClient       *LLMClient  // LLM 客户端（可选）
+	summarizer      *Summarizer // 总结服务（可选）
+	qdrantManager   *vector.QdrantManager
+	ragRepo         domainRAG.RAGRepository
+	projectManager  *domainCursor.ProjectManager
+	logger          *slog.Logger
 }
 
 // NewRAGService 创建 RAG 服务
 func NewRAGService(
 	sessionService *domainCursor.SessionService,
 	embeddingClient *embedding.Client,
+	llmClient *LLMClient,
 	qdrantManager *vector.QdrantManager,
 	ragRepo domainRAG.RAGRepository,
 	projectManager *domainCursor.ProjectManager,
 ) *RAGService {
-	return &RAGService{
+	ragService := &RAGService{
 		sessionService:  sessionService,
 		embeddingClient: embeddingClient,
+		llmClient:       llmClient, // 可能为 nil
 		qdrantManager:   qdrantManager,
 		ragRepo:         ragRepo,
 		projectManager:  projectManager,
+		logger:          log.NewModuleLogger("rag", "service"),
 	}
+
+	// 如果 LLMClient 可用，创建 Summarizer
+	if llmClient != nil {
+		ragService.summarizer = NewSummarizer(llmClient)
+	}
+
+	return ragService
 }
 
 // ProjectInfo 项目信息
@@ -81,9 +101,38 @@ func (s *RAGService) IndexSession(sessionID, filePath string) error {
 	// 4. 配对消息为对话对
 	turns := PairMessages(messages, sessionID)
 
+	// 4.5 对每个对话对进行总结（如果 LLMClient 可用）
+	successCount := 0
+	failedCount := 0
+	if s.summarizer != nil {
+		for _, turn := range turns {
+			summary, err := s.summarizer.SummarizeTurn(turn)
+			if err != nil {
+				// 总结失败，记录但跳过该对话对
+				s.logger.Warn("Failed to summarize turn, skipping",
+					"turn_index", turn.TurnIndex,
+					"error", err,
+				)
+				failedCount++
+				// 标记总结为 nil，后续向量化时会跳过
+				turn.Summary = nil
+			} else {
+				turn.Summary = summary
+				successCount++
+			}
+		}
+		s.logger.Info("Summarization completed",
+			"total_turns", len(turns),
+			"success_count", successCount,
+			"failed_count", failedCount,
+		)
+	}
+
 	// 5. 提取文本内容
 	messageTexts := ExtractMessageTexts(indexedMessages)
-	turnTexts := ExtractTurnTexts(turns)
+
+	// 5.5 提取总结文本用于向量化（只向量化总结）
+	summaryTexts := s.extractSummaryTexts(turns)
 
 	// 6. 批量向量化
 	messageVectors, err := s.embeddingClient.EmbedTexts(messageTexts)
@@ -91,14 +140,18 @@ func (s *RAGService) IndexSession(sessionID, filePath string) error {
 		return fmt.Errorf("failed to embed message texts: %w", err)
 	}
 
-	turnVectors, err := s.embeddingClient.EmbedTexts(turnTexts)
-	if err != nil {
-		return fmt.Errorf("failed to embed turn texts: %w", err)
+	// 向量化总结内容（如果有）
+	var summaryVectors [][]float32
+	if len(summaryTexts) > 0 {
+		summaryVectors, err = s.embeddingClient.EmbedTexts(summaryTexts)
+		if err != nil {
+			return fmt.Errorf("failed to embed summary texts: %w", err)
+		}
 	}
 
 	// 7. 构建 Qdrant 点
 	messagePoints := s.buildMessagePoints(sessionID, projectInfo, indexedMessages, messageVectors)
-	turnPoints := s.buildTurnPoints(sessionID, projectInfo, turns, turnVectors)
+	turnPoints := s.buildTurnPoints(sessionID, projectInfo, turns, summaryVectors)
 
 	// 8. Upsert 到 Qdrant
 	client := s.qdrantManager.GetClient()
@@ -107,7 +160,7 @@ func (s *RAGService) IndexSession(sessionID, filePath string) error {
 	}
 
 	ctx := context.Background()
-	
+
 	// 写入消息级别向量
 	_, err = client.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: "cursor_sessions_messages",
@@ -139,19 +192,19 @@ func (s *RAGService) IndexSession(sessionID, filePath string) error {
 	for _, im := range indexedMessages {
 		turnIndex := s.findTurnIndex(sessionID, im.MessageID, turns)
 		err := s.ragRepo.SaveMessageMetadata(&domainRAG.MessageMetadata{
-			SessionID:   sessionID,
-			MessageID:   im.MessageID,
-			WorkspaceID: projectInfo.WorkspaceID,
-			ProjectID:   projectInfo.ProjectID,
-			ProjectName: projectInfo.ProjectName,
-			MessageType: string(im.Message.Type),
+			SessionID:    sessionID,
+			MessageID:    im.MessageID,
+			WorkspaceID:  projectInfo.WorkspaceID,
+			ProjectID:    projectInfo.ProjectID,
+			ProjectName:  projectInfo.ProjectName,
+			MessageType:  string(im.Message.Type),
 			MessageIndex: im.Index,
-			TurnIndex:   turnIndex,
-			VectorID:    fmt.Sprintf("%s:%s", sessionID, im.MessageID),
-			ContentHash: contentHash,
-			FilePath:    filePath,
-			FileMtime:   fileMtime,
-			IndexedAt:   indexedAt,
+			TurnIndex:    turnIndex,
+			VectorID:     im.VectorID, // 使用生成的 UUID
+			ContentHash:  contentHash,
+			FilePath:     filePath,
+			FileMtime:    fileMtime,
+			IndexedAt:    indexedAt,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to save message metadata: %w", err)
@@ -160,6 +213,11 @@ func (s *RAGService) IndexSession(sessionID, filePath string) error {
 
 	// 更新对话对元数据
 	for _, turn := range turns {
+		// 只保存有总结的对话对
+		if turn.Summary == nil {
+			continue
+		}
+
 		turnHash := s.calculateTurnHash(turn)
 		err := s.ragRepo.SaveTurnMetadata(&domainRAG.TurnMetadata{
 			SessionID:      sessionID,
@@ -170,12 +228,13 @@ func (s *RAGService) IndexSession(sessionID, filePath string) error {
 			UserMessageIDs: turn.UserMessageIDs,
 			AIMessageIDs:   turn.AIMessageIDs,
 			MessageCount:   len(turn.UserMessages) + len(turn.AIMessages),
-			VectorID:       fmt.Sprintf("%s:turn-%d", sessionID, turn.TurnIndex),
+			VectorID:       turn.VectorID, // 使用生成的 UUID
 			ContentHash:    turnHash,
 			FilePath:       filePath,
 			FileMtime:      fileMtime,
 			IndexedAt:      indexedAt,
 			IsIncomplete:   turn.IsIncomplete,
+			Summary:        turn.Summary, // 保存总结
 		})
 		if err != nil {
 			return fmt.Errorf("failed to save turn metadata: %w", err)
@@ -194,14 +253,15 @@ func (s *RAGService) buildMessagePoints(
 ) []*qdrant.PointStruct {
 	points := make([]*qdrant.PointStruct, len(indexedMessages))
 	for i, im := range indexedMessages {
-		vectorID := fmt.Sprintf("%s:%s", sessionID, im.MessageID)
-		
+		// 生成 UUID 作为 Qdrant 点 ID
+		pointID := uuid.New().String()
+
 		// 将 []float32 转换为可变参数
 		vectorArgs := make([]float32, len(vectors[i]))
 		copy(vectorArgs, vectors[i])
-		
+
 		points[i] = &qdrant.PointStruct{
-			Id:      qdrant.NewID(vectorID),
+			Id:      qdrant.NewID(pointID),
 			Vectors: qdrant.NewVectors(vectorArgs...),
 			Payload: qdrant.NewValueMap(map[string]interface{}{
 				"session_id":    sessionID,
@@ -211,10 +271,13 @@ func (s *RAGService) buildMessagePoints(
 				"timestamp":     im.Message.Timestamp,
 				"message_index": im.Index,
 				"project_id":    projectInfo.ProjectID,
-				"project_name":   projectInfo.ProjectName,
-				"workspace_id":   projectInfo.WorkspaceID,
+				"project_name":  projectInfo.ProjectName,
+				"workspace_id":  projectInfo.WorkspaceID,
 			}),
 		}
+
+		// 保存生成的 UUID 到 VectorID（用于元数据）
+		im.VectorID = pointID
 	}
 	return points
 }
@@ -226,23 +289,35 @@ func (s *RAGService) buildTurnPoints(
 	turns []*ConversationTurn,
 	vectors [][]float32,
 ) []*qdrant.PointStruct {
-	points := make([]*qdrant.PointStruct, len(turns))
-	for i, turn := range turns {
-		vectorID := fmt.Sprintf("%s:turn-%d", sessionID, turn.TurnIndex)
-		
+	points := make([]*qdrant.PointStruct, 0, len(turns)) // 预分配容量，实际长度可能更少
+	pointIndex := 0
+
+	for _, turn := range turns {
+		// 跳过没有总结且没有向量的对话对
+		if turn.Summary == nil || vectors[pointIndex] == nil || len(vectors[pointIndex]) == 0 {
+			s.logger.Debug("Skipping turn without summary or vector",
+				"turn_index", turn.TurnIndex,
+			)
+			continue
+		}
+
+		// 生成 UUID 作为 Qdrant 点 ID
+		pointID := uuid.New().String()
+
 		// 将 []float32 转换为可变参数
-		vectorArgs := make([]float32, len(vectors[i]))
-		copy(vectorArgs, vectors[i])
-		
-		points[i] = &qdrant.PointStruct{
-			Id:      qdrant.NewID(vectorID),
+		vectorArgs := make([]float32, len(vectors[pointIndex]))
+		copy(vectorArgs, vectors[pointIndex])
+
+		// 序列化总结为 JSON
+		summaryJSON, _ := json.Marshal(turn.Summary)
+
+		points[pointIndex] = &qdrant.PointStruct{
+			Id:      qdrant.NewID(pointID),
 			Vectors: qdrant.NewVectors(vectorArgs...),
 			Payload: qdrant.NewValueMap(map[string]interface{}{
 				"session_id":    sessionID,
 				"turn_index":    turn.TurnIndex,
-				"user_text":     turn.UserText,
-				"ai_text":       turn.AIText,
-				"combined_text": turn.CombinedText,
+				"summary":       string(summaryJSON), // 总结 JSON 字符串
 				"message_count": len(turn.UserMessages) + len(turn.AIMessages),
 				"project_id":    projectInfo.ProjectID,
 				"project_name":  projectInfo.ProjectName,
@@ -250,8 +325,14 @@ func (s *RAGService) buildTurnPoints(
 				"is_incomplete": turn.IsIncomplete,
 			}),
 		}
+
+		// 保存生成的 UUID 到 VectorID（用于元数据）
+		turn.VectorID = pointID
+		pointIndex++
 	}
-	return points
+
+	// 返回实际使用的点（可能少于原始 turns 数量）
+	return points[:pointIndex]
 }
 
 // getProjectInfo 获取项目信息
@@ -354,4 +435,38 @@ func (s *RAGService) calculateTurnHash(turn *ConversationTurn) string {
 	hash := sha256.New()
 	hash.Write([]byte(turn.CombinedText))
 	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+// extractSummaryTexts 提取总结文本用于向量化
+func (s *RAGService) extractSummaryTexts(turns []*ConversationTurn) []string {
+	texts := make([]string, len(turns))
+	for i, turn := range turns {
+		// 只向量化有总结的对话对
+		if turn.Summary != nil {
+			texts[i] = s.extractTurnSummaryVectorText(turn.Summary)
+		} else {
+			// 如果没有总结，使用空字符串（后续会被过滤）
+			texts[i] = ""
+		}
+	}
+	return texts
+}
+
+// extractTurnSummaryVectorText 组合总结字段为一段文本
+func (s *RAGService) extractTurnSummaryVectorText(summary *domainRAG.TurnSummary) string {
+	parts := []string{
+		fmt.Sprintf("MainTopic: %s", summary.MainTopic),
+		fmt.Sprintf("KeyPoints: %s", joinStrings(summary.KeyPoints, "; ")),
+		fmt.Sprintf("Tags: %s", joinStrings(summary.Tags, ", ")),
+		summary.Summary,
+	}
+	return fmt.Sprintf("%s\n\n%s", strings.Join(parts, "\n"), summary.Context)
+}
+
+// joinStrings 辅助函数：连接字符串数组
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	return strings.Join(strs, sep)
 }

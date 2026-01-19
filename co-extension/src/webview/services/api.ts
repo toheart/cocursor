@@ -134,8 +134,9 @@ class ApiService {
 
   // 更新 RAG 配置
   async updateRAGConfig(config: {
-    embedding_api: { url: string; api_key: string; model: string };
-    scan_config: { enabled: boolean; interval: string; batch_size: number; concurrency: number };
+    embedding_api?: { url: string; api_key: string; model: string };
+    llm_chat_api?: { url: string; api_key: string; model: string; language: string };
+    scan_config?: { enabled: boolean; interval: string; batch_size: number; concurrency: number };
   }): Promise<unknown> {
     return this.postMessage("updateRAGConfig", { config });
   }
@@ -143,6 +144,11 @@ class ApiService {
   // 测试 RAG 配置连接
   async testRAGConfig(config: { url: string; api_key: string; model: string }): Promise<unknown> {
     return this.postMessage("testRAGConfig", { config });
+  }
+
+  // 测试 LLM 连接
+  async testLLMConnection(config: { url: string; api_key: string; model: string }): Promise<{ success: boolean; error?: string }> {
+    return this.postMessage("testLLMConnection", { config }) as any;
   }
 
   // RAG 语义搜索

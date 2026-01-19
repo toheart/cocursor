@@ -137,16 +137,6 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
         //   "comment-discussion"
         // ),
         new SidebarItem(
-          t("sidebar.marketplace"),
-          vscode.TreeItemCollapsibleState.None,
-          {
-            command: "cocursor.openMarketplace",
-            title: t("sidebar.openMarketplace"),
-            arguments: []
-          },
-          "extensions"
-        ),
-        new SidebarItem(
           t("sidebar.ragSearch"),
           vscode.TreeItemCollapsibleState.None,
           {
@@ -155,6 +145,16 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
             arguments: []
           },
           "search"
+        ),
+        new SidebarItem(
+          t("sidebar.marketplace"),
+          vscode.TreeItemCollapsibleState.None,
+          {
+            command: "cocursor.openMarketplace",
+            title: t("sidebar.openMarketplace"),
+            arguments: []
+          },
+          "extensions"
         )
       );
 

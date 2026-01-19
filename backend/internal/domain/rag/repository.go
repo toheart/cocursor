@@ -20,6 +20,9 @@ type RAGRepository interface {
 	// 文件元数据查询
 	GetFileMetadata(filePath string) (*FileMetadata, error)
 	UpdateFileMtime(filePath string, mtime int64) error
+	
+	// 清空数据
+	ClearAllMetadata() error
 }
 
 // FileMetadata 文件元数据（用于快速检测文件变化）

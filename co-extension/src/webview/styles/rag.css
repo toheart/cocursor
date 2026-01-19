@@ -1,0 +1,1236 @@
+/* ========== RAG 样式 ========== */
+
+/* RAG 搜索容器 */
+.cocursor-rag-search {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.cocursor-rag-search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-search-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* RAG 搜索框 */
+.cocursor-rag-search-box {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 8px;
+}
+
+.cocursor-rag-search-input {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 16px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.cocursor-rag-search-input:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
+}
+
+.cocursor-rag-search-button {
+  padding: 10px 20px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-search-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-search-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* RAG 搜索结果 */
+.cocursor-rag-results {
+  margin-top: 24px;
+}
+
+.cocursor-rag-results-header {
+  margin-bottom: 16px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+}
+
+.cocursor-rag-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cocursor-rag-result-item {
+  padding: 16px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background-color: var(--vscode-editor-background);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-result-item:hover {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cocursor-rag-result-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-result-project {
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-rag-result-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-rag-result-score {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-rag-result-content {
+  font-size: 14px;
+  color: var(--vscode-foreground);
+  line-height: 1.6;
+}
+
+.cocursor-rag-result-turn {
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-result-turn-label {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.cocursor-rag-result-expand-button {
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: transparent;
+  border: 1px solid var(--vscode-button-border);
+  color: var(--vscode-foreground);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-result-expand-button:hover {
+  background-color: var(--vscode-button-secondaryBackground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-rag-result-expanded {
+  margin-top: 12px;
+  padding-left: 16px;
+  border-left: 2px solid var(--vscode-panel-border);
+}
+
+.cocursor-rag-result-expanded-title {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-result-expanded-list {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+/* RAG 配置容器 */
+.cocursor-rag-config {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.cocursor-rag-config-header {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-config-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cocursor-rag-config-section {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-config-section-title {
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cocursor-rag-config-field {
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-config-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-config-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.cocursor-rag-config-input:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
+}
+
+.cocursor-rag-config-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-config-checkbox input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.cocursor-rag-config-checkbox label {
+  font-size: 14px;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+
+.cocursor-rag-config-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cocursor-rag-config-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-config-button-primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-config-button-primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-config-button-secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+}
+
+.cocursor-rag-config-button-secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-config-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* RAG 统计信息 */
+.cocursor-rag-stats {
+  margin-top: 24px;
+  padding: 16px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+}
+
+.cocursor-rag-stats-title {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-rag-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.cocursor-rag-stats-item {
+  padding: 12px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 4px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-rag-stats-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 4px;
+}
+
+.cocursor-rag-stats-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+/* 空状态 */
+.cocursor-rag-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .cocursor-rag-search-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .cocursor-rag-search-box {
+    flex-direction: column;
+  }
+
+  .cocursor-rag-config-actions {
+    flex-direction: column;
+  }
+
+  .cocursor-rag-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========== RAG 向导模式样式 ========== */
+
+.cocursor-rag-wizard-progress {
+  margin-bottom: 32px;
+}
+
+.cocursor-rag-steps-indicator {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-rag-step-indicator.completed {
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.cocursor-rag-step-indicator.current {
+  color: var(--vscode-textLink-foreground);
+  font-weight: 600;
+}
+
+.cocursor-rag-step-indicator.pending {
+  color: var(--vscode-disabledForeground);
+}
+
+.cocursor-rag-progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-progress-fill {
+  height: 100%;
+  background-color: var(--vscode-textLink-foreground);
+  transition: width 0.5s ease-in-out;
+}
+
+/* 步骤样式 */
+.cocursor-rag-step-1,
+.cocursor-rag-step-2,
+.cocursor-rag-step-3,
+.cocursor-rag-step-4 {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.cocursor-rag-step-header {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-step-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-step-description {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}
+
+/* 模板选择器 */
+.cocursor-rag-template-selector {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-template-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-template-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.cocursor-rag-template-button {
+  padding: 8px 16px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-template-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-template-button.active {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+/* 密码输入框 */
+.cocursor-rag-password-input {
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-password-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cocursor-rag-password-field {
+  flex: 1;
+  padding-right: 100px;
+}
+
+.cocursor-rag-password-actions {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.cocursor-rag-password-action {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-password-action:hover {
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-password-error {
+  font-size: 12px;
+  color: var(--vscode-errorForeground);
+  margin-top: 4px;
+}
+
+/* 表单字段 */
+.cocursor-rag-form {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-form-field {
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-form-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.cocursor-rag-form-input:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
+}
+
+.cocursor-rag-form-input.error {
+  border-color: var(--vscode-errorForeground);
+}
+
+.cocursor-rag-form-error {
+  font-size: 12px;
+  color: var(--vscode-errorForeground);
+  margin-top: 4px;
+}
+
+/* 测试连接 */
+.cocursor-rag-test-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cocursor-rag-test-button {
+  align-self: flex-start;
+  padding: 10px 20px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-test-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-test-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cocursor-rag-test-result {
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-rag-test-result.success {
+  background-color: rgba(16, 124, 16, 0.1);
+  color: var(--vscode-terminal-ansiGreen);
+  border: 1px solid var(--vscode-terminal-ansiGreen);
+}
+
+.cocursor-rag-test-result.error {
+  background-color: rgba(209, 52, 56, 0.1);
+  color: var(--vscode-errorForeground);
+  border: 1px solid var(--vscode-errorForeground);
+}
+
+/* 向导导航 */
+.cocursor-rag-wizard-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-rag-wizard-nav {
+  display: flex;
+  gap: 12px;
+}
+
+.cocursor-rag-wizard-nav-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-wizard-nav-button.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+}
+
+.cocursor-rag-wizard-nav-button.primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-wizard-nav-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-wizard-nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 快速编辑模式 */
+.cocursor-rag-quick-edit {
+  padding: 20px;
+}
+
+.cocursor-rag-quick-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-quick-edit-card {
+  padding: 16px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-quick-edit-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-rag-quick-edit-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cocursor-rag-quick-edit-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-rag-quick-edit-card-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cocursor-rag-quick-edit-card-status.running {
+  background-color: rgba(0, 122, 204, 0.1);
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-rag-quick-edit-card-status.success {
+  background-color: rgba(16, 124, 16, 0.1);
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.cocursor-rag-quick-edit-card-status.error {
+  background-color: rgba(209, 52, 56, 0.1);
+  color: var(--vscode-errorForeground);
+}
+
+.cocursor-rag-quick-edit-card-content {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+}
+
+.cocursor-rag-quick-edit-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cocursor-rag-quick-edit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-rag-quick-edit-card-item {
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cocursor-rag-quick-edit-card-item strong {
+  margin-right: 8px;
+}
+
+.cocursor-rag-quick-edit-action-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-quick-edit-action-button.primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-quick-edit-action-button.primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-quick-edit-action-button.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+}
+
+.cocursor-rag-quick-edit-action-button.secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-quick-edit-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cocursor-rag-quick-edit-switch {
+  padding: 8px 16px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-quick-edit-switch:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-quick-edit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-quick-edit-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cocursor-rag-config-mode-switch {
+  padding: 8px 16px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-config-mode-switch:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-config-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cocursor-rag-config-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-rag-config-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-config-button.primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-config-button.primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-config-button.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+}
+
+.cocursor-rag-config-button.secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-config-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cocursor-rag-quick-edit-card-action {
+  padding: 6px 12px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-quick-edit-card-action:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+/* Qdrant 状态卡片样式 */
+.cocursor-rag-qdrant-status-card {
+  padding: 16px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-qdrant-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cocursor-rag-qdrant-status-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocursor-rag-qdrant-status-icon {
+  font-size: 24px;
+}
+
+.cocursor-rag-qdrant-status-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-qdrant-version {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 4px;
+}
+
+.cocursor-rag-qdrant-detail {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 8px;
+}
+
+.cocursor-rag-qdrant-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cocursor-rag-qdrant-action-button {
+  padding: 6px 12px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-qdrant-action-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-qdrant-download-button {
+  padding: 10px 20px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-qdrant-download-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-qdrant-download-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cocursor-rag-qdrant-help {
+  padding: 16px;
+  background-color: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  margin-top: 16px;
+}
+
+.cocursor-rag-qdrant-help-item {
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-qdrant-help-list {
+  margin: 8px 0 0 20px;
+  padding: 0;
+  list-style-type: disc;
+}
+
+.cocursor-rag-qdrant-help-list li {
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 扫描配置样式 */
+.cocursor-rag-scan-form {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-recommended-button {
+  padding: 10px 20px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-recommended-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+
+.cocursor-rag-form-helper {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 4px;
+}
+
+.cocursor-rag-form-select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.cocursor-rag-form-select:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
+}
+
+.cocursor-rag-slider {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.cocursor-rag-advanced-section {
+  margin-top: 24px;
+}
+
+.cocursor-rag-advanced-toggle {
+  padding: 8px 12px;
+  background-color: transparent;
+  border: 1px solid var(--vscode-button-border);
+  color: var(--vscode-foreground);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
+}
+
+.cocursor-rag-advanced-toggle:hover {
+  background-color: var(--vscode-button-secondaryBackground);
+}
+
+.cocursor-rag-advanced-content {
+  padding: 16px;
+  background-color: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+/* 配置摘要样式 */
+.cocursor-rag-summary {
+  margin-bottom: 24px;
+}
+
+.cocursor-rag-summary-section {
+  padding: 16px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.cocursor-rag-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cocursor-rag-summary-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0;
+}
+
+.cocursor-rag-summary-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cocursor-rag-summary-badge.status-running {
+  background-color: rgba(0, 122, 204, 0.1);
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-rag-summary-badge.status-installed {
+  background-color: rgba(16, 124, 16, 0.1);
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.cocursor-rag-summary-content {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-rag-summary-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-summary-item strong {
+  margin-right: 8px;
+}
+
+.cocursor-rag-summary-warning {
+  padding: 12px 16px;
+  background-color: rgba(209, 52, 56, 0.1);
+  border: 1px solid var(--vscode-errorForeground);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: var(--vscode-errorForeground);
+}
+
+.cocursor-rag-warning-icon {
+  font-size: 16px;
+}
+
+.cocursor-rag-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.cocursor-rag-save-button {
+  padding: 10px 20px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-save-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-rag-save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cocursor-rag-save-button-primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}

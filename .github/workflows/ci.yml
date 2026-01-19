@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: Test and Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: co-extension
+        run: npm ci
+
+      - name: Run lint (extension)
+        working-directory: co-extension
+        run: npm run lint
+
+      - name: Run tests (backend)
+        working-directory: backend
+        run: go test -v -race -cover ./...
+
+      - name: Compile TypeScript
+        working-directory: co-extension
+        run: npm run compile
+
+      - name: Build extension (frontend)
+        working-directory: co-extension
+        run: make build
+
+      - name: Build backend daemon (Linux)
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=linux GOARCH=amd64 go build -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-linux-amd64
+
+      - name: Verify binary
+        run: ls -lh co-extension/bin/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            co-extension/dist
+            co-extension/bin
+          retention-days: 7
+
+  build-verification:
+    name: Build Verification
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: macos-latest
+            target_arch: x64
+          - os: macos-latest
+            target_arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: co-extension
+        run: npm ci
+
+      - name: Build extension (Unix-like)
+        if: runner.os != 'Windows'
+        working-directory: co-extension
+        run: make build
+
+      - name: Build extension (Windows)
+        if: runner.os == 'Windows'
+        working-directory: co-extension
+        shell: pwsh
+        run: |
+          # Ensure dist directory exists
+          if (-not (Test-Path "dist")) {
+            New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+          }
+          if (-not (Test-Path "dist/webview")) {
+            New-Item -ItemType Directory -Path "dist/webview" -Force | Out-Null
+          }
+
+          # Build extension
+          npx esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/extension.js --external:vscode --sourcemap
+
+          # Build webview
+          npx esbuild src/webview/index.tsx --bundle --platform=browser --target=es2020 --format=iife --outfile=dist/webview/index.js --jsx=automatic --sourcemap --define:process.env.NODE_ENV='"production"' --global-name=cocursor
+
+          Copy-Item "src/webview/index.css" "dist/webview/index.css" -Force -ErrorAction SilentlyContinue
+
+      - name: Build backend daemon (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=linux GOARCH=amd64 go build -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-linux-amd64
+
+      - name: Build backend daemon (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: backend
+        shell: pwsh
+        run: |
+          go run github.com/google/wire/cmd/wire@latest ./internal/wire
+          $env:GOOS="windows"; $env:GOARCH="amd64"
+          go build -o ../co-extension/bin/cocursor-windows-amd64.exe ./cmd/server
+
+      - name: Build backend daemon (macOS x64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=darwin GOARCH=amd64 go build -o ../co-extension/bin/cocursor-darwin-amd64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-darwin-amd64
+
+      - name: Build backend daemon (macOS ARM64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=darwin GOARCH=arm64 go build -o ../co-extension/bin/cocursor-darwin-arm64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-darwin-arm64
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Verify package (default)
+        if: matrix.os != 'macos-latest'
+        working-directory: co-extension
+        run: vsce package --out test.vsix
+
+      - name: Verify package (macOS x64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
+        working-directory: co-extension
+        run: vsce package --out test.vsix --target darwin-x64
+
+      - name: Verify package (macOS ARM64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
+        working-directory: co-extension
+        run: vsce package --out test.vsix --target darwin-arm64
+
+      - name: Verify package contents
+        run: |
+          unzip -l test.vsix | head -20
+
+      - name: Clean up
+        run: rm test.vsix

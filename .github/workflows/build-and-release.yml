@@ -1,0 +1,210 @@
+name: Build and Release VSCode Extension
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      publish_to_marketplace:
+        description: 'Publish to VS Code Marketplace'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  EXTENSION_NAME: 'cocursor'
+
+jobs:
+  build:
+    name: Build Extension
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        target_arch: [x64]
+        include:
+          - os: ubuntu-latest
+            artifact_name: cocursor-linux-x64
+          - os: windows-latest
+            artifact_name: cocursor-win32-x64
+          - os: macos-latest
+            target_arch: x64
+            artifact_name: cocursor-darwin-x64
+          - os: macos-latest
+            target_arch: arm64
+            artifact_name: cocursor-darwin-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: co-extension
+        run: npm ci
+
+      - name: Run lint
+        working-directory: co-extension
+        run: npm run lint
+
+      - name: Build extension
+        working-directory: co-extension
+        run: make build
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build backend daemon (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-linux-amd64
+
+      - name: Build backend daemon (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: backend
+        shell: pwsh
+        run: |
+          go run github.com/google/wire/cmd/wire@latest ./internal/wire
+          $env:GOOS="windows"; $env:GOARCH="amd64"
+          go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ') -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-windows-amd64.exe ./cmd/server
+
+      - name: Build backend daemon (macOS x64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-darwin-amd64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-darwin-amd64
+
+      - name: Build backend daemon (macOS ARM64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
+        working-directory: backend
+        run: |
+          make wire
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-darwin-arm64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-darwin-arm64
+
+      - name: Verify binary files
+        run: |
+          echo "Checking binary files in co-extension/bin:"
+          ls -lh co-extension/bin/
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: co-extension
+        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target linux-x64
+
+      - name: Package extension (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: co-extension
+        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target win32-x64
+
+      - name: Package extension (macOS x64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
+        working-directory: co-extension
+        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target darwin-x64
+
+      - name: Package extension (macOS ARM64)
+        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
+        working-directory: co-extension
+        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target darwin-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-vsix
+          path: ${{ matrix.artifact_name }}.vsix
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*.vsix
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-marketplace:
+    name: Publish to VS Code Marketplace
+    needs: release
+    runs-on: ubuntu-latest
+    if: github.event.inputs.publish_to_marketplace == 'true' || (startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push')
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Publish Windows (x64)
+        working-directory: artifacts/cocursor-win32-x64-vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "Windows x64 publish failed, continuing..."
+
+      - name: Publish Linux (x64)
+        working-directory: artifacts/cocursor-linux-x64-vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "Linux x64 publish failed, continuing..."
+
+      - name: Publish macOS (x64)
+        working-directory: artifacts/cocursor-darwin-x64-vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "macOS x64 publish failed, continuing..."
+
+      - name: Publish macOS (ARM64)
+        working-directory: artifacts/cocursor-darwin-arm64-vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "macOS ARM64 publish failed, continuing..."

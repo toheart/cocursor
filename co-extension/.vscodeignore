@@ -1,0 +1,56 @@
+# Source files (TypeScript should not be included in production build)
+**/*.ts
+**/*.map
+**/*.ts.map
+
+# Development files
+**/tsconfig.json
+**/.eslintrc.json
+**/.gitignore
+**/Makefile
+**/AGENTS.md
+**/README.md
+
+# Source code (not needed for production)
+**/src/**/*.ts
+**/src/**/*.tsx
+!src/webview/index.css
+
+# Node modules
+node_modules
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+**/test
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts (dist is included via package.json files field)
+# Keep dist as it's the compiled output
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp
+temp
+
+# Documentation
+docs
+*.md
+
+# Ensure bin is included (daemon binaries)
+!bin/**

@@ -23,6 +23,18 @@ interface SearchResult {
   project_name: string;
   timestamp: number;
   message_ids?: string[];
+  summary?: {
+    main_topic: string;
+    problem: string;
+    solution: string;
+    tech_stack: string[];
+    code_snippets: string[];
+    key_points: string[];
+    lessons: string[];
+    tags: string[];
+    summary: string;
+    context: string;
+  };
 }
 
 const DEBOUNCE_DELAY = 500;
@@ -51,6 +63,12 @@ export const RAGSearch: React.FC = () => {
       ) as { results?: SearchResult[]; count?: number; error?: string };
 
       if (response.error) {
+        // 检查是否是 RAG 未配置错误
+        if (response.error.includes("not initialized") || 
+            response.error.includes("not configured") ||
+            response.error.includes("Please configure")) {
+          throw new Error(t("rag.search.notConfigured"));
+        }
         throw new Error(response.error);
       }
 
@@ -62,7 +80,7 @@ export const RAGSearch: React.FC = () => {
       console.error("RAG search failed:", error);
       throw error;
     }
-  }, [debouncedQuery, selectedProjects]);
+  }, [debouncedQuery, selectedProjects, t]);
 
   const {
     data: searchResponse,
@@ -107,6 +125,17 @@ export const RAGSearch: React.FC = () => {
     navigate(`/sessions/${sessionId}`);
   }, [navigate]);
 
+  // 解析 summary JSON 字符串
+  const parseSummary = useCallback((summaryStr: unknown) => {
+    if (!summaryStr || typeof summaryStr !== 'string') return null;
+    try {
+      return JSON.parse(summaryStr) as SearchResult['summary'];
+    } catch (error) {
+      console.error("Failed to parse summary:", error);
+      return null;
+    }
+  }, []);
+
   // 格式化时间
   const formatTime = useCallback((timestamp: number) => {
     if (!timestamp) return "";
@@ -115,10 +144,11 @@ export const RAGSearch: React.FC = () => {
   }, []);
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-        <h2 style={{ margin: 0 }}>{t("rag.search.title")}</h2>
+    <div className="cocursor-rag-search">
+      <div className="cocursor-rag-search-header">
+        <h2>{t("rag.search.title")}</h2>
         <button
+          className="cocursor-btn cocursor-btn-secondary"
           onClick={() => {
             const vscode = getVscodeApi();
             vscode.postMessage({
@@ -126,45 +156,25 @@ export const RAGSearch: React.FC = () => {
               payload: { route: "/config" },
             });
           }}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "var(--vscode-button-secondaryBackground)",
-            color: "var(--vscode-button-secondaryForeground)",
-            border: "1px solid var(--vscode-button-border)",
-            cursor: "pointer",
-          }}
         >
           ⚙️ {t("rag.config.title")}
         </button>
       </div>
 
       {/* 搜索框 */}
-      <div style={{ marginBottom: "24px", display: "flex", gap: "8px" }}>
+      <div className="cocursor-rag-search-box">
         <input
           type="text"
+          className="cocursor-rag-search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={(e) => e.key === "Enter" && handleSearch()}
           placeholder={t("rag.search.placeholder")}
-          style={{
-            flex: 1,
-            padding: "10px",
-            fontSize: "16px",
-            border: "1px solid var(--vscode-input-border)",
-            backgroundColor: "var(--vscode-input-background)",
-            color: "var(--vscode-input-foreground)",
-          }}
         />
         <button
+          className="cocursor-rag-search-button"
           onClick={handleSearch}
           disabled={loading || !query.trim()}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "var(--vscode-button-background)",
-            color: "var(--vscode-button-foreground)",
-            border: "none",
-            cursor: loading || !query.trim() ? "not-allowed" : "pointer",
-          }}
         >
           {loading ? t("common.loading") : t("common.search")}
         </button>
@@ -172,25 +182,19 @@ export const RAGSearch: React.FC = () => {
 
       {/* 错误提示 */}
       {error && (
-        <div style={{
-          padding: "12px",
-          marginBottom: "16px",
-          backgroundColor: "var(--vscode-inputValidation-errorBackground)",
-          color: "var(--vscode-errorForeground)",
-          borderRadius: "4px",
-        }}>
-          {t("rag.search.error")}: {error instanceof Error ? error.message : String(error)}
+        <div className="cocursor-error">
+          {t("rag.search.error")}: {(error as any)?.message || String(error)}
         </div>
       )}
 
       {/* 搜索结果 */}
       {results.length > 0 && (
-        <div style={{ marginTop: "24px" }}>
-          <div style={{ marginBottom: "16px", color: "var(--vscode-descriptionForeground)" }}>
+        <div className="cocursor-rag-results">
+          <div className="cocursor-rag-results-header">
             {t("rag.search.found")} {results.length} {t("rag.search.results")}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div className="cocursor-rag-results-list">
             {results.map((result, index) => {
               const resultId = `${result.session_id}-${result.type}-${index}`;
               const isExpanded = expandedResults.has(resultId);
@@ -199,73 +203,123 @@ export const RAGSearch: React.FC = () => {
               return (
                 <div
                   key={resultId}
-                  style={{
-                    padding: "16px",
-                    border: "1px solid var(--vscode-panel-border)",
-                    borderRadius: "4px",
-                    backgroundColor: "var(--vscode-editor-background)",
-                    cursor: "pointer",
-                  }}
+                  className="cocursor-rag-result-item"
                   onClick={() => handleResultClick(result.session_id)}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div className="cocursor-rag-result-header">
                     <div>
-                      <strong style={{ color: "var(--vscode-textLink-foreground)" }}>
+                      <strong className="cocursor-rag-result-project">
                         {result.project_name || result.project_id}
                       </strong>
-                      <span style={{ marginLeft: "8px", color: "var(--vscode-descriptionForeground)", fontSize: "12px" }}>
+                      <span className="cocursor-rag-result-meta" style={{ marginLeft: "8px" }}>
                         {formatTime(result.timestamp)}
                       </span>
                     </div>
-                    <div style={{ color: "var(--vscode-descriptionForeground)", fontSize: "12px" }}>
+                    <div className="cocursor-rag-result-score">
                       {t("rag.search.score")}: {(result.score * 100).toFixed(1)}%
                     </div>
                   </div>
 
-                  {isTurn ? (
-                    <div>
+                  {isTurn && result.summary ? (() => {
+                    const summaryData = parseSummary(result.summary);
+                    if (!summaryData) return null;
+
+                    return (
+                      <div className="cocursor-rag-result-turn">
+                        {/* 总结信息 */}
+                        <div style={{ marginBottom: "12px" }}>
+                          <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#666" }}>
+                            {summaryData.main_topic}
+                          </div>
+                          <div style={{ fontSize: "14px", marginBottom: "8px" }}>
+                            {summaryData.summary}
+                          </div>
+                          {summaryData.key_points && summaryData.key_points.length > 0 && (
+                            <div style={{ fontSize: "13px", color: "#666" }}>
+                              <strong>关键知识点:</strong>
+                              <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
+                                {summaryData.key_points.map((point: string, idx: number) => (
+                                  <li key={idx}>{point}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {summaryData.tags && summaryData.tags.length > 0 && (
+                            <div style={{ marginTop: "8px" }}>
+                              {summaryData.tags.map((tag: string, idx: number) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "2px 8px",
+                                    margin: "2px",
+                                    backgroundColor: "#e3f2fd",
+                                    borderRadius: "12px",
+                                    fontSize: "12px",
+                                    color: "#1565c0",
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {/* 查看原始对话按钮 */}
+                        <div>
+                          <button
+                            className="cocursor-rag-result-expand-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(resultId);
+                            }}
+                          >
+                            {isExpanded
+                              ? t("rag.search.collapse")
+                              : "查看原始对话"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })() : isTurn ? (
+                    <div className="cocursor-rag-result-turn">
                       <div style={{ marginBottom: "8px" }}>
                         <strong>{t("rag.search.user")}:</strong> {result.user_text}
                       </div>
                       <div>
                         <strong>{t("rag.search.ai")}:</strong> {result.ai_text}
                       </div>
-                      {result.message_ids && result.message_ids.length > 0 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleExpand(resultId);
-                          }}
-                          style={{
-                            marginTop: "8px",
-                            padding: "4px 8px",
-                            fontSize: "12px",
-                            backgroundColor: "transparent",
-                            border: "1px solid var(--vscode-button-border)",
-                            color: "var(--vscode-foreground)",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {isExpanded 
-                            ? t("rag.search.collapse") 
-                            : t("rag.search.expand")} ({result.message_ids.length} {t("rag.search.messages")})
-                        </button>
-                      )}
                     </div>
                   ) : (
-                    <div>{result.content}</div>
+                    <div className="cocursor-rag-result-content">{result.content}</div>
                   )}
 
                   {isExpanded && result.message_ids && (
-                    <div style={{ marginTop: "12px", paddingLeft: "16px", borderLeft: "2px solid var(--vscode-panel-border)" }}>
-                      <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)", marginBottom: "8px" }}>
+                    <div className="cocursor-rag-result-expanded">
+                      <div className="cocursor-rag-result-expanded-title">
                         {t("rag.search.messagesInTurn")}:
                       </div>
                       {result.message_ids.map((msgId, idx) => (
-                        <div key={idx} style={{ fontSize: "12px", marginBottom: "4px" }}>
+                        <div key={idx} className="cocursor-rag-result-expanded-list">
                           • {msgId}
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {isExpanded && !result.message_ids && result.user_text && result.ai_text && (
+                    <div className="cocursor-rag-result-expanded">
+                      <div className="cocursor-rag-result-expanded-title">
+                        {t("rag.search.user")}:
+                      </div>
+                      <div className="cocursor-rag-result-expanded-content">
+                        {result.user_text}
+                      </div>
+                      <div className="cocursor-rag-result-expanded-title">
+                        {t("rag.search.ai")}:
+                      </div>
+                      <div className="cocursor-rag-result-expanded-content">
+                        {result.ai_text}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -277,7 +331,7 @@ export const RAGSearch: React.FC = () => {
 
       {/* 空状态 */}
       {!loading && !error && query && results.length === 0 && (
-        <div style={{ textAlign: "center", padding: "40px", color: "var(--vscode-descriptionForeground)" }}>
+        <div className="cocursor-rag-empty">
           {t("rag.search.noResults")}
         </div>
       )}

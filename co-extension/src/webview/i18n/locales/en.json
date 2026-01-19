@@ -16,7 +16,8 @@
     "filter": "Filter",
     "all": "All",
     "none": "None",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "copied": "Copied"
   },
   "app": {
     "title": "CoCursor Dashboard",
@@ -331,6 +332,13 @@
       "qdrantVersion": "Version",
       "qdrantPath": "Path",
       "qdrantNotInstalled": "Qdrant not installed",
+      "qdrantRunning": "Running",
+      "qdrantInstalled": "Installed",
+      "qdrantStopped": "Stopped",
+      "qdrantUnknown": "Unknown",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
       "downloadQdrant": "Download Qdrant",
       "downloading": "Downloading...",
       "qdrantDownloadSuccess": "Qdrant downloaded successfully",
@@ -349,7 +357,77 @@
       "interval24h": "24 hours",
       "intervalManual": "Manual",
       "batchSize": "Batch Size",
-      "concurrency": "Concurrency"
+      "concurrency": "Concurrency",
+      "template": "Configuration Template",
+      "step1": {
+        "title": "Configure Embedding API",
+        "description": "Select or configure the API service for vector embeddings"
+      },
+      "step2": {
+        "title": "Qdrant Status Check",
+        "description": "Check and configure the local Qdrant instance"
+      },
+      "step3": {
+        "title": "Scan Strategy Configuration",
+        "description": "Set up automatic scan and index update rules"
+      },
+      "step4": {
+        "title": "Configuration Confirmation",
+        "description": "Review and confirm your configuration"
+      },
+      "urlRequired": "Please enter a valid URL",
+      "invalidUrl": "Invalid URL format",
+      "apiKeyRequired": "Please enter API Key",
+      "modelRequired": "Please enter model name",
+      "copy": "Copy",
+      "clear": "Clear",
+      "show": "Show",
+      "hide": "Hide",
+      "copied": "Copied",
+      "wizard": {
+        "title": "RAG Configuration Wizard",
+        "next": "Next",
+        "previous": "Previous",
+        "skip": "Skip",
+        "saveAndEnable": "Save and Enable",
+        "step": "Step"
+      },
+      "quickEdit": {
+        "title": "RAG Configuration",
+        "switchToWizard": "Switch to Wizard Mode",
+        "saveChanges": "Save Changes",
+        "resetConfig": "Reset Configuration",
+        "edit": "Edit",
+        "test": "Test Connection",
+        "scanNow": "Scan Now"
+      },
+      "summary": {
+        "embedding": "Embedding API",
+        "qdrant": "Qdrant",
+        "scan": "Scan Configuration",
+        "provider": "Provider",
+        "status": "Status",
+        "path": "Path",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "advanced": {
+        "title": "Advanced Options",
+        "incrementalScan": "Enable Incremental Scan",
+        "maxFileSize": "Max File Size (MB)",
+        "ignorePatterns": "Ignore File Patterns"
+      },
+      "qdrantHelp": {
+        "title": "What is Qdrant",
+        "description": "Qdrant is a high-performance vector search engine for storing and retrieving embedding vectors",
+        "performance": "High performance, low latency, suitable for real-time retrieval",
+        "docs": "Visit Qdrant official documentation to learn more"
+      },
+      "useRecommended": "Use Recommended Config",
+      "enableAutoScanHelper": "Periodically scan workspace and update index automatically",
+      "batchSizeHelper": "Number of files processed per scan (1-100)",
+      "concurrencyHelper": "Number of concurrent tasks (1-10)",
+      "saveWarning": "After saving configuration, the system will start scanning the workspace and creating the index, which may take some time"
     }
   }
 }

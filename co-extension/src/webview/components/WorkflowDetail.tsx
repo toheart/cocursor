@@ -105,7 +105,7 @@ export const WorkflowDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
+      <div className="cocursor-loading">
         {t("workflows.loading")}
       </div>
     );
@@ -113,13 +113,14 @@ export const WorkflowDetail: React.FC = () => {
 
   if (error) {
     return (
-      <div style={{ padding: "16px" }}>
-        <div className="cocursor-error" style={{ padding: "12px", backgroundColor: "var(--vscode-inputValidation-errorBackground)", color: "var(--vscode-errorForeground)", borderRadius: "4px" }}>
+      <div className="cocursor-container">
+        <div className="cocursor-error">
           {t("workflows.error")}: {error}
         </div>
         <button
+          className="cocursor-btn cocursor-btn-primary"
           onClick={() => navigate("/workflows")}
-          style={{ marginTop: "16px", padding: "8px 16px" }}
+          style={{ marginTop: "16px" }}
         >
           {t("workflows.backToList")}
         </button>
@@ -129,11 +130,12 @@ export const WorkflowDetail: React.FC = () => {
 
   if (!workflow) {
     return (
-      <div style={{ padding: "16px", textAlign: "center", color: "var(--vscode-descriptionForeground)" }}>
+      <div className="cocursor-empty">
         {t("workflows.notFound")}
         <button
+          className="cocursor-btn cocursor-btn-primary"
           onClick={() => navigate("/workflows")}
-          style={{ marginTop: "16px", padding: "8px 16px", display: "block", margin: "16px auto 0" }}
+          style={{ marginTop: "16px", display: "block", margin: "16px auto 0" }}
         >
           {t("workflows.backToList")}
         </button>
@@ -146,98 +148,77 @@ export const WorkflowDetail: React.FC = () => {
     : 0;
 
   return (
-    <div className="cocursor-workflow-detail" style={{ padding: "16px" }}>
+    <div className="cocursor-workflow-detail">
       {/* 头部信息 */}
-      <div style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-          <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>
+      <div className="cocursor-workflow-detail-header">
+        <div className="cocursor-workflow-detail-title-row">
+          <h2 className="cocursor-workflow-detail-title">
             {workflow.change_id}
           </h2>
-          <span
-            style={{
-              padding: "4px 8px",
-              fontSize: "12px",
-              borderRadius: "4px",
-              backgroundColor: "var(--vscode-badge-background)",
-              color: "var(--vscode-badge-foreground)"
-            }}
-          >
+          <span className="cocursor-badge cocursor-badge-default">
             {getStageLabel(workflow.stage)}
           </span>
           <span
+            className="cocursor-badge cocursor-badge-outline"
             style={{
-              padding: "4px 8px",
-              fontSize: "12px",
-              borderRadius: "4px",
               color: getStatusColor(workflow.status),
-              border: `1px solid ${getStatusColor(workflow.status)}`
+              borderColor: getStatusColor(workflow.status)
             }}
           >
             {getStatusLabel(workflow.status)}
           </span>
         </div>
-        <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+        <div className="cocursor-workflow-detail-path">
           {workflow.project_path}
         </div>
       </div>
 
       {/* 基本信息 */}
-      <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.basicInfo")}</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "12px" }}>
-          <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.workspaceId")}</div>
-            <div style={{ color: "var(--vscode-foreground)" }}>{workflow.workspace_id}</div>
-          </div>
-          <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.changeId")}</div>
-            <div style={{ color: "var(--vscode-foreground)" }}>{workflow.change_id}</div>
-          </div>
-          <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.startTime")}</div>
-            <div style={{ color: "var(--vscode-foreground)" }}>{formatDate(workflow.started_at)}</div>
-          </div>
-          <div>
-            <div style={{ color: "var(--vscode-descriptionForeground)", marginBottom: "4px" }}>{t("workflows.updateTime")}</div>
-            <div style={{ color: "var(--vscode-foreground)" }}>{formatDate(workflow.updated_at)}</div>
-          </div>
+      <div className="cocursor-workflow-info-card">
+        <h3 className="cocursor-workflow-info-card-title">{t("workflows.basicInfo")}</h3>
+        <div className="cocursor-workflow-info-row">
+          <div className="cocursor-workflow-info-label">{t("workflows.workspaceId")}</div>
+          <div className="cocursor-workflow-info-value">{workflow.workspace_id}</div>
+        </div>
+        <div className="cocursor-workflow-info-row">
+          <div className="cocursor-workflow-info-label">{t("workflows.changeId")}</div>
+          <div className="cocursor-workflow-info-value">{workflow.change_id}</div>
+        </div>
+        <div className="cocursor-workflow-info-row">
+          <div className="cocursor-workflow-info-label">{t("workflows.startTime")}</div>
+          <div className="cocursor-workflow-info-value">{formatDate(workflow.started_at)}</div>
+        </div>
+        <div className="cocursor-workflow-info-row">
+          <div className="cocursor-workflow-info-label">{t("workflows.updateTime")}</div>
+          <div className="cocursor-workflow-info-value">{formatDate(workflow.updated_at)}</div>
         </div>
       </div>
 
       {/* 进度信息 */}
       {workflow.summary && (
-        <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.progressInfo")}</h3>
+        <div className="cocursor-workflow-info-card">
+          <h3 className="cocursor-workflow-info-card-title">{t("workflows.progressInfo")}</h3>
           <div style={{ marginBottom: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+              <span className="cocursor-workflow-info-label">
                 {t("workflows.taskProgress")}
               </span>
-              <span style={{ fontSize: "12px", color: "var(--vscode-foreground)", fontWeight: 600 }}>
+              <span className="cocursor-workflow-info-value">
                 {workflow.summary.tasks_completed} / {workflow.summary.tasks_total} ({progress}%)
               </span>
             </div>
-            <div
-              style={{
-                width: "100%",
-                height: "8px",
-                backgroundColor: "var(--vscode-progressBar-background)",
-                borderRadius: "4px",
-                overflow: "hidden"
-              }}
-            >
+            <div className="cocursor-progress" style={{ height: "8px" }}>
               <div
+                className="cocursor-progress-bar"
                 style={{
                   width: `${progress}%`,
-                  height: "100%",
-                  backgroundColor: getStatusColor(workflow.status),
-                  transition: "width 0.3s ease"
+                  backgroundColor: getStatusColor(workflow.status)
                 }}
               />
             </div>
           </div>
           {workflow.summary.time_spent && (
-            <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground)" }}>
+            <div className="cocursor-workflow-info-label">
               {t("workflows.timeSpent")}: {workflow.summary.time_spent}
             </div>
           )}
@@ -246,8 +227,8 @@ export const WorkflowDetail: React.FC = () => {
 
       {/* 文件变更 */}
       {workflow.summary && workflow.summary.files_changed && workflow.summary.files_changed.length > 0 && (
-        <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>
+        <div className="cocursor-workflow-info-card">
+          <h3 className="cocursor-workflow-info-card-title">
             {t("workflows.changedFiles")} ({workflow.summary.files_changed.length})
           </h3>
           <div style={{ maxHeight: "200px", overflowY: "auto" }}>
@@ -271,8 +252,8 @@ export const WorkflowDetail: React.FC = () => {
 
       {/* 工作总结 */}
       {workflow.summary && workflow.summary.summary && (
-        <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.summary")}</h3>
+        <div className="cocursor-workflow-info-card">
+          <h3 className="cocursor-workflow-info-card-title">{t("workflows.summary")}</h3>
           <div
             style={{
               fontSize: "12px",
@@ -288,8 +269,8 @@ export const WorkflowDetail: React.FC = () => {
 
       {/* 元数据 */}
       {workflow.metadata && Object.keys(workflow.metadata).length > 0 && (
-        <div style={{ marginBottom: "24px", padding: "16px", backgroundColor: "var(--vscode-editor-background)", borderRadius: "4px", border: "1px solid var(--vscode-panel-border)" }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600 }}>{t("workflows.metadata")}</h3>
+        <div className="cocursor-workflow-info-card">
+          <h3 className="cocursor-workflow-info-card-title">{t("workflows.metadata")}</h3>
           <pre
             style={{
               fontSize: "11px",
@@ -311,8 +292,8 @@ export const WorkflowDetail: React.FC = () => {
       {/* 返回按钮 */}
       <div style={{ marginTop: "24px" }}>
         <button
+          className="cocursor-btn cocursor-btn-primary"
           onClick={() => navigate("/workflows")}
-          style={{ padding: "8px 16px", fontSize: "12px" }}
         >
           {t("workflows.backToList")}
         </button>

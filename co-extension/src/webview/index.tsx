@@ -11,6 +11,8 @@ import "./styles/sessions.css";
 import "./styles/work-analysis.css";
 import "./styles/markdown.css";
 import "./styles/marketplace.css";
+import "./styles/workflow.css";
+import "./styles/rag.css";
 import "./styles/futuristic.css";
 
 // 初始化 i18n
