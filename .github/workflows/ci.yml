@@ -23,10 +23,28 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: co-extension/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('co-extension/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
         working-directory: co-extension
@@ -88,10 +106,28 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: co-extension/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('co-extension/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
         working-directory: co-extension
@@ -136,7 +172,7 @@ jobs:
         working-directory: backend
         shell: pwsh
         run: |
-          go run github.com/google/wire/cmd/wire@latest ./internal/wire
+          make wire
           $env:GOOS="windows"; $env:GOARCH="amd64"
           go build -o ../co-extension/bin/cocursor-windows-amd64.exe ./cmd/server
 
@@ -174,9 +210,24 @@ jobs:
         working-directory: co-extension
         run: vsce package --out test.vsix --target darwin-arm64
 
-      - name: Verify package contents
+      - name: Verify package contents (Unix-like)
+        if: runner.os != 'Windows'
         run: |
           unzip -l test.vsix | head -20
 
-      - name: Clean up
+      - name: Verify package contents (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Expand archive to see contents
+          Add-Type -Assembly System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::OpenRead("$PWD\test.vsix").Entries.FullName | Select-Object -First 20
+
+      - name: Clean up (Unix-like)
+        if: runner.os != 'Windows'
         run: rm test.vsix
+
+      - name: Clean up (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Remove-Item test.vsix -ErrorAction SilentlyContinue

@@ -45,6 +45,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: co-extension/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('co-extension/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install dependencies
         working-directory: co-extension
         run: npm ci
@@ -52,6 +60,14 @@ jobs:
       - name: Run lint
         working-directory: co-extension
         run: npm run lint
+
+      - name: Compile TypeScript
+        working-directory: co-extension
+        run: npm run compile
+
+      - name: Run tests (backend)
+        working-directory: backend
+        run: go test -v -race -cover ./...
 
       - name: Build extension
         working-directory: co-extension
@@ -61,6 +77,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Build backend daemon (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -75,7 +101,7 @@ jobs:
         working-directory: backend
         shell: pwsh
         run: |
-          go run github.com/google/wire/cmd/wire@latest ./internal/wire
+          make wire
           $env:GOOS="windows"; $env:GOARCH="amd64"
           go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ') -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-windows-amd64.exe ./cmd/server
 
@@ -182,29 +208,61 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Publish Windows (x64)
+        id: publish-windows
         working-directory: artifacts/cocursor-win32-x64-vsix
+        continue-on-error: true
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "Windows x64 publish failed, continuing..."
+          vsce publish -p $VSCE_PAT --packagePath *.vsix
 
       - name: Publish Linux (x64)
+        id: publish-linux
         working-directory: artifacts/cocursor-linux-x64-vsix
+        continue-on-error: true
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "Linux x64 publish failed, continuing..."
+          vsce publish -p $VSCE_PAT --packagePath *.vsix
 
       - name: Publish macOS (x64)
+        id: publish-macos-x64
         working-directory: artifacts/cocursor-darwin-x64-vsix
+        continue-on-error: true
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "macOS x64 publish failed, continuing..."
+          vsce publish -p $VSCE_PAT --packagePath *.vsix
 
       - name: Publish macOS (ARM64)
+        id: publish-macos-arm64
         working-directory: artifacts/cocursor-darwin-arm64-vsix
+        continue-on-error: true
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix || echo "macOS ARM64 publish failed, continuing..."
+          vsce publish -p $VSCE_PAT --packagePath *.vsix
+
+      - name: Check publish results
+        run: |
+          FAILED_PLATFORMS=""
+          [ "${{ steps.publish-windows.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS Windows-x64"
+          [ "${{ steps.publish-linux.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS Linux-x64"
+          [ "${{ steps.publish-macos-x64.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS macOS-x64"
+          [ "${{ steps.publish-macos-arm64.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS macOS-ARM64"
+
+          if [ -n "$FAILED_PLATFORMS" ]; then
+            echo "⚠️ WARNING: Publishing failed for platforms:$FAILED_PLATFORMS"
+            echo "Please check the logs above and manually publish the failed platforms if needed."
+            exit 1
+          else
+            echo "✅ All platforms published successfully!"
+          fi
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
