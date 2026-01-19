@@ -2,15 +2,18 @@ import * as vscode from "vscode";
 import axios from "axios";
 import { WebviewMessage, ExtensionMessage } from "./types/message";
 
-export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace";
+export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow";
 
 export class WebviewPanel {
   public static workAnalysisPanel: WebviewPanel | undefined;
   public static recentSessionsPanel: WebviewPanel | undefined;
   public static marketplacePanel: WebviewPanel | undefined;
+  public static ragSearchPanel: WebviewPanel | undefined;
+  public static workflowPanel: WebviewPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private readonly _viewType: WebviewType;
+  private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
 
   private initialRoute: string = "/";
@@ -21,10 +24,11 @@ export class WebviewPanel {
   } | null = null;
   private static readonly CACHE_TTL = 5000; // 5秒缓存
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, viewType: WebviewType, route?: string) {
+  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, viewType: WebviewType, context: vscode.ExtensionContext, route?: string) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._viewType = viewType;
+    this._context = context;
     if (route) {
       this.initialRoute = route;
     }
@@ -53,7 +57,7 @@ export class WebviewPanel {
     }, null, this._disposables);
   }
 
-  public static createOrShow(extensionUri: vscode.Uri, viewType: WebviewType, route?: string): void {
+  public static createOrShow(extensionUri: vscode.Uri, viewType: WebviewType, context: vscode.ExtensionContext, route?: string): void {
     console.log("WebviewPanel: createOrShow 被调用", extensionUri.toString(), viewType, route);
     
     const column = vscode.window.activeTextEditor
@@ -68,6 +72,10 @@ export class WebviewPanel {
       currentPanel = WebviewPanel.recentSessionsPanel;
     } else if (viewType === "marketplace") {
       currentPanel = WebviewPanel.marketplacePanel;
+    } else if (viewType === "ragSearch") {
+      currentPanel = WebviewPanel.ragSearchPanel;
+    } else if (viewType === "workflow") {
+      currentPanel = WebviewPanel.workflowPanel;
     }
 
     // 如果已经有对应类型的面板，显示它并导航到指定路由
@@ -91,11 +99,15 @@ export class WebviewPanel {
     const panelTitle = 
       viewType === "workAnalysis" ? "工作分析 - CoCursor" :
       viewType === "recentSessions" ? "最近对话 - CoCursor" :
-      "插件市场 - CoCursor";
+      viewType === "marketplace" ? "插件市场 - CoCursor" :
+      viewType === "ragSearch" ? "RAG 搜索 - CoCursor" :
+      "OpenSpec 工作流 - CoCursor";
     const panelId = 
       viewType === "workAnalysis" ? "cocursorWorkAnalysis" :
       viewType === "recentSessions" ? "cocursorRecentSessions" :
-      "cocursorMarketplace";
+      viewType === "marketplace" ? "cocursorMarketplace" :
+      viewType === "ragSearch" ? "cocursorRAGSearch" :
+      "cocursorWorkflow";
     
     const panel = vscode.window.createWebviewPanel(
       panelId,
@@ -111,7 +123,7 @@ export class WebviewPanel {
       }
     );
 
-    const newPanel = new WebviewPanel(panel, extensionUri, viewType, route);
+    const newPanel = new WebviewPanel(panel, extensionUri, viewType, context, route);
     
     // 根据类型保存到对应的静态变量
     if (viewType === "workAnalysis") {
@@ -120,6 +132,10 @@ export class WebviewPanel {
       WebviewPanel.recentSessionsPanel = newPanel;
     } else if (viewType === "marketplace") {
       WebviewPanel.marketplacePanel = newPanel;
+    } else if (viewType === "ragSearch") {
+      WebviewPanel.ragSearchPanel = newPanel;
+    } else if (viewType === "workflow") {
+      WebviewPanel.workflowPanel = newPanel;
     }
     
     console.log(`WebviewPanel: ${viewType}面板创建完成`);
@@ -169,6 +185,9 @@ export class WebviewPanel {
           this._panel.title = String(message.payload.title);
         }
         break;
+      case "changeLanguage":
+        this._handleChangeLanguage(message.payload as { language: string });
+        break;
       case "fetchPlugins":
         this._handleFetchPlugins(message.payload as { category?: string; search?: string; installed?: boolean });
         break;
@@ -193,9 +212,72 @@ export class WebviewPanel {
       case "fetchWorkflowDetail":
         this._handleFetchWorkflowDetail(message.payload as { changeId: string; projectPath?: string });
         break;
+      case "fetchRAGConfig":
+        this._handleFetchRAGConfig();
+        break;
+      case "updateRAGConfig":
+        this._handleUpdateRAGConfig(message.payload as { config: unknown });
+        break;
+      case "testRAGConfig":
+        this._handleTestRAGConfig(message.payload as { config: { url: string; api_key: string; model: string } });
+        break;
+      case "searchRAG":
+        this._handleSearchRAG(message.payload as { query: string; projectIds?: string[]; limit?: number });
+        break;
+      case "triggerRAGIndex":
+        this._handleTriggerRAGIndex(message.payload as { sessionId?: string });
+        break;
+      case "fetchRAGStats":
+        this._handleFetchRAGStats();
+        break;
+      case "downloadQdrant":
+        this._handleDownloadQdrant(message.payload as { version?: string });
+        break;
+      case "openRAGSearch":
+        this._handleOpenRAGSearch(message.payload as { route?: string } | undefined);
+        break;
+      case "changeLanguage":
+        this._handleChangeLanguage(message.payload as { language: string });
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
+  }
+
+  // 处理语言切换：保存到 globalState 并广播到所有 webview
+  private _handleChangeLanguage(payload: { language: string }): void {
+    const language = payload.language;
+    if (language !== 'zh-CN' && language !== 'en') {
+      console.warn(`Invalid language: ${language}`);
+      return;
+    }
+
+    // 保存到 globalState
+    this._context.globalState.update('cocursor-language', language).then(() => {
+      // 广播到所有 webview
+      WebviewPanel.broadcastLanguageChange(language);
+      
+      // 通知侧边栏刷新（通过命令）
+      vscode.commands.executeCommand('cocursor.refreshSidebarLanguage');
+    });
+  }
+
+  // 静态方法：广播语言变更到所有已打开的 webview
+  public static broadcastLanguageChange(language: string): void {
+    const panels = [
+      WebviewPanel.workAnalysisPanel,
+      WebviewPanel.recentSessionsPanel,
+      WebviewPanel.marketplacePanel,
+      WebviewPanel.ragSearchPanel,
+      WebviewPanel.workflowPanel
+    ].filter(Boolean) as WebviewPanel[];
+
+    panels.forEach(panel => {
+      panel._sendMessage({
+        type: "languageChanged",
+        data: { language }
+      });
+    });
   }
 
   private async _handleFetchChats(): Promise<void> {
@@ -421,7 +503,7 @@ export class WebviewPanel {
     }
   }
 
-  private async _handleFetchWorkAnalysis(payload: { startDate?: string; endDate?: string; projectName?: string }): Promise<void> {
+  private async _handleFetchWorkAnalysis(payload: { startDate?: string; endDate?: string }): Promise<void> {
     try {
       let apiUrl = "http://localhost:19960/api/v1/stats/work-analysis";
       const params = new URLSearchParams();
@@ -430,9 +512,6 @@ export class WebviewPanel {
       }
       if (payload.endDate) {
         params.append("end_date", payload.endDate);
-      }
-      if (payload.projectName) {
-        params.append("project_name", payload.projectName);
       }
       if (params.toString()) {
         apiUrl += `?${params.toString()}`;
@@ -546,7 +625,7 @@ export class WebviewPanel {
     ).then((selection) => {
       if (selection === "查看详情") {
         // 显示面板（如果已关闭则创建）
-        WebviewPanel.createOrShow(this._extensionUri, "workAnalysis");
+        WebviewPanel.createOrShow(this._extensionUri, "workAnalysis", this._context);
       }
     });
   }
@@ -776,6 +855,132 @@ export class WebviewPanel {
     }
   }
 
+  // ========== RAG 相关处理 ==========
+
+  private async _handleFetchRAGConfig(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/rag/config", { timeout: 10000 });
+      this._sendMessage({
+        type: "fetchRAGConfig-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchRAGConfig-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleUpdateRAGConfig(payload: { config: unknown }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/config", payload.config, { timeout: 10000 });
+      this._sendMessage({
+        type: "updateRAGConfig-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "updateRAGConfig-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleTestRAGConfig(payload: { config: { url: string; api_key: string; model: string } }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/config/test", payload.config, { timeout: 30000 });
+      this._sendMessage({
+        type: "testRAGConfig-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "testRAGConfig-response",
+        data: { 
+          success: false,
+          error: error instanceof Error ? error.message : "未知错误" 
+        }
+      });
+    }
+  }
+
+  private async _handleSearchRAG(payload: { query: string; projectIds?: string[]; limit?: number }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/search", {
+        query: payload.query,
+        project_ids: payload.projectIds,
+        limit: payload.limit || 10
+      }, { timeout: 30000 });
+      this._sendMessage({
+        type: "searchRAG-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "searchRAG-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleTriggerRAGIndex(payload: { sessionId?: string }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/index", {
+        session_id: payload.sessionId || ""
+      }, { timeout: 10000 });
+      this._sendMessage({
+        type: "triggerRAGIndex-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "triggerRAGIndex-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchRAGStats(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/rag/stats", { timeout: 10000 });
+      this._sendMessage({
+        type: "fetchRAGStats-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchRAGStats-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleDownloadQdrant(payload: { version?: string }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/download", {
+        version: payload.version || ""
+      }, { timeout: 300000 }); // 5 分钟超时，因为下载可能需要较长时间
+      this._sendMessage({
+        type: "downloadQdrant-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "downloadQdrant-response",
+        data: { 
+          success: false,
+          error: error instanceof Error ? error.message : "未知错误" 
+        }
+      });
+    }
+  }
+
+  private _handleOpenRAGSearch(payload?: { route?: string }): void {
+    const route = payload?.route || "/";
+    WebviewPanel.createOrShow(this._extensionUri, "ragSearch", this._context, route);
+  }
+
   private _sendMessage(message: ExtensionMessage): void {
     this._panel.webview.postMessage(message);
   }
@@ -804,6 +1009,10 @@ export class WebviewPanel {
       workspacePathScript = `window.__WORKSPACE_PATH__ = ${JSON.stringify(path)};`;
     }
 
+    // 从 globalState 获取语言设置
+    const savedLanguage = this._context.globalState.get<string>('cocursor-language') || 'zh-CN';
+    const languageScript = `window.__INITIAL_LANGUAGE__ = ${JSON.stringify(savedLanguage)};`;
+
     const html = `<!DOCTYPE html>
       <html lang="zh-CN">
       <head>
@@ -819,6 +1028,7 @@ export class WebviewPanel {
           window.__INITIAL_ROUTE__ = "${this.initialRoute}";
           window.__VIEW_TYPE__ = "${this._viewType}";
           ${workspacePathScript}
+          ${languageScript}
         </script>
         <script nonce="${nonce}" src="${scriptUri}"></script>
       </body>
@@ -835,6 +1045,10 @@ export class WebviewPanel {
       WebviewPanel.recentSessionsPanel = undefined;
     } else if (this._viewType === "marketplace") {
       WebviewPanel.marketplacePanel = undefined;
+    } else if (this._viewType === "ragSearch") {
+      WebviewPanel.ragSearchPanel = undefined;
+    } else if (this._viewType === "workflow") {
+      WebviewPanel.workflowPanel = undefined;
     }
 
     // 清理资源

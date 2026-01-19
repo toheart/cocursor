@@ -5,6 +5,7 @@ import { SidebarProvider } from "./sidebar/sidebarProvider";
 import { DaemonManager } from "./daemon/daemonManager";
 import { checkAndReportProject } from "./utils/projectReporter";
 import { watchWorkspaceChanges } from "./utils/workspaceDetector";
+import { initI18n } from "./utils/i18n";
 
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
@@ -12,6 +13,9 @@ let daemonManager: DaemonManager | null = null;
 let windowStateListener: vscode.Disposable | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
+  // 初始化 i18n
+  initI18n(context);
+  
   // 使用多个日志输出，确保能看到
   console.log("========================================");
   console.log("CoCursor Extension 已激活！");
@@ -87,7 +91,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("cocursor.openDashboard", () => {
       console.log("命令 cocursor.openDashboard 被调用");
       try {
-        WebviewPanel.createOrShow(context.extensionUri, "workAnalysis");
+        WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", context, "/");
         console.log("WebviewPanel.createOrShow 调用成功");
       } catch (error) {
         console.error("打开工作分析失败:", error);
@@ -130,27 +134,40 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // 注册侧边栏语言刷新命令
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.refreshSidebarLanguage", () => {
+      sidebarProvider.refreshLanguage();
+    })
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openWorkAnalysis", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "workAnalysis");
+      WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", context, "/");
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openSessions", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "recentSessions");
+      WebviewPanel.createOrShow(context.extensionUri, "recentSessions", context);
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openMarketplace", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "marketplace");
+      WebviewPanel.createOrShow(context.extensionUri, "marketplace", context);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openRAGSearch", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "ragSearch", context, "/");
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openWorkflows", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", "/workflows");
+      WebviewPanel.createOrShow(context.extensionUri, "workflow", context, "/");
     })
   );
 

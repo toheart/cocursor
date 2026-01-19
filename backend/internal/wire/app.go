@@ -1,9 +1,11 @@
 package wire
 
 import (
+	"database/sql"
 	"time"
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	appRAG "github.com/cocursor/backend/internal/application/rag"
 	infraMarketplace "github.com/cocursor/backend/internal/infrastructure/marketplace"
 	"github.com/cocursor/backend/internal/infrastructure/websocket"
 	"github.com/cocursor/backend/internal/interfaces"
@@ -11,11 +13,14 @@ import (
 
 // App 应用主结构，组合所有服务
 type App struct {
-	HTTPServer     *interfaces.HTTPServer
-	MCPServer      *interfaces.MCPServer
-	wsHub          *websocket.Hub
-	projectManager *appCursor.ProjectManager
-	mcpInitializer *infraMarketplace.MCPInitializer
+	HTTPServer            *interfaces.HTTPServer
+	MCPServer             *interfaces.MCPServer
+	wsHub                 *websocket.Hub
+	projectManager        *appCursor.ProjectManager
+	workspaceCacheService *appCursor.WorkspaceCacheService
+	scanScheduler         *appRAG.ScanScheduler
+	mcpInitializer        *infraMarketplace.MCPInitializer
+	db                    *sql.DB
 }
 
 // NewApp 创建应用实例
@@ -24,14 +29,20 @@ func NewApp(
 	mcpServer *interfaces.MCPServer,
 	wsHub *websocket.Hub,
 	projectManager *appCursor.ProjectManager,
+	workspaceCacheService *appCursor.WorkspaceCacheService,
+	scanScheduler *appRAG.ScanScheduler,
 	mcpInitializer *infraMarketplace.MCPInitializer,
+	db *sql.DB,
 ) *App {
 	return &App{
-		HTTPServer:     httpServer,
-		MCPServer:      mcpServer,
-		wsHub:          wsHub,
-		projectManager: projectManager,
-		mcpInitializer: mcpInitializer,
+		HTTPServer:            httpServer,
+		MCPServer:             mcpServer,
+		wsHub:                 wsHub,
+		projectManager:        projectManager,
+		workspaceCacheService: workspaceCacheService,
+		scanScheduler:         scanScheduler,
+		mcpInitializer:        mcpInitializer,
+		db:                    db,
 	}
 }
 
@@ -40,6 +51,23 @@ func (a *App) Start() error {
 	// 初始化项目管理器（扫描所有工作区）
 	if a.projectManager != nil {
 		if err := a.projectManager.Start(); err != nil {
+			// 记录错误但不阻止启动
+			// TODO: 使用日志记录错误
+		}
+	}
+
+	// 启动工作区缓存服务（依赖 ProjectManager 已启动）
+	if a.workspaceCacheService != nil {
+		if err := a.workspaceCacheService.Start(); err != nil {
+			// 记录错误但不阻止启动
+			// TODO: 使用日志记录错误
+		}
+	}
+
+	// 启动 RAG 扫描调度器（如果已配置）
+	// 注意：scanScheduler 可能为 nil（如果 RAG 未配置）
+	if a.scanScheduler != nil {
+		if err := a.scanScheduler.Start(); err != nil {
 			// 记录错误但不阻止启动
 			// TODO: 使用日志记录错误
 		}
@@ -76,11 +104,33 @@ func (a *App) Start() error {
 
 // Stop 停止所有服务
 func (a *App) Stop() error {
+	// 停止 RAG 扫描调度器
+	if a.scanScheduler != nil {
+		if err := a.scanScheduler.Stop(); err != nil {
+			// 记录错误但不阻止停止
+		}
+	}
+
+	// 停止工作区缓存服务
+	if a.workspaceCacheService != nil {
+		if err := a.workspaceCacheService.Stop(); err != nil {
+			// 记录错误但不阻止停止
+		}
+	}
+
 	if err := a.HTTPServer.Stop(); err != nil {
 		return err
 	}
 	if err := a.MCPServer.Stop(); err != nil {
 		return err
 	}
+
+	// 关闭数据库连接
+	if a.db != nil {
+		if err := a.db.Close(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

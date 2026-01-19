@@ -116,10 +116,17 @@ export interface WorkAnalysisData {
     total_lines_removed: number;
     files_changed: number;
     acceptance_rate: number;
+    tab_acceptance_rate: number;
+    composer_acceptance_rate: number;
     active_sessions: number;
-    total_prompts?: number;
-    total_generations?: number;
   };
+  daily_details: Array<{
+    date: string;
+    lines_added: number;
+    lines_removed: number;
+    files_changed: number;
+    active_sessions: number;
+  }>;
   code_changes_trend: Array<{
     date: string;
     lines_added: number;

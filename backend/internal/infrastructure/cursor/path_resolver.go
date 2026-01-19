@@ -152,6 +152,11 @@ func (p *PathResolver) normalizePath(path string) (string, error) {
 //   - Windows: "D:/code/cocursor" 或 "D:\\code\\cocursor" (取决于系统)
 //   - macOS/Linux: "/Users/xibaobao/code/cocursor"
 func (p *PathResolver) parseFolderURI(uri string) (string, error) {
+	// 检查 URI 是否为空
+	if uri == "" {
+		return "", fmt.Errorf("empty URI")
+	}
+
 	// 解析 URI
 	parsedURL, err := url.Parse(uri)
 	if err != nil {
@@ -159,6 +164,9 @@ func (p *PathResolver) parseFolderURI(uri string) (string, error) {
 	}
 
 	// 检查协议
+	if parsedURL.Scheme == "" {
+		return "", fmt.Errorf("missing scheme in URI: %s", uri)
+	}
 	if parsedURL.Scheme != "file" {
 		return "", fmt.Errorf("unsupported scheme: %s", parsedURL.Scheme)
 	}

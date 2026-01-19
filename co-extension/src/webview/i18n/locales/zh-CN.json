@@ -30,9 +30,9 @@
     "files": "个文件"
   },
   "marketplace": {
-    "title": "插件市场",
-    "subtitle": "发现并安装强大的扩展插件",
-    "searchPlaceholder": "搜索插件...",
+    "title": "技能市场",
+    "subtitle": "发现并安装强大的技能",
+    "searchPlaceholder": "搜索技能...",
     "categories": {
       "all": "全部",
       "tools": "工具",
@@ -52,8 +52,8 @@
     "uninstallSuccess": "卸载成功！",
     "uninstallFailed": "卸载失败",
     "uninstallFailedRetry": "卸载失败，请稍后重试",
-    "loadFailed": "加载插件失败：",
-    "noPlugins": "暂无插件",
+    "loadFailed": "加载技能失败：",
+    "noPlugins": "暂无技能",
     "noPluginsDesc": "尝试调整搜索条件或筛选器",
     "viewDetails": "查看详情",
     "collapseDetails": "收起详情",
@@ -113,7 +113,105 @@
     "summary": "工作总结",
     "metadata": "元数据",
     "progress": "进度",
-    "tasks": "任务"
+    "tasks": "任务",
+    "onboarding": {
+      "helpSection": {
+        "title": "使用说明",
+        "expand": "展开",
+        "collapse": "折叠"
+      },
+      "skillInstallWarning": {
+        "title": "重要提示",
+        "message": "使用 OpenSpec 工作流前，请先在技能市场安装 \"OpenSpec\" 技能插件。安装后，命令文件会自动安装到工作区的 .cursor/commands/ 目录。"
+      },
+      "workflowDiagram": {
+        "title": "OpenSpec 工作流流程图"
+      },
+      "stages": {
+        "title": "四个阶段详细说明（基于 OpenSpec Skill）",
+        "init": {
+          "name": "init（初始化）",
+          "function": "功能：初始化 OpenSpec 目录结构",
+          "command": "命令：/cocursor-openspec-init",
+          "output": "输出：创建 openspec/ 目录和基础文件"
+        },
+        "proposal": {
+          "name": "proposal（提案）",
+          "function": "功能：创建变更提案，定义要做什么",
+          "command": "命令：/cocursor-openspec-proposal",
+          "output": "输出：",
+          "outputItems": {
+            "proposal": "proposal.md（变更说明）",
+            "tasks": "tasks.md（实施任务列表）",
+            "design": "design.md（技术设计，如需要）",
+            "specDelta": "spec delta 文件（规范变更）"
+          },
+          "mcpTools": "MCP 工具：",
+          "mcpToolsList": {
+            "openspec_list": "openspec_list（获取现有变更和规范）",
+            "openspec_validate": "openspec_validate（验证格式）",
+            "record_openspec_workflow": "record_openspec_workflow（记录状态）"
+          }
+        },
+        "apply": {
+          "name": "apply（实施）",
+          "function": "功能：实施已批准的变更",
+          "command": "命令：/cocursor-openspec-apply",
+          "process": "流程：",
+          "processItems": {
+            "taskOrder": "按 tasks.md 顺序完成任务",
+            "autoUpdate": "每完成一个任务自动更新进度",
+            "autoSummary": "所有任务完成后自动生成工作总结"
+          },
+          "mcpTools": "MCP 工具：",
+          "mcpToolsList": {
+            "openspec_list": "openspec_list（获取变更详情）",
+            "record_openspec_workflow": "record_openspec_workflow（更新进度）",
+            "generate_openspec_workflow_summary": "generate_openspec_workflow_summary（生成总结）"
+          }
+        },
+        "archive": {
+          "name": "archive（归档）",
+          "function": "功能：归档已完成的工作",
+          "command": "命令：/cocursor-openspec-archive",
+          "process": "流程：",
+          "processItems": {
+            "moveDirectory": "将变更目录移动到 archive/",
+            "mergeSpec": "合并 spec delta 到主 spec 文件",
+            "recordState": "记录归档状态"
+          },
+          "mcpTools": "MCP 工具：",
+          "mcpToolsList": {
+            "record_openspec_workflow": "record_openspec_workflow（记录归档状态）"
+          }
+        }
+      },
+      "stateTracking": {
+        "title": "工作流状态跟踪：",
+        "description": "状态自动记录到 ~/.cocursor/cocursor.db 数据库",
+        "includes": "包含信息：",
+        "includesItems": {
+          "stage": "当前阶段（init/proposal/apply/archive）",
+          "status": "状态（in_progress/completed/paused）",
+          "progress": "进度信息（任务完成状态）",
+          "summary": "工作总结（tasks.md 完成后自动生成）"
+        }
+      },
+      "statusExplanation": {
+        "title": "状态说明：",
+        "inProgress": "in_progress（进行中）- 🟡 黄色",
+        "completed": "completed（已完成）- 🟢 绿色",
+        "paused": "paused（已暂停）- ⚪ 灰色"
+      },
+      "usageTips": {
+        "title": "使用提示：",
+        "commandPalette": "使用命令面板（Cmd+Shift+P / Ctrl+Shift+P）执行命令",
+        "mcpTools": "所有操作通过 cocursor MCP 工具执行，返回 JSON 数据",
+        "viewDetail": "点击工作流列表项可查看详细信息",
+        "progressBar": "进度条显示任务完成情况",
+        "viewInUI": "工作流状态可在 UI 中查看（本面板）"
+      }
+    }
   },
   "workAnalysis": {
     "title": "工作分析",
@@ -172,6 +270,86 @@
     "workflowDetail": "工作流详情",
     "workAnalysis": "工作分析",
     "recentSessions": "最近对话",
-    "marketplace": "插件市场"
+    "marketplace": "技能市场",
+    "ragSearch": "RAG 搜索",
+    "ragConfig": "RAG 配置"
+  },
+  "sidebar": {
+    "todayToken": "今日 Token",
+    "tokenLoading": "加载中...",
+    "workAnalysis": "工作分析",
+    "openWorkAnalysis": "打开工作分析",
+    "workflow": "OpenSpec 工作流",
+    "openWorkflow": "打开工作流",
+    "ragSearch": "RAG 搜索",
+    "openRAGSearch": "打开 RAG 搜索",
+    "ragConfig": "RAG 配置",
+    "openRAGConfig": "打开 RAG 配置",
+    "marketplace": "插件市场",
+    "openMarketplace": "打开插件市场",
+    "recentSessions": "最近对话",
+    "openSessions": "打开最近对话",
+    "tokenTypes": {
+      "tab": "Tab",
+      "composer": "Composer",
+      "chat": "Chat"
+    }
+  },
+  "rag": {
+    "search": {
+      "title": "RAG 搜索",
+      "placeholder": "输入搜索关键词...",
+      "queryRequired": "请输入搜索关键词",
+      "error": "搜索错误",
+      "found": "找到",
+      "results": "条结果",
+      "score": "相似度",
+      "user": "用户",
+      "ai": "AI",
+      "collapse": "收起",
+      "expand": "展开",
+      "messages": "条消息",
+      "messagesInTurn": "本轮消息",
+      "noResults": "未找到相关结果"
+    },
+    "config": {
+      "title": "RAG 配置",
+      "embeddingApi": "Embedding API 配置",
+      "apiUrl": "API URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "请输入 API Key",
+      "model": "模型",
+      "testConnection": "测试连接",
+      "testing": "测试中...",
+      "testRequired": "请填写完整的 API 配置信息",
+      "testSuccess": "连接测试成功",
+      "testFailed": "连接测试失败",
+      "saveRequired": "请填写完整的配置信息",
+      "saveSuccess": "配置保存成功",
+      "saveFailed": "配置保存失败",
+      "qdrantStatus": "Qdrant 状态",
+      "qdrantVersion": "版本",
+      "qdrantPath": "路径",
+      "qdrantNotInstalled": "Qdrant 未安装",
+      "downloadQdrant": "下载 Qdrant",
+      "downloading": "下载中...",
+      "qdrantDownloadSuccess": "Qdrant 下载成功",
+      "qdrantDownloadFailed": "Qdrant 下载失败",
+      "indexStatus": "索引状态",
+      "totalIndexed": "已索引总数",
+      "lastFullScan": "最后全量扫描",
+      "lastIncrementalScan": "最后增量扫描",
+      "scanConfig": "扫描配置",
+      "enableAutoScan": "启用自动扫描",
+      "scanInterval": "扫描间隔",
+      "interval30m": "30 分钟",
+      "interval1h": "1 小时",
+      "interval2h": "2 小时",
+      "interval6h": "6 小时",
+      "interval24h": "24 小时",
+      "intervalManual": "手动",
+      "batchSize": "批次大小",
+      "concurrency": "并发数"
+    }
   }
 }

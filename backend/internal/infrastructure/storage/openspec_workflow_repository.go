@@ -46,21 +46,11 @@ type openSpecWorkflowRepository struct {
 	db *sql.DB
 }
 
-// NewOpenSpecWorkflowRepository 创建工作流仓储实例
-func NewOpenSpecWorkflowRepository() (OpenSpecWorkflowRepository, error) {
-	// 确保数据库已初始化
-	if err := InitDatabase(); err != nil {
-		return nil, fmt.Errorf("failed to initialize database: %w", err)
-	}
-
-	db, err := OpenDB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-
+// NewOpenSpecWorkflowRepository 创建工作流仓储实例（接受数据库连接作为参数）
+func NewOpenSpecWorkflowRepository(db *sql.DB) OpenSpecWorkflowRepository {
 	return &openSpecWorkflowRepository{
 		db: db,
-	}, nil
+	}
 }
 
 // Save 保存工作流（upsert）

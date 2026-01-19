@@ -15,8 +15,8 @@ import (
 
 // OpenSpecListInput 列出 OpenSpec 变更和规范
 type OpenSpecListInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"项目路径，如 D:/code/cocursor"`
-	Type        string `json:"type,omitempty" jsonschema:"类型：changes|specs|all（默认all）"`
+	ProjectPath string `json:"project_path" jsonschema:"Project path, e.g., D:/code/cocursor"`
+	Type        string `json:"type,omitempty" jsonschema:"Type: changes|specs|all (default: all)"`
 }
 
 // OpenSpecListOutput 输出
@@ -48,9 +48,9 @@ type SpecItem struct {
 
 // OpenSpecValidateInput 验证变更
 type OpenSpecValidateInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"项目路径"`
-	ChangeID    string `json:"change_id" jsonschema:"变更ID"`
-	Strict      bool   `json:"strict,omitempty" jsonschema:"严格模式"`
+	ProjectPath string `json:"project_path" jsonschema:"Project path"`
+	ChangeID    string `json:"change_id" jsonschema:"Change ID"`
+	Strict      bool   `json:"strict,omitempty" jsonschema:"Strict mode"`
 }
 
 // OpenSpecValidateOutput 验证结果
@@ -63,11 +63,11 @@ type OpenSpecValidateOutput struct {
 
 // RecordOpenSpecWorkflowInput 记录工作流状态
 type RecordOpenSpecWorkflowInput struct {
-	ProjectPath string                 `json:"project_path" jsonschema:"项目路径"`
-	ChangeID    string                 `json:"change_id" jsonschema:"变更ID"`
-	Stage       string                 `json:"stage" jsonschema:"阶段：proposal|apply（只记录这两个阶段，init 不记录）"`
-	Status      string                 `json:"status" jsonschema:"状态：in_progress|completed|paused"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty" jsonschema:"元数据"`
+	ProjectPath string                 `json:"project_path" jsonschema:"Project path"`
+	ChangeID    string                 `json:"change_id" jsonschema:"Change ID"`
+	Stage       string                 `json:"stage" jsonschema:"Stage: proposal|apply (only these two stages are recorded, init is not recorded)"`
+	Status      string                 `json:"status" jsonschema:"Status: in_progress|completed|paused"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty" jsonschema:"Metadata"`
 }
 
 // RecordOpenSpecWorkflowOutput 输出
@@ -78,8 +78,8 @@ type RecordOpenSpecWorkflowOutput struct {
 
 // GenerateOpenSpecWorkflowSummaryInput 生成工作总结
 type GenerateOpenSpecWorkflowSummaryInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"项目路径"`
-	ChangeID    string `json:"change_id" jsonschema:"变更ID"`
+	ProjectPath string `json:"project_path" jsonschema:"Project path"`
+	ChangeID    string `json:"change_id" jsonschema:"Change ID"`
 }
 
 // GenerateOpenSpecWorkflowSummaryOutput 输出
@@ -95,8 +95,8 @@ type GenerateOpenSpecWorkflowSummaryOutput struct {
 
 // GetOpenSpecWorkflowStatusInput 获取工作流状态
 type GetOpenSpecWorkflowStatusInput struct {
-	ProjectPath string `json:"project_path,omitempty" jsonschema:"项目路径（可选）"`
-	Status      string `json:"status,omitempty" jsonschema:"状态筛选（可选）：in_progress|completed|paused"`
+	ProjectPath string `json:"project_path,omitempty" jsonschema:"Project path (optional)"`
+	Status      string `json:"status,omitempty" jsonschema:"Status filter (optional): in_progress|completed|paused"`
 }
 
 // GetOpenSpecWorkflowStatusOutput 输出
@@ -331,14 +331,8 @@ func (s *MCPServer) recordOpenSpecWorkflowTool(
 		return nil, RecordOpenSpecWorkflowOutput{}, fmt.Errorf("failed to get workspace ID: %w", err)
 	}
 
-	// 获取工作流仓储
-	workflowRepo, err := infraStorage.NewOpenSpecWorkflowRepository()
-	if err != nil {
-		return nil, RecordOpenSpecWorkflowOutput{}, fmt.Errorf("failed to create workflow repository: %w", err)
-	}
-
 	// 检查是否已有工作流记录
-	existing, _ := workflowRepo.FindByWorkspaceAndChange(workspaceID, input.ChangeID)
+	existing, _ := s.workflowRepo.FindByWorkspaceAndChange(workspaceID, input.ChangeID)
 
 	// 构建工作流数据
 	workflow := &infraStorage.OpenSpecWorkflow{
@@ -404,8 +398,8 @@ func (s *MCPServer) recordOpenSpecWorkflowTool(
 		tasksPath := filepath.Join(changePath, "tasks.md")
 		if content, err := os.ReadFile(tasksPath); err == nil {
 			if allTasksCompleted(content) {
-				// 自动触发工作总结生成
-				summary, err := s.generateWorkflowSummary(input.ProjectPath, input.ChangeID, workflowRepo)
+		// 自动触发工作总结生成
+		summary, err := s.generateWorkflowSummary(input.ProjectPath, input.ChangeID, s.workflowRepo)
 				if err == nil {
 					workflow.Summary = summary
 					workflow.Status = "completed"
@@ -415,7 +409,7 @@ func (s *MCPServer) recordOpenSpecWorkflowTool(
 	}
 
 	// 保存工作流状态
-	if err := workflowRepo.Save(workflow); err != nil {
+	if err := s.workflowRepo.Save(workflow); err != nil {
 		return nil, RecordOpenSpecWorkflowOutput{}, fmt.Errorf("failed to save workflow: %w", err)
 	}
 
@@ -431,14 +425,8 @@ func (s *MCPServer) generateOpenSpecWorkflowSummaryTool(
 	req *mcp.CallToolRequest,
 	input GenerateOpenSpecWorkflowSummaryInput,
 ) (*mcp.CallToolResult, GenerateOpenSpecWorkflowSummaryOutput, error) {
-	// 获取工作流仓储
-	workflowRepo, err := infraStorage.NewOpenSpecWorkflowRepository()
-	if err != nil {
-		return nil, GenerateOpenSpecWorkflowSummaryOutput{}, fmt.Errorf("failed to create workflow repository: %w", err)
-	}
-
 	// 生成总结
-	summary, err := s.generateWorkflowSummary(input.ProjectPath, input.ChangeID, workflowRepo)
+	summary, err := s.generateWorkflowSummary(input.ProjectPath, input.ChangeID, s.workflowRepo)
 	if err != nil {
 		return nil, GenerateOpenSpecWorkflowSummaryOutput{}, fmt.Errorf("failed to generate summary: %w", err)
 	}
@@ -446,11 +434,11 @@ func (s *MCPServer) generateOpenSpecWorkflowSummaryTool(
 	// 更新工作流状态
 	pathResolver := infraCursor.NewPathResolver()
 	workspaceID, _ := pathResolver.GetWorkspaceIDByPath(input.ProjectPath)
-	workflow, _ := workflowRepo.FindByWorkspaceAndChange(workspaceID, input.ChangeID)
+	workflow, _ := s.workflowRepo.FindByWorkspaceAndChange(workspaceID, input.ChangeID)
 	if workflow != nil {
 		workflow.Summary = summary
 		workflow.Status = "completed"
-		workflowRepo.Save(workflow)
+		s.workflowRepo.Save(workflow)
 	}
 
 	return nil, GenerateOpenSpecWorkflowSummaryOutput{
@@ -470,17 +458,12 @@ func (s *MCPServer) getOpenSpecWorkflowStatusTool(
 	req *mcp.CallToolRequest,
 	input GetOpenSpecWorkflowStatusInput,
 ) (*mcp.CallToolResult, GetOpenSpecWorkflowStatusOutput, error) {
-	// 获取工作流仓储
-	workflowRepo, err := infraStorage.NewOpenSpecWorkflowRepository()
-	if err != nil {
-		return nil, GetOpenSpecWorkflowStatusOutput{}, fmt.Errorf("failed to create workflow repository: %w", err)
-	}
-
 	var workflows []*infraStorage.OpenSpecWorkflow
+	var err error
 
 	if input.Status != "" {
 		// 按状态查询
-		workflows, err = workflowRepo.FindByStatus(input.Status)
+		workflows, err = s.workflowRepo.FindByStatus(input.Status)
 	} else if input.ProjectPath != "" {
 		// 按工作区查询
 		pathResolver := infraCursor.NewPathResolver()
@@ -488,10 +471,10 @@ func (s *MCPServer) getOpenSpecWorkflowStatusTool(
 		if err != nil {
 			return nil, GetOpenSpecWorkflowStatusOutput{}, fmt.Errorf("failed to get workspace ID: %w", err)
 		}
-		workflows, err = workflowRepo.FindByWorkspace(workspaceID)
+		workflows, err = s.workflowRepo.FindByWorkspace(workspaceID)
 	} else {
 		// 查询所有 in_progress 状态
-		workflows, err = workflowRepo.FindByStatus("in_progress")
+		workflows, err = s.workflowRepo.FindByStatus("in_progress")
 	}
 
 	if err != nil {

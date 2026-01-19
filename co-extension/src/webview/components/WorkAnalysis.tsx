@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService, SessionHealth, getVscodeApi } from "../services/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -13,10 +12,17 @@ interface WorkAnalysisData {
     total_lines_removed: number;
     files_changed: number;
     acceptance_rate: number;
+    tab_acceptance_rate: number;
+    composer_acceptance_rate: number;
     active_sessions: number;
-    total_prompts?: number;        // 总 Prompts 数（用户输入）
-    total_generations?: number;    // 总 Generations 数（AI 回复）
   };
+  daily_details: Array<{
+    date: string;
+    lines_added: number;
+    lines_removed: number;
+    files_changed: number;
+    active_sessions: number;
+  }>;
   code_changes_trend: Array<{
     date: string;
     lines_added: number;
@@ -43,17 +49,29 @@ interface WorkAnalysisData {
   };
 }
 
-interface ProjectOption {
-  project_name: string;
-}
 
 export const WorkAnalysis: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WorkAnalysisData | null>(null);
-  const [projectName, setProjectName] = useState<string>("");
+
+  const handleRAGSearchClick = useCallback(() => {
+    // 通过 vscode API 打开独立的 RAG 搜索 webview
+    const vscode = getVscodeApi();
+    vscode.postMessage({
+      command: "openRAGSearch",
+    });
+  }, []);
+
+  const handleRAGConfigClick = useCallback(() => {
+    // 通过 vscode API 打开独立的 RAG 搜索 webview，并导航到配置页面
+    const vscode = getVscodeApi();
+    vscode.postMessage({
+      command: "openRAGSearch",
+      payload: { route: "/config" },
+    });
+  }, []);
   
   // 周选择器相关
   type WeekOption = "thisWeek" | "lastWeek" | "twoWeeksAgo" | "custom";
@@ -103,18 +121,14 @@ export const WorkAnalysis: React.FC = () => {
     setStartDate(range.start);
     setEndDate(range.end);
   };
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
   const [sessionHealth, setSessionHealth] = useState<SessionHealth | null>(null);
   const loadDataTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
-  const loadProjectsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const healthIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 加载项目列表和健康状态
+  // 加载健康状态
   useEffect(() => {
     isMountedRef.current = true;
-    loadProjects();
     loadSessionHealth();
     
     // 定时刷新健康状态（每 30 秒）
@@ -126,10 +140,6 @@ export const WorkAnalysis: React.FC = () => {
     
     return () => {
       isMountedRef.current = false;
-      if (loadProjectsTimeoutRef.current) {
-        clearTimeout(loadProjectsTimeoutRef.current);
-        loadProjectsTimeoutRef.current = null;
-      }
       if (healthIntervalRef.current) {
         clearInterval(healthIntervalRef.current);
         healthIntervalRef.current = null;
@@ -154,54 +164,7 @@ export const WorkAnalysis: React.FC = () => {
         clearTimeout(loadDataTimeoutRef.current);
       }
     };
-  }, [projectName, startDate, endDate]);
-
-  const loadProjects = async (): Promise<void> => {
-    if (!isMountedRef.current) return;
-    
-    try {
-      setLoadingProjects(true);
-      // 通过 Extension 获取项目列表
-      const vscode = getVscodeApi();
-      
-      const result = await new Promise<{ projects: ProjectOption[] }>((resolve, reject) => {
-        const messageId = `fetchProjectList-${Date.now()}-${Math.random()}`;
-        const handler = (event: MessageEvent) => {
-          if (event.data.type === "fetchProjectList-response") {
-            window.removeEventListener("message", handler);
-            if (event.data.data && typeof event.data.data === "object" && "error" in event.data.data) {
-              reject(new Error(String(event.data.data.error)));
-            } else {
-              resolve(event.data.data as { projects: ProjectOption[] });
-            }
-          }
-        };
-        window.addEventListener("message", handler);
-        vscode.postMessage({ command: "fetchProjectList", payload: {}, messageId });
-        
-        loadProjectsTimeoutRef.current = setTimeout(() => {
-          window.removeEventListener("message", handler);
-          reject(new Error("Request timeout"));
-        }, 5000) as unknown as NodeJS.Timeout;
-      });
-      
-      // 检查组件是否已卸载
-      if (!isMountedRef.current) return;
-      
-      if (result && result.projects) {
-        setProjects(result.projects);
-      }
-    } catch (err) {
-      // 组件已卸载，不更新状态
-      if (!isMountedRef.current) return;
-      console.error("加载项目列表失败:", err);
-      // 静默失败，不影响主功能
-    } finally {
-      if (isMountedRef.current) {
-        setLoadingProjects(false);
-      }
-    }
-  };
+  }, [startDate, endDate]);
 
   const loadSessionHealth = async (): Promise<void> => {
     if (!isMountedRef.current) return;
@@ -224,7 +187,7 @@ export const WorkAnalysis: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiService.getWorkAnalysis(startDate, endDate, projectName || undefined);
+      const result = await apiService.getWorkAnalysis(startDate, endDate);
       
       // 检查组件是否已卸载
       if (!isMountedRef.current) return;
@@ -233,11 +196,18 @@ export const WorkAnalysis: React.FC = () => {
       if (result && typeof result === "object") {
         const workData = result as WorkAnalysisData;
         // 确保数组字段不为 null
+        if (!workData.daily_details) workData.daily_details = [];
         if (!workData.top_files) workData.top_files = [];
         if (!workData.code_changes_trend) workData.code_changes_trend = [];
         if (!workData.time_distribution) workData.time_distribution = [];
         if (workData.efficiency_metrics && !workData.efficiency_metrics.entropy_trend) {
           workData.efficiency_metrics.entropy_trend = [];
+        }
+        // 确保接受率字段存在
+        if (workData.overview) {
+          if (typeof workData.overview.acceptance_rate === "undefined") workData.overview.acceptance_rate = 0;
+          if (typeof workData.overview.tab_acceptance_rate === "undefined") workData.overview.tab_acceptance_rate = 0;
+          if (typeof workData.overview.composer_acceptance_rate === "undefined") workData.overview.composer_acceptance_rate = 0;
         }
         setData(workData);
       } else {
@@ -272,51 +242,67 @@ export const WorkAnalysis: React.FC = () => {
 
   return (
     <div className="cocursor-work-analysis">
-      <div className="cocursor-filters">
-        <select
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          disabled={loadingProjects}
-        >
-          <option value="">{t("workAnalysis.allProjects")}</option>
-          {Array.isArray(projects) && projects.map((project) => (
-            <option key={project.project_name} value={project.project_name}>
-              {project.project_name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={weekOption}
-          onChange={(e) => handleWeekChange(e.target.value as WeekOption)}
-        >
-          <option value="thisWeek">{t("workAnalysis.week.thisWeek")}</option>
-          <option value="lastWeek">{t("workAnalysis.week.lastWeek")}</option>
-          <option value="twoWeeksAgo">{t("workAnalysis.week.twoWeeksAgo")}</option>
-          <option value="custom">{t("workAnalysis.week.custom")}</option>
-        </select>
-        {weekOption === "custom" && (
-          <>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder={t("workAnalysis.startDate")}
-              style={{ minWidth: "140px" }}
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              placeholder={t("workAnalysis.endDate")}
-              style={{ minWidth: "140px" }}
-            />
-          </>
-        )}
-        {weekOption !== "custom" && (
-          <span className="cocursor-week-range">
-            {startDate} {t("workAnalysis.to")} {endDate}
-          </span>
-        )}
+      <div className="cocursor-filters" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <select
+            value={weekOption}
+            onChange={(e) => handleWeekChange(e.target.value as WeekOption)}
+          >
+            <option value="thisWeek">{t("workAnalysis.week.thisWeek")}</option>
+            <option value="lastWeek">{t("workAnalysis.week.lastWeek")}</option>
+            <option value="twoWeeksAgo">{t("workAnalysis.week.twoWeeksAgo")}</option>
+            <option value="custom">{t("workAnalysis.week.custom")}</option>
+          </select>
+          {weekOption === "custom" && (
+            <>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                placeholder={t("workAnalysis.startDate")}
+                style={{ minWidth: "140px" }}
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                placeholder={t("workAnalysis.endDate")}
+                style={{ minWidth: "140px" }}
+              />
+            </>
+          )}
+          {weekOption !== "custom" && (
+            <span className="cocursor-week-range">
+              {startDate} {t("workAnalysis.to")} {endDate}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={handleRAGSearchClick}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "var(--vscode-button-secondaryBackground)",
+              color: "var(--vscode-button-secondaryForeground)",
+              border: "1px solid var(--vscode-button-border)",
+              cursor: "pointer",
+            }}
+          >
+            🔍 {t("sidebar.ragSearch")}
+          </button>
+          <button
+            onClick={handleRAGConfigClick}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "var(--vscode-button-secondaryBackground)",
+              color: "var(--vscode-button-secondaryForeground)",
+              border: "1px solid var(--vscode-button-border)",
+              cursor: "pointer",
+            }}
+          >
+            ⚙️ {t("sidebar.ragConfig")}
+          </button>
+        </div>
       </div>
 
       <main className="cocursor-main" style={{ padding: "16px" }}>
@@ -408,25 +394,53 @@ export const WorkAnalysis: React.FC = () => {
                 <div className="cocursor-stat-large">
                   {data.overview.acceptance_rate.toFixed(1)}%
                 </div>
+                <div style={{ marginTop: "8px", fontSize: "12px", opacity: 0.8 }}>
+                  <div>Tab: {data.overview.tab_acceptance_rate.toFixed(1)}%</div>
+                  <div>Composer: {data.overview.composer_acceptance_rate.toFixed(1)}%</div>
+                </div>
               </div>
               <div className="cocursor-card">
                 <h3>{t("workAnalysis.overview.activeSessions")}</h3>
                 <div className="cocursor-stat-large">{data.overview.active_sessions}</div>
               </div>
-              {data.overview.total_prompts !== undefined && (
-                <div className="cocursor-card">
-                  <h3>{t("workAnalysis.overview.aiInteraction")}</h3>
-                  <div className="cocursor-stat">
-                    <span className="cocursor-stat-label">{t("workAnalysis.overview.prompts")}:</span>
-                    <span className="cocursor-stat-value">{data.overview.total_prompts}</span>
-                  </div>
-                  <div className="cocursor-stat">
-                    <span className="cocursor-stat-label">{t("workAnalysis.overview.generations")}:</span>
-                    <span className="cocursor-stat-value">{data.overview.total_generations || 0}</span>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* 每日详情表格 */}
+            {data.daily_details && Array.isArray(data.daily_details) && data.daily_details.length > 0 && (
+              <div className="cocursor-section" style={{ marginTop: "24px" }}>
+                <h2>每日详情</h2>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--vscode-panel-border)" }}>
+                        <th style={{ padding: "8px", textAlign: "left", fontWeight: 600 }}>日期</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>添加</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>删除</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>文件</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>活跃会话</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.daily_details.map((day, index) => (
+                        <tr 
+                          key={index} 
+                          style={{ 
+                            borderBottom: "1px solid var(--vscode-panel-border)",
+                            opacity: day.lines_added === 0 && day.lines_removed === 0 ? 0.6 : 1
+                          }}
+                        >
+                          <td style={{ padding: "8px" }}>{day.date}</td>
+                          <td style={{ padding: "8px", textAlign: "right" }}>{day.lines_added}</td>
+                          <td style={{ padding: "8px", textAlign: "right" }}>{day.lines_removed}</td>
+                          <td style={{ padding: "8px", textAlign: "right" }}>{day.files_changed}</td>
+                          <td style={{ padding: "8px", textAlign: "right" }}>{day.active_sessions}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* 代码变更趋势图表 */}
             {data.code_changes_trend && Array.isArray(data.code_changes_trend) && data.code_changes_trend.length > 0 && (

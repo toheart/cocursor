@@ -1,5 +1,5 @@
 /**
- * 插件市场组件（重构版）
+ * 技能市场组件（重构版）
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";
@@ -54,7 +54,7 @@ export const Marketplace: React.FC = () => {
         category: selectedCategory !== "all" ? selectedCategory : undefined,
         search: debouncedSearchQuery || undefined,
       };
-      console.log("Marketplace: 获取插件列表", params);
+      console.log("Marketplace: 获取技能列表", params);
       
       // 后端返回格式: { plugins: Plugin[], total: number }
       const response = await apiService.getPlugins(
@@ -82,10 +82,10 @@ export const Marketplace: React.FC = () => {
         return { plugins: response, total: response.length };
       }
       
-      console.warn("Marketplace: 无法解析插件数据", response);
+      console.warn("Marketplace: 无法解析技能数据", response);
       return { plugins: [], total: 0 };
     } catch (error) {
-      console.error("Marketplace: 获取插件列表失败", error);
+      console.error("Marketplace: 获取技能列表失败", error);
       throw error;
     }
   }, [selectedCategory, debouncedSearchQuery]);
@@ -112,7 +112,7 @@ export const Marketplace: React.FC = () => {
       return pluginsResponse;
     }
     
-    console.warn("Marketplace: 无法解析插件数据", pluginsResponse);
+    console.warn("Marketplace: 无法解析技能数据", pluginsResponse);
     return [];
   }, [pluginsResponse]);
 

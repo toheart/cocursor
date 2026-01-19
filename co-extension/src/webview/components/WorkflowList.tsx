@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../services/api";
+import { WorkflowHelpSection } from "./WorkflowHelpSection";
 
 interface WorkflowSummary {
   tasks_completed: number;
@@ -168,6 +169,9 @@ export const WorkflowList: React.FC = () => {
       </div>
 
       <main style={{ padding: "16px" }}>
+        {/* 可折叠帮助区域 */}
+        <WorkflowHelpSection />
+
         {error && (
           <div className="cocursor-error" style={{ padding: "12px", marginBottom: "16px", backgroundColor: "var(--vscode-inputValidation-errorBackground)", color: "var(--vscode-errorForeground)", borderRadius: "4px" }}>
             {t("workflows.error")}: {error}

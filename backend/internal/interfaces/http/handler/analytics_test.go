@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
+	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,10 +17,19 @@ import (
 func TestAnalyticsHandler_WorkAnalysis(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
+	statsService := appCursor.NewStatsService(mockGlobalDBReader)
+	mockGlobalDBReader2 := infraCursor.NewMockGlobalDBReader()
+	dbReader := infraCursor.NewDBReader()
+	dataMerger := appCursor.NewDataMerger(dbReader, mockGlobalDBReader2)
+	// 创建 mock sessionRepo（测试中可能不需要实际数据）
+	var sessionRepo storage.WorkspaceSessionRepository = nil
+	workAnalysisService, _ := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, dataMerger)
+	sessionService, _ := appCursor.NewSessionService(appCursor.NewProjectManager())
 	handler := NewAnalyticsHandler(
 		appCursor.NewTokenService(),
-		appCursor.NewWorkAnalysisService(appCursor.NewStatsService(), appCursor.NewProjectManager()),
-		appCursor.NewSessionService(appCursor.NewProjectManager()),
+		workAnalysisService,
+		sessionService,
 	)
 
 	tests := []struct {

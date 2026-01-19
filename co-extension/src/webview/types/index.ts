@@ -113,14 +113,23 @@ export interface WorkAnalysisData {
     total_lines_removed: number;
     files_changed: number;
     acceptance_rate: number;
+    tab_acceptance_rate: number;
+    composer_acceptance_rate: number;
     active_sessions: number;
-    total_prompts?: number;
-    total_generations?: number;
   };
+  daily_details: DailyAnalysis[];
   code_changes_trend: CodeChangeTrend[];
   top_files: TopFile[];
   time_distribution: TimeDistribution[];
   efficiency_metrics: EfficiencyMetrics;
+}
+
+export interface DailyAnalysis {
+  date: string;
+  lines_added: number;
+  lines_removed: number;
+  files_changed: number;
+  active_sessions: number;
 }
 
 export interface CodeChangeTrend {

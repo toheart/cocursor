@@ -7,6 +7,8 @@ import { SessionDetail } from "./components/SessionDetail";
 import { Marketplace } from "./components/Marketplace";
 import { WorkflowList } from "./components/WorkflowList";
 import { WorkflowDetail } from "./components/WorkflowDetail";
+import { RAGSearch } from "./components/RAGSearch";
+import { RAGConfig } from "./components/RAGConfig";
 import { NavigationBar } from "./components/NavigationBar";
 import { getVscodeApi } from "./services/api";
 
@@ -15,7 +17,7 @@ const RouterContent: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | undefined;
+  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | undefined;
 
   useEffect(() => {
     // 获取初始路由
@@ -50,7 +52,6 @@ const RouterContent: React.FC = () => {
         `${t("navigation.workAnalysis")} - CoCursor`,
       "/work-analysis": `${t("navigation.workAnalysis")} - CoCursor`,
       "/marketplace": `${t("navigation.marketplace")} - CoCursor`,
-      "/workflows": `${t("navigation.workflow")} - CoCursor`,
     };
     
     const title = titles[location.pathname] || 
@@ -60,6 +61,8 @@ const RouterContent: React.FC = () => {
         ? `${t("navigation.workflowDetail")} - CoCursor`
         : viewType === "recentSessions" ? `${t("navigation.recentSessions")} - CoCursor` 
         : viewType === "marketplace" ? `${t("navigation.marketplace")} - CoCursor`
+        : viewType === "ragSearch" ? `${t("navigation.ragSearch")} - CoCursor`
+        : viewType === "workflow" ? `${t("navigation.workflow")} - CoCursor`
         : `${t("navigation.workAnalysis")} - CoCursor`);
     
     document.title = title;
@@ -103,7 +106,38 @@ const RouterContent: React.FC = () => {
     );
   }
 
-  // 默认是工作分析，但支持工作流路由
+  if (viewType === "ragSearch") {
+    return (
+      <div className="cocursor-router-container">
+        <NavigationBar />
+        <div className="cocursor-router-content">
+          <Routes>
+            <Route path="/" element={<RAGSearch />} />
+            <Route path="/config" element={<RAGConfig />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewType === "workflow") {
+    return (
+      <div className="cocursor-router-container">
+        <NavigationBar />
+        <div className="cocursor-router-content">
+          <Routes>
+            <Route path="/" element={<WorkflowList />} />
+            <Route path="/workflows" element={<WorkflowList />} />
+            <Route path="/workflows/:changeId" element={<WorkflowDetail />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </div>
+    );
+  }
+
+  // 默认是工作分析
   return (
     <div className="cocursor-router-container">
       <NavigationBar />
@@ -111,8 +145,6 @@ const RouterContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<WorkAnalysis />} />
           <Route path="/work-analysis" element={<WorkAnalysis />} />
-          <Route path="/workflows" element={<WorkflowList />} />
-          <Route path="/workflows/:changeId" element={<WorkflowDetail />} />
           <Route path="/sessions/:sessionId" element={<SessionDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

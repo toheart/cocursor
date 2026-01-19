@@ -155,9 +155,10 @@ type DailyReport struct {
 
 // CodeChangeSummary 代码变更汇总
 type CodeChangeSummary struct {
-	TotalLinesAdded   int `json:"total_lines_added"`   // 总添加行数
-	TotalLinesRemoved int `json:"total_lines_removed"` // 总删除行数
-	FilesChanged      int `json:"files_changed"`       // 变更文件数
+	TotalLinesAdded   int      `json:"total_lines_added"`           // 总添加行数
+	TotalLinesRemoved int      `json:"total_lines_removed"`         // 总删除行数
+	FilesChanged      int      `json:"files_changed"`               // 变更文件数
+	TopChangedFiles   []string `json:"top_changed_files,omitempty"` // Top 变更文件列表（最多5个，可选）
 }
 
 // AIUsageSummary AI 使用汇总
@@ -225,21 +226,33 @@ type TokenByType struct {
 // WorkAnalysis 工作分析数据
 type WorkAnalysis struct {
 	Overview          *WorkAnalysisOverview   `json:"overview"`           // 概览指标
+	DailyDetails      []*DailyAnalysis        `json:"daily_details"`      // 每日详情
 	CodeChangesTrend  []*DailyCodeChanges     `json:"code_changes_trend"` // 代码变更趋势
 	TopFiles          []*FileReference        `json:"top_files"`          // Top N 文件引用
 	TimeDistribution  []*TimeDistributionItem `json:"time_distribution"`  // 时间分布（用于热力图）
 	EfficiencyMetrics *EfficiencyMetrics      `json:"efficiency_metrics"` // 效率指标
 }
 
+// DailyAnalysis 每日分析详情
+type DailyAnalysis struct {
+	Date           string `json:"date"`            // 日期 YYYY-MM-DD
+	LinesAdded     int    `json:"lines_added"`     // 添加行数
+	LinesRemoved   int    `json:"lines_removed"`   // 删除行数
+	FilesChanged   int    `json:"files_changed"`   // 变更文件数
+	ActiveSessions int    `json:"active_sessions"` // 活跃会话数
+}
+
 // WorkAnalysisOverview 工作分析概览
 type WorkAnalysisOverview struct {
-	TotalLinesAdded   int     `json:"total_lines_added"`   // 总添加行数
-	TotalLinesRemoved int     `json:"total_lines_removed"` // 总删除行数
-	FilesChanged      int     `json:"files_changed"`       // 变更文件数
-	AcceptanceRate    float64 `json:"acceptance_rate"`     // 平均接受率
-	ActiveSessions    int     `json:"active_sessions"`     // 活跃会话数
-	TotalPrompts      int     `json:"total_prompts"`       // 总 Prompts 数（用户输入）
-	TotalGenerations  int     `json:"total_generations"`   // 总 Generations 数（AI 回复）
+	TotalLinesAdded        int     `json:"total_lines_added"`        // 总添加行数
+	TotalLinesRemoved      int     `json:"total_lines_removed"`      // 总删除行数
+	FilesChanged           int     `json:"files_changed"`            // 变更文件数
+	AcceptanceRate         float64 `json:"acceptance_rate"`          // 整体接受率
+	TabAcceptanceRate      float64 `json:"tab_acceptance_rate"`      // Tab 接受率
+	ComposerAcceptanceRate float64 `json:"composer_acceptance_rate"` // Composer 接受率
+	ActiveSessions         int     `json:"active_sessions"`          // 活跃会话数
+	TotalPrompts           int     `json:"total_prompts"`            // 总 Prompts 数（用户输入）
+	TotalGenerations       int     `json:"total_generations"`        // 总 Generations 数（AI 回复）
 }
 
 // DailyCodeChanges 每日代码变更
@@ -327,6 +340,15 @@ type DailySummary struct {
 	// 会话统计
 	TotalSessions int `json:"total_sessions"` // 总会话数
 
+	// 代码变更统计（可选）
+	CodeChanges *CodeChangeSummary `json:"code_changes,omitempty"` // 代码变更统计
+
+	// 时间分布（可选）
+	TimeDistribution *TimeDistributionSummary `json:"time_distribution,omitempty"` // 时间分布
+
+	// 效率指标（可选）
+	EfficiencyMetrics *EfficiencyMetricsSummary `json:"efficiency_metrics,omitempty"` // 效率指标
+
 	// 元数据
 	CreatedAt time.Time `json:"created_at"` // 创建时间
 	UpdatedAt time.Time `json:"updated_at"` // 更新时间
@@ -346,6 +368,12 @@ type ProjectSummary struct {
 
 	// 该项目的统计
 	SessionCount int `json:"session_count"` // 会话数量
+
+	// 该项目的代码变更统计（可选）
+	CodeChanges *CodeChangeSummary `json:"code_changes,omitempty"` // 代码变更统计
+
+	// 该项目的活跃时段（可选）
+	ActiveHours []int `json:"active_hours,omitempty"` // 活跃时段（小时，0-23）
 }
 
 // WorkItem 具体工作项
@@ -376,4 +404,25 @@ type DailySessionSummary struct {
 	UpdatedAt    int64  `json:"updated_at"`    // 更新时间戳
 	MessageCount int    `json:"message_count"` // 消息数量
 	Duration     int64  `json:"duration"`      // 持续时长（毫秒，从 CreatedAt 到 UpdatedAt）
+}
+
+// TimeDistributionSummary 时间分布汇总
+type TimeDistributionSummary struct {
+	Morning   TimeSlotStats `json:"morning"`   // 上午（9-12）
+	Afternoon TimeSlotStats `json:"afternoon"` // 下午（14-18）
+	Evening   TimeSlotStats `json:"evening"`   // 晚上（19-22）
+	Night     TimeSlotStats `json:"night"`     // 夜间（22-2）
+}
+
+// TimeSlotStats 时段统计
+type TimeSlotStats struct {
+	Sessions int     `json:"sessions"` // 会话数
+	Hours    float64 `json:"hours"`    // 总时长（小时）
+}
+
+// EfficiencyMetricsSummary 效率指标汇总
+type EfficiencyMetricsSummary struct {
+	AvgSessionDuration    float64 `json:"avg_session_duration"`     // 平均会话时长（分钟）
+	AvgMessagesPerSession float64 `json:"avg_messages_per_session"` // 平均消息数
+	TotalActiveTime       float64 `json:"total_active_time"`        // 总活跃时长（小时）
 }

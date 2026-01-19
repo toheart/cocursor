@@ -15,20 +15,20 @@ type DaemonStatusInput struct{}
 
 // DaemonStatusOutput 守护进程状态工具输出
 type DaemonStatusOutput struct {
-	Status      string      `json:"status" jsonschema:"运行状态"`
-	Version     string      `json:"version" jsonschema:"版本号"`
-	DBPath      string      `json:"db_path" jsonschema:"数据库路径"`
-	DailyStats  *DailyStats `json:"daily_stats,omitempty" jsonschema:"今日统计数据"`
-	CachedEmail string      `json:"cached_email,omitempty" jsonschema:"缓存的邮箱地址"`
+	Status      string      `json:"status" jsonschema:"Running status"`
+	Version     string      `json:"version" jsonschema:"Version number"`
+	DBPath      string      `json:"db_path" jsonschema:"Database path"`
+	DailyStats  *DailyStats `json:"daily_stats,omitempty" jsonschema:"Today's statistics"`
+	CachedEmail string      `json:"cached_email,omitempty" jsonschema:"Cached email address"`
 }
 
 // DailyStats 每日统计数据
 type DailyStats struct {
-	Date                   string `json:"date" jsonschema:"日期"`
-	TabSuggestedLines      int    `json:"tab_suggested_lines" jsonschema:"Tab 建议的代码行数"`
-	TabAcceptedLines       int    `json:"tab_accepted_lines" jsonschema:"Tab 接受的代码行数"`
-	ComposerSuggestedLines int    `json:"composer_suggested_lines" jsonschema:"Composer 建议的代码行数"`
-	ComposerAcceptedLines  int    `json:"composer_accepted_lines" jsonschema:"Composer 接受的代码行数"`
+	Date                   string `json:"date" jsonschema:"Date"`
+	TabSuggestedLines      int    `json:"tab_suggested_lines" jsonschema:"Number of lines suggested by Tab"`
+	TabAcceptedLines       int    `json:"tab_accepted_lines" jsonschema:"Number of lines accepted from Tab"`
+	ComposerSuggestedLines int    `json:"composer_suggested_lines" jsonschema:"Number of lines suggested by Composer"`
+	ComposerAcceptedLines  int    `json:"composer_accepted_lines" jsonschema:"Number of lines accepted from Composer"`
 }
 
 // getDaemonStatusTool 获取守护进程状态工具

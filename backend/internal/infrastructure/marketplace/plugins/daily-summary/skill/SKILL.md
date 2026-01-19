@@ -1,6 +1,6 @@
 ---
 name: daily-summary
-description: Automatically summarize Cursor chat records to generate daily work reports. Supports querying sessions by date, reading text-only dialogues, identifying work types, extracting tech debt, and saving summaries to database. Use this skill when users request work summaries, daily reports, or need to review daily work content.
+description: Automatically summarize Cursor chat records to generate daily work reports. Supports querying sessions by date, reading text-only dialogues, identifying work types, extracting tech debt, and saving summaries to database. Can optionally integrate git commit analysis for comprehensive work tracking. Use this skill when users request work summaries, daily reports, or need to review daily work content.
 ---
 
 # Daily Summary Skill
@@ -14,20 +14,51 @@ description: Automatically summarize Cursor chat records to generate daily work 
 
 Automatically summarize Cursor chat records to generate daily work reports.
 
+## Initial Decision: Git Analysis
+
+**Before starting analysis, decide whether to include Git commit analysis:**
+
+1. **Check user input**: If user specified `--with-git` or `--no-git` in command, use that decision
+2. **Ask user if not specified**: "是否需要包含 Git commit 分析？这将分析当天有提交的项目，补充会话记录数据。注意：这需要遍历项目目录执行 git 命令，可能需要一些时间。(y/n)"
+3. **Based on response**:
+   - `y` or `yes`: Enable Git analysis (see [references/git-analysis.md](references/git-analysis.md))
+   - `n` or `no`: Skip Git analysis, use only session records
+
+**Note**: Git analysis is optional and can be skipped if:
+- User explicitly says no
+- Performance is a concern
+- Projects don't have git repositories
+
 ## Workflow
 
-### 1. Get Session List
-Use the `get_daily_sessions` MCP tool to get the session list for a specified date:
+### Option 1: Get All Conversations at Once (Recommended)
+Use the `get_daily_conversations` MCP tool to get all session conversations for a specified date in one call:
 - Parameter: `date` (optional, format: YYYY-MM-DD, defaults to today)
-- Returns: Session list grouped by project
+- Returns: All conversations grouped by project, including full message content
+- **Advantage**: Single MCP call, more efficient than calling `get_session_content` multiple times
 
-### 2. Read Session Content
-Call the `get_session_content` MCP tool for each session:
-- Parameter: `session_id` (required)
-- Returns: Plain text message list (filtered to exclude tool calls and code blocks)
+### Option 2: Get Session List Then Read Content (Alternative)
+If you only need session metadata first:
+
+1. Use the `get_daily_sessions` MCP tool to get the session list:
+   - Parameter: `date` (optional, format: YYYY-MM-DD, defaults to today)
+   - Returns: Session list grouped by project (metadata only, no message content)
+
+2. Call the `get_session_content` MCP tool for each session (only if needed):
+   - Parameter: `session_id` (required)
+   - Returns: Plain text message list (filtered to exclude tool calls and code blocks)
+   - **Note**: This requires multiple MCP calls, less efficient than `get_daily_conversations`
 
 ### 3. Analyze and Generate Summary
-Analyze all conversation content and generate a Markdown-formatted summary:
+Analyze all conversation content and generate a Markdown-formatted summary.
+
+**Analysis includes:**
+- Work type identification
+- Code change statistics (from session metadata)
+- Time distribution
+- **AI coding efficiency** (from conversation analysis)
+- **Issues and optimizations** (from conversation patterns)
+- Tech debt extraction
 
 **Summary Structure**:
 ```markdown
@@ -35,6 +66,24 @@ Analyze all conversation content and generate a Markdown-formatted summary:
 
 ## Overview
 [Overall statistics: total sessions, number of projects involved, main work types, etc.]
+
+## Code Changes Summary
+- Total Lines Added: XXX
+- Total Lines Removed: XXX
+- Files Changed: XXX
+- Top Changed Files:
+  1. file1.go (50 lines)
+  2. file2.ts (30 lines)
+
+## Time Distribution
+- Morning (9-12): X sessions, X hours
+- Afternoon (14-18): X sessions, X hours
+- Evening (19-22): X sessions, X hours
+
+## Efficiency Metrics
+- Average Session Duration: X minutes
+- Average Messages per Session: X
+- Total Active Time: X hours
 
 ## Work Category Statistics
 - Requirements Discussion: X times
@@ -51,10 +100,16 @@ Analyze all conversation content and generate a Markdown-formatted summary:
 ### Project 1: {project_name}
 **Path:** {project_path}
 
+**Code Changes:**
+- Lines Added: XXX
+- Lines Removed: XXX
+- Files Changed: XXX
+
+**Active Hours:** [9, 10, 14, 15]
+
 **Work Items:**
 1. [Work Type] {Detailed description}
 2. [Work Type] {Detailed description}
-...
 
 **Related Sessions:**
 - {session_name} ({duration} minutes, {message_count} messages)
@@ -62,96 +117,111 @@ Analyze all conversation content and generate a Markdown-formatted summary:
 ### Project 2: {project_name}
 ...
 
+## AI Coding Efficiency
+- Estimated Acceptance Rate: XX%
+- High Acceptance Sessions: X
+- Low Acceptance Sessions: X
+- Context Issues: X
+- Quick Resolved Issues: X
+- Long Stuck Issues: X
+- Repeated Issues: X
+- Efficiency Score: XX/100
+
+## Issues & Optimizations
+
+### Issues Found
+1. [Severity] Category: Description
+   - Occurrences: X
+   - Sessions: session-1, session-2
+   - Example: "..."
+
+### Optimization Suggestions
+1. [Priority] Category: Suggestion
+   - Impact: efficiency/quality/experience
+   - Related Sessions: session-3
+
 ## Tech Debt / Follow-up Plans
-[Automatically extracted todo items, including:
-- "Will optimize this later"
-- "Temporary handling for this"
-- "TODO" markers
-- Other deferred work items]
+[Automatically extracted todo items]
 ```
 
 ### 4. Save Summary
 Use the `save_daily_summary` MCP tool to save the summary:
-- Parameters:
-  - `date`: Date (YYYY-MM-DD)
-  - `summary`: Summary content (Markdown)
-  - `language`: Language (zh/en, determined based on chat content)
-  - `projects`: Project list (includes work items and session information)
-  - `categories`: Work category statistics object (JSON object, not a string). Must be passed as a JSON object with integer fields. Example format:
-    ```json
-    {
-      "requirements_discussion": 3,
-      "coding": 8,
-      "problem_solving": 4,
-      "refactoring": 3,
-      "code_review": 0,
-      "documentation": 0,
-      "testing": 2,
-      "other": 1
-    }
-    ```
-    **Important**: Pass the categories as a JSON object directly, not as a stringified JSON. The MCP framework will handle the JSON serialization automatically.
-  - `total_sessions`: Total number of sessions
+
+**Parameters:**
+- `date`: Date (YYYY-MM-DD)
+- `summary`: Summary content (Markdown)
+- `language`: Language (zh/en, determined based on chat content)
+- `projects`: Project list (includes work items and session information)
+- `categories`: **CRITICAL** - Work category statistics **MUST be a JSON object, NOT a string**
+- `total_sessions`: Total number of sessions
+- `code_changes`: Code change statistics (optional, JSON object)
+- `time_distribution`: Time distribution statistics (optional, JSON object)
+- `efficiency_metrics`: Efficiency metrics (optional, JSON object)
+
+**⚠️ CRITICAL: `categories` Parameter Format**
+
+The `categories` parameter **MUST** be passed as a JSON object directly, NOT as a stringified JSON string.
+
+**Quick Reference:**
+- ✅ CORRECT: Pass as object/dictionary: `{"requirements_discussion": 3, "coding": 8, ...}`
+- ❌ WRONG: Pass as string: `'{"requirements_discussion": 3, ...}'`
+
+See [references/data-format.md](references/data-format.md) for complete format details and examples.
 
 ## Work Category Identification
 
-Identify work types based on conversation content:
-
-- **Requirements Discussion** (requirements_discussion): 
-  - Keywords: requirements, discussion, proposal, design, planning, confirmation
-  - Scenarios: Discussing feature requirements, design proposals, technology selection, etc.
-
-- **Coding** (coding):
-  - Keywords: implement, write, develop, add, create, modify
-  - Scenarios: Implementing new features, writing code, modifying files, etc.
-
-- **Problem Solving** (problem_solving):
-  - Keywords: bug, error, issue, fix, troubleshoot, debug, exception
-  - Scenarios: Fixing bugs, troubleshooting issues, debugging errors, etc.
-
-- **Refactoring** (refactoring):
-  - Keywords: refactor, optimize, improve, clean up, organize, rewrite
-  - Scenarios: Code refactoring, performance optimization, code cleanup, etc.
-
-- **Code Review** (code_review):
-  - Keywords: review, check, evaluate, suggest
-  - Scenarios: Code review, code inspection, etc.
-
-- **Documentation** (documentation):
-  - Keywords: document, documentation, comment, README, note
-  - Scenarios: Writing documentation, adding comments, etc.
-
-- **Testing** (testing):
-  - Keywords: test, unit test, integration test, verify, validation
-  - Scenarios: Writing tests, running tests, etc.
-
-- **Other** (other):
-  - Work that cannot be clearly categorized
+See [references/work-categories.md](references/work-categories.md) for detailed work category identification rules and examples.
 
 ## Tech Debt Extraction
 
-Extract tech debt and follow-up plans from conversations, focusing on the following patterns:
+See [references/tech-debt-patterns.md](references/tech-debt-patterns.md) for tech debt extraction patterns and guidelines.
 
-- **Deferred Markers**:
-  - "Will do this later..."
-  - "Temporary solution..."
-  - "Will optimize later..."
-  - "TODO", "FIXME", "XXX"
+## AI Coding Efficiency Analysis
 
-- **Temporary Solutions**:
-  - "Temporary handling"
-  - "Leave it as is for now"
-  - "Will improve later"
+Analyze AI coding efficiency from conversation content (non-structured data).
 
-- **Known Issues**:
-  - "Known issue"
-  - "To be fixed"
-  - "Needs optimization"
+**Key Metrics:**
+- Acceptance rate estimation (from conversation feedback)
+- Context management issues (context loss, resets)
+- Problem resolution efficiency (quick resolved vs long stuck)
+- Code quality feedback (concerns vs praise)
+- Iteration count per task
+- Overall efficiency score (0-100)
 
-When extracting, include:
-- Problem description
-- Associated session ID
-- Project it belongs to
+See [references/ai-efficiency-analysis.md](references/ai-efficiency-analysis.md) for detailed analysis patterns and calculation methods.
+
+## Issues and Optimizations Analysis
+
+Extract issues and optimization opportunities from conversations.
+
+**Issue Categories:**
+- Context loss (上下文丢失)
+- Repeated problems (重复问题)
+- Stuck/blocked (卡住/阻塞)
+- Quality issues (质量问题)
+- Tool usage problems (工具使用问题)
+
+**Optimization Categories:**
+- Workflow improvements (工作流程)
+- Prompt quality (提示词质量)
+- Tool usage optimization (工具使用)
+- Context management (上下文管理)
+
+See [references/issues-optimizations-analysis.md](references/issues-optimizations-analysis.md) for detailed patterns and extraction guidelines.
+
+## Optional: Git Commit Analysis
+
+When enabled, the skill can analyze git commits to complement session records.
+
+**Decision Point**: Ask user or check command parameters (`--with-git` / `--no-git`)
+
+**Quick Overview:**
+- Extract active projects from `get_daily_sessions` result
+- Quick check: Verify git repository and commits today
+- Full analysis: Get commit details only for projects with commits
+- Match commits with sessions using time window (±2 hours default)
+
+See [references/git-analysis.md](references/git-analysis.md) for complete implementation guide, command examples, and best practices.
 
 ## Deduplication and Merging Strategy
 
@@ -175,78 +245,38 @@ When users discuss the same work across multiple sessions, merge into a single w
 
 ## Data Format
 
-### ProjectSummary Structure
-```json
-{
-  "project_name": "Project name",
-  "project_path": "Project path",
-  "workspace_id": "Workspace ID",
-  "work_items": [
-    {
-      "category": "Work type",
-      "description": "Detailed description",
-      "session_id": "Associated session ID"
-    }
-  ],
-  "sessions": [
-    {
-      "session_id": "Session ID",
-      "name": "Session name",
-      "project_name": "Project name",
-      "created_at": timestamp,
-      "updated_at": timestamp,
-      "message_count": message count,
-      "duration": duration in milliseconds
-    }
-  ],
-  "session_count": session count
-}
-```
-
-### WorkCategories Structure
-```json
-{
-  "requirements_discussion": count,
-  "coding": count,
-  "problem_solving": count,
-  "refactoring": count,
-  "code_review": count,
-  "documentation": count,
-  "testing": count,
-  "other": count
-}
-```
+See [references/data-format.md](references/data-format.md) for complete data structure definitions including:
+- `ProjectSummary` structure
+- `CodeChangeSummary` structure
+- `TimeDistributionSummary` structure
+- `EfficiencyMetricsSummary` structure
+- `WorkCategories` structure
+- Critical `categories` parameter format requirements and examples
 
 ## Important Notes
 
-1. **Date Handling**:
-   - Use local timezone
-   - Date format: YYYY-MM-DD
-   - Default query is today, can specify other dates via parameter
+1. **Date Handling**: Use local timezone, format: YYYY-MM-DD
+2. **Content Filtering**: Automatically filter tool calls and code blocks
+3. **Project Names**: Prefer Git remote repository name, fallback to directory name
+4. **Session Filtering**: Include sessions created or updated on the target date
+5. **Summary Quality**: Work items must include detailed descriptions, automatically deduplicate
+6. **⚠️ CRITICAL: `categories` Parameter Format**: 
+   - **MUST** be a JSON object, NOT a string
+   - Pass the object directly, do NOT use `JSON.stringify()` or similar
+   - Use double quotes for keys, not single quotes
+   - Include all commas between fields
+   - The MCP framework handles serialization automatically
 
-2. **Content Filtering**:
-   - Automatically filter tool calls
-   - Automatically filter code blocks
-   - Keep only user and AI text conversations
+## Examples
 
-3. **Project Names**:
-   - Prefer Git remote repository name
-   - Fallback to directory name
-   - Obtained via ProjectManager
-
-4. **Session Filtering**:
-   - Include sessions created or updated on the target date
-   - Ensure all active sessions are covered
-
-5. **Summary Quality**:
-   - Work items must include detailed descriptions, not just categories
-   - Automatically deduplicate and merge duplicate work
-   - Extract tech debt and follow-up plans
-   - Include session duration information
+See [references/summary-examples.md](references/summary-examples.md) for complete summary examples and best practices.
 
 ## MCP Tool Reference
 
-- `get_daily_sessions(date?)`: Query session list for specified date
-- `get_session_content(session_id)`: Read plain text content of session
-- `save_daily_summary(date, summary, language, projects, categories, total_sessions)`: Save summary
+- `get_daily_conversations(date?)`: **Recommended** - Get all session conversations for specified date in one call (includes full message content)
+- `get_daily_sessions(date?)`: Query session list for specified date (metadata only, no message content)
+- `get_session_content(session_id)`: Read plain text content of a single session (use only if you need individual session content after getting session list)
+- `save_daily_summary(date, summary, language, projects, categories, total_sessions, code_changes?, time_distribution?, efficiency_metrics?)`: Save summary
 - `get_daily_summary(date)`: Query historical summary (optional)
+
+**Performance Tip**: Always prefer `get_daily_conversations` over multiple `get_session_content` calls. It's more efficient and reduces MCP round trips.

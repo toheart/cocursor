@@ -21,6 +21,12 @@
   gap: 12px;
 }
 
+.cocursor-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .cocursor-navbar-back {
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);

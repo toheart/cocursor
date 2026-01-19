@@ -1,4 +1,4 @@
-/* ========== 插件市场样式 - 现代科技感设计 ========== */
+/* ========== 技能市场样式 - 现代科技感设计 ========== */
 
 /* 主容器 */
 .cocursor-marketplace {
@@ -197,7 +197,7 @@
   box-shadow: 0 6px 20px rgba(var(--vscode-textLink-foreground-rgb, 0, 122, 204), 0.4);
 }
 
-/* 插件列表容器 */
+/* 技能列表容器 */
 .cocursor-marketplace-plugins {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -261,7 +261,7 @@
   }
 }
 
-/* ========== 插件卡片 - 精致设计 ========== */
+/* ========== 技能卡片 - 精致设计 ========== */
 .cocursor-marketplace-plugin {
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
@@ -350,7 +350,7 @@
   box-shadow: 0 0 12px rgba(76, 175, 80, 0.5);
 }
 
-/* 插件头部 */
+/* 技能头部 */
 .cocursor-marketplace-plugin-header {
   display: flex;
   align-items: flex-start;
@@ -384,7 +384,7 @@
   align-items: flex-end;
 }
 
-/* 插件图标 */
+/* 技能图标 */
 .cocursor-marketplace-plugin-icon {
   width: 64px;
   height: 64px;
@@ -449,7 +449,7 @@
   animation: shimmer 3s infinite;
 }
 
-/* 插件信息 */
+/* 技能信息 */
 .cocursor-marketplace-plugin-info {
   flex: 1;
   min-width: 0;
@@ -556,7 +556,7 @@
   letter-spacing: 0.5px;
 }
 
-/* 插件组件图标 */
+/* 技能组件图标 */
 .cocursor-marketplace-plugin-components {
   display: flex;
   gap: 6px;
@@ -607,7 +607,7 @@
   color: white;
 }
 
-/* 插件内容 */
+/* 技能内容 */
 .cocursor-marketplace-plugin-content {
   padding: 20px 24px 24px;
   display: flex;

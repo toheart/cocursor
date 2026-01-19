@@ -21,21 +21,11 @@ type dailySummaryRepository struct {
 	db *sql.DB
 }
 
-// NewDailySummaryRepository 创建每日总结仓储实例
-func NewDailySummaryRepository() (DailySummaryRepository, error) {
-	// 确保数据库已初始化
-	if err := InitDatabase(); err != nil {
-		return nil, fmt.Errorf("failed to initialize database: %w", err)
-	}
-
-	db, err := OpenDB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-
+// NewDailySummaryRepository 创建每日总结仓储实例（接受数据库连接作为参数）
+func NewDailySummaryRepository(db *sql.DB) DailySummaryRepository {
 	return &dailySummaryRepository{
 		db: db,
-	}, nil
+	}
 }
 
 // Save 保存每日总结
@@ -54,11 +44,32 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 	// Projects 信息已经包含在 summary 文本中（Markdown 格式）
 	// 如果需要单独存储和查询 projects，可以创建关联表
 
+	// 序列化新字段为 JSON
+	var codeChangesJSON, timeDistributionJSON, efficiencyMetricsJSON string
+	if summary.CodeChanges != nil {
+		codeChangesBytes, err := json.Marshal(summary.CodeChanges)
+		if err == nil {
+			codeChangesJSON = string(codeChangesBytes)
+		}
+	}
+	if summary.TimeDistribution != nil {
+		timeDistBytes, err := json.Marshal(summary.TimeDistribution)
+		if err == nil {
+			timeDistributionJSON = string(timeDistBytes)
+		}
+	}
+	if summary.EfficiencyMetrics != nil {
+		effMetricsBytes, err := json.Marshal(summary.EfficiencyMetrics)
+		if err == nil {
+			efficiencyMetricsJSON = string(effMetricsBytes)
+		}
+	}
+
 	// 使用 INSERT OR REPLACE 实现 upsert
 	query := `
 		INSERT OR REPLACE INTO daily_summaries 
-		(id, date, summary, language, work_categories, total_sessions, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		(id, date, summary, language, work_categories, total_sessions, code_changes, time_distribution, efficiency_metrics, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	now := time.Now()
 	createdAt := summary.CreatedAt
@@ -77,6 +88,9 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 		summary.Language,
 		string(workCategoriesJSON),
 		summary.TotalSessions,
+		codeChangesJSON,
+		timeDistributionJSON,
+		efficiencyMetricsJSON,
 		createdAt.Unix(),
 		updatedAt.Unix(),
 	)
@@ -91,12 +105,13 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 // FindByDate 按日期查询每日总结
 func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySummary, error) {
 	query := `
-		SELECT id, date, summary, language, work_categories, total_sessions, created_at, updated_at
+		SELECT id, date, summary, language, work_categories, total_sessions, code_changes, time_distribution, efficiency_metrics, created_at, updated_at
 		FROM daily_summaries
 		WHERE date = ?`
 
 	var summary domainCursor.DailySummary
 	var workCategoriesJSON string
+	var codeChangesJSON, timeDistributionJSON, efficiencyMetricsJSON sql.NullString
 	var createdAt, updatedAt int64
 
 	err := r.db.QueryRow(query, date).Scan(
@@ -106,6 +121,9 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 		&summary.Language,
 		&workCategoriesJSON,
 		&summary.TotalSessions,
+		&codeChangesJSON,
+		&timeDistributionJSON,
+		&efficiencyMetricsJSON,
 		&createdAt,
 		&updatedAt,
 	)
@@ -120,6 +138,23 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 	// 反序列化 work_categories
 	if err := json.Unmarshal([]byte(workCategoriesJSON), &summary.WorkCategories); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal work_categories: %w", err)
+	}
+
+	// 反序列化新字段（如果存在）
+	if codeChangesJSON.Valid && codeChangesJSON.String != "" {
+		if err := json.Unmarshal([]byte(codeChangesJSON.String), &summary.CodeChanges); err != nil {
+			// 忽略反序列化错误，字段可为空
+		}
+	}
+	if timeDistributionJSON.Valid && timeDistributionJSON.String != "" {
+		if err := json.Unmarshal([]byte(timeDistributionJSON.String), &summary.TimeDistribution); err != nil {
+			// 忽略反序列化错误，字段可为空
+		}
+	}
+	if efficiencyMetricsJSON.Valid && efficiencyMetricsJSON.String != "" {
+		if err := json.Unmarshal([]byte(efficiencyMetricsJSON.String), &summary.EfficiencyMetrics); err != nil {
+			// 忽略反序列化错误，字段可为空
+		}
 	}
 
 	// 转换时间戳

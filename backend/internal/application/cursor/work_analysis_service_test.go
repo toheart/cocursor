@@ -2,27 +2,10 @@ package cursor
 
 import (
 	"testing"
-	"time"
 
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
-	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/stretchr/testify/assert"
 )
-
-// TestCountWorkspacePromptsAndGenerations 测试 countWorkspacePromptsAndGenerations 方法
-func TestCountWorkspacePromptsAndGenerations(t *testing.T) {
-	service := &WorkAnalysisService{
-		dbReader: infraCursor.NewDBReader(),
-	}
-
-	startDate := time.Now().Add(-7 * 24 * time.Hour).Format("2006-01-02")
-	endDate := time.Now().Format("2006-01-02")
-
-	// 测试：数据库不存在时返回 0, 0
-	prompts, generations := service.countWorkspacePromptsAndGenerations("nonexistent.db", startDate, endDate)
-	assert.Equal(t, 0, prompts, "数据库不存在时 prompts 应为 0")
-	assert.Equal(t, 0, generations, "数据库不存在时 generations 应为 0")
-}
 
 // TestFilterComposerMode 测试 Composer 模式过滤
 func TestFilterComposerMode(t *testing.T) {

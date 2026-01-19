@@ -1,0 +1,361 @@
+package rag
+
+import (
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
+	domainRAG "github.com/cocursor/backend/internal/domain/rag"
+)
+
+// ScanScheduler 扫描调度器
+type ScanScheduler struct {
+	ragService      *RAGService
+	ragInitializer  *RAGInitializer // 用于延迟初始化
+	projectManager  *appCursor.ProjectManager
+	ragRepo         domainRAG.RAGRepository
+	config          *ScanConfig
+	mu              sync.RWMutex
+	stopChan        chan struct{}
+	ticker          *time.Ticker
+	initialized     bool
+}
+
+// ScanConfig 扫描配置
+type ScanConfig struct {
+	Enabled     bool
+	Interval    time.Duration
+	BatchSize   int
+	Concurrency int
+}
+
+// NewScanScheduler 创建扫描调度器
+func NewScanScheduler(
+	ragService *RAGService,
+	projectManager *appCursor.ProjectManager,
+	ragRepo domainRAG.RAGRepository,
+	config *ScanConfig,
+) *ScanScheduler {
+	return &ScanScheduler{
+		ragService:     ragService,
+		projectManager: projectManager,
+		ragRepo:        ragRepo,
+		config:         config,
+		stopChan:       make(chan struct{}),
+		initialized:    false,
+	}
+}
+
+// SetRAGInitializer 设置 RAG 初始化器（用于延迟初始化）
+func (s *ScanScheduler) SetRAGInitializer(initializer *RAGInitializer) {
+	s.ragInitializer = initializer
+}
+
+// Start 启动扫描调度器
+func (s *ScanScheduler) Start() error {
+	if !s.config.Enabled {
+		return nil
+	}
+
+	// 如果 ragService 为 nil，尝试通过 initializer 初始化
+	if s.ragService == nil && s.ragInitializer != nil && !s.initialized {
+		ragService, _, _, _, err := s.ragInitializer.InitializeServices()
+		if err == nil && ragService != nil {
+			s.ragService = ragService
+			s.initialized = true
+		} else {
+			// 初始化失败，禁用调度器
+			s.config.Enabled = false
+			return nil
+		}
+	}
+
+	// 如果仍然没有 ragService，不启动
+	if s.ragService == nil {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 首次全量扫描
+	go s.scanOnce()
+
+	// 启动定时扫描
+	if s.config.Interval > 0 {
+		s.ticker = time.NewTicker(s.config.Interval)
+		go s.runPeriodicScan()
+	}
+
+	return nil
+}
+
+// Stop 停止扫描调度器
+func (s *ScanScheduler) Stop() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.ticker != nil {
+		s.ticker.Stop()
+	}
+	close(s.stopChan)
+
+	return nil
+}
+
+// runPeriodicScan 运行定时扫描
+func (s *ScanScheduler) runPeriodicScan() {
+	for {
+		select {
+		case <-s.ticker.C:
+			s.scanOnce()
+		case <-s.stopChan:
+			return
+		}
+	}
+}
+
+// scanOnce 执行一次扫描
+func (s *ScanScheduler) scanOnce() {
+	// 阶段 1: 快速扫描（只读文件信息）
+	filesToUpdate := s.phase1QuickScan()
+
+	// 阶段 2: 批量处理（只处理更新的文件）
+	s.phase2BatchProcess(filesToUpdate)
+}
+
+// phase1QuickScan 阶段 1: 快速扫描（只读文件信息）
+func (s *ScanScheduler) phase1QuickScan() []*FileToUpdate {
+	var filesToUpdate []*FileToUpdate
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filesToUpdate
+	}
+
+	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
+	entries, err := os.ReadDir(projectsDir)
+	if err != nil {
+		return filesToUpdate
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		projectKey := entry.Name()
+		transcriptsDir := filepath.Join(projectsDir, projectKey, "agent-transcripts")
+		
+		// 检查目录是否存在
+		if _, err := os.Stat(transcriptsDir); os.IsNotExist(err) {
+			continue
+		}
+
+		// 获取项目信息
+		project := s.projectManager.GetProject(projectKey)
+		var projectInfo *ProjectInfo
+		if project == nil {
+			// 如果项目不存在，使用 projectKey 作为 ProjectID
+			projectInfo = &ProjectInfo{
+				ProjectID:   projectKey,
+				ProjectName: projectKey,
+				WorkspaceID: "",
+			}
+		} else {
+			projectInfo = s.toProjectInfo(project)
+		}
+
+		// 扫描会话文件
+		transcriptFiles, err := os.ReadDir(transcriptsDir)
+		if err != nil {
+			continue
+		}
+
+		for _, file := range transcriptFiles {
+			if !strings.HasSuffix(file.Name(), ".txt") {
+				continue
+			}
+
+			sessionID := strings.TrimSuffix(file.Name(), ".txt")
+			filePath := filepath.Join(transcriptsDir, file.Name())
+			
+			fileInfo, err := os.Stat(filePath)
+			if err != nil {
+				continue
+			}
+
+			// 检查是否需要更新
+			if s.needsUpdate(sessionID, filePath, fileInfo.ModTime()) {
+				filesToUpdate = append(filesToUpdate, &FileToUpdate{
+					SessionID:   sessionID,
+					FilePath:    filePath,
+					ProjectInfo: projectInfo,
+				})
+			}
+		}
+	}
+
+	return filesToUpdate
+}
+
+// FileToUpdate 需要更新的文件
+type FileToUpdate struct {
+	SessionID   string
+	FilePath    string
+	ProjectInfo *ProjectInfo
+}
+
+// phase2BatchProcess 阶段 2: 批量处理
+func (s *ScanScheduler) phase2BatchProcess(filesToUpdate []*FileToUpdate) {
+	if len(filesToUpdate) == 0 {
+		return
+	}
+
+	// 使用简单的并发控制（不使用 conc 库，保持依赖简单）
+	batchSize := s.config.BatchSize
+	if batchSize <= 0 {
+		batchSize = 10
+	}
+
+	concurrency := s.config.Concurrency
+	if concurrency <= 0 {
+		concurrency = 3
+	}
+
+	// 分批处理
+	for i := 0; i < len(filesToUpdate); i += batchSize {
+		end := i + batchSize
+		if end > len(filesToUpdate) {
+			end = len(filesToUpdate)
+		}
+
+		batch := filesToUpdate[i:end]
+		s.processBatch(batch, concurrency)
+	}
+}
+
+// processBatch 处理一批文件
+func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+
+	for _, file := range batch {
+		wg.Add(1)
+		sem <- struct{}{} // 获取信号量
+
+		go func(f *FileToUpdate) {
+			defer wg.Done()
+			defer func() { <-sem }() // 释放信号量
+
+			// 确保 ragService 已初始化
+			if s.ragService == nil && s.ragInitializer != nil && !s.initialized {
+				ragService, _, _, _, err := s.ragInitializer.InitializeServices()
+				if err == nil && ragService != nil {
+					s.ragService = ragService
+					s.initialized = true
+				}
+			}
+
+			// 如果仍然没有 ragService，跳过
+			if s.ragService == nil {
+				return
+			}
+
+			// 检查内容哈希（精确检测）
+			if s.needsReindex(f.SessionID, f.FilePath) {
+				err := s.ragService.IndexSession(f.SessionID, f.FilePath)
+				if err != nil {
+					// 记录错误但不中断流程
+					fmt.Printf("Failed to index session %s: %v\n", f.SessionID, err)
+				}
+			} else {
+				// 只更新文件修改时间
+				fileInfo, _ := os.Stat(f.FilePath)
+				if fileInfo != nil {
+					s.ragRepo.UpdateFileMtime(f.FilePath, fileInfo.ModTime().Unix())
+				}
+			}
+		}(file)
+	}
+
+	wg.Wait()
+}
+
+// needsUpdate 检查文件是否需要更新（快速检测：只检查 mtime）
+func (s *ScanScheduler) needsUpdate(sessionID, filePath string, fileMtime time.Time) bool {
+	metadata, err := s.ragRepo.GetFileMetadata(filePath)
+	if err != nil || metadata == nil {
+		return true // 没有元数据，需要索引
+	}
+
+	// 比较文件修改时间
+	return fileMtime.Unix() > metadata.FileMtime
+}
+
+// needsReindex 检查是否需要重新索引（精确检测：检查内容哈希）
+func (s *ScanScheduler) needsReindex(sessionID, filePath string) bool {
+	metadata, err := s.ragRepo.GetFileMetadata(filePath)
+	if err != nil || metadata == nil {
+		return true // 没有元数据，需要索引
+	}
+
+	// 计算当前文件哈希
+	currentHash := s.calculateFileHash(filePath)
+	if currentHash == "" {
+		return true // 无法计算哈希，重新索引
+	}
+
+	// 比较内容哈希
+	return currentHash != metadata.ContentHash
+}
+
+// calculateFileHash 计算文件内容哈希
+func (s *ScanScheduler) calculateFileHash(filePath string) string {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+// toProjectInfo 转换为 ProjectInfo
+func (s *ScanScheduler) toProjectInfo(project *domainCursor.ProjectInfo) *ProjectInfo {
+	if project == nil {
+		return &ProjectInfo{
+			ProjectID:   "unknown",
+			ProjectName: "Unknown",
+			WorkspaceID: "",
+		}
+	}
+
+	workspaceID := ""
+	if len(project.Workspaces) > 0 {
+		workspaceID = project.Workspaces[0].WorkspaceID
+	}
+
+	return &ProjectInfo{
+		ProjectID:   project.ProjectID,
+		ProjectName: project.ProjectName,
+		WorkspaceID: workspaceID,
+	}
+}
+
+// TriggerScan 手动触发扫描
+func (s *ScanScheduler) TriggerScan() {
+	go s.scanOnce()
+}

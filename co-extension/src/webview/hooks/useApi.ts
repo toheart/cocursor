@@ -59,20 +59,13 @@ export function useApi<T>(
     }
   }, []);
 
-  // 自动执行一次
+  // 自动执行一次（仅在首次挂载时）
   useEffect(() => {
     execute();
     return () => {
       isMountedRef.current = false;
     };
-  }, [execute]);
-  
-  // 当 fetchFn 变化时重新执行
-  useEffect(() => {
-    if (isMountedRef.current) {
-      execute();
-    }
-  }, [fetchFn, execute]);
+  }, []); // 空依赖数组，只在挂载时执行一次
 
   return {
     ...state,

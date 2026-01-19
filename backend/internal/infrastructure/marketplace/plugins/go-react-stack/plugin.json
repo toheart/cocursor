@@ -1,0 +1,18 @@
+{
+  "id": "go-react-stack",
+  "name": "Go+React Full-Stack Project Scaffold",
+  "description": "Create a Go+React full-stack project scaffold with OpenSpec specifications, DDD layered architecture, and React best practices",
+  "author": "CoCursor Team",
+  "version": "1.0.0",
+  "category": "Development Tools",
+  "skill": {
+    "skill_name": "go-react-stack"
+  },
+  "command": {
+    "commands": [
+      {
+        "command_id": "cocursor-go-react-stack-create"
+      }
+    ]
+  }
+}

@@ -10,4 +10,5 @@ var ProviderSet = wire.NewSet(
 	NewTokenService,
 	NewWorkAnalysisService,
 	NewSessionService,
+	NewWorkspaceCacheService,
 )

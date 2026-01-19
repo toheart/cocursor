@@ -187,6 +187,11 @@ func normalizePathForCompare(path string) (string, error) {
 
 // parseFolderURI 解析 folder URI（与 PathResolver 逻辑相同）
 func parseFolderURI(uri string) (string, error) {
+	// 检查 URI 是否为空
+	if uri == "" {
+		return "", fmt.Errorf("empty URI")
+	}
+
 	// 使用 url.Parse 解析 URI
 	parsedURL, err := url.Parse(uri)
 	if err != nil {
@@ -194,6 +199,9 @@ func parseFolderURI(uri string) (string, error) {
 	}
 
 	// 检查协议
+	if parsedURL.Scheme == "" {
+		return "", fmt.Errorf("missing scheme in URI: %s", uri)
+	}
 	if parsedURL.Scheme != "file" {
 		return "", fmt.Errorf("unsupported scheme: %s", parsedURL.Scheme)
 	}

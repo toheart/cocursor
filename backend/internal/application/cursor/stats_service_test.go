@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
+	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStatsService_CalculateSessionEntropy(t *testing.T) {
-	service := NewStatsService()
+	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
+	service := NewStatsService(mockGlobalDBReader)
 
 	tests := []struct {
 		name     string
@@ -68,7 +70,8 @@ func TestStatsService_CalculateSessionEntropy(t *testing.T) {
 }
 
 func TestStatsService_GetHealthStatus(t *testing.T) {
-	service := NewStatsService()
+	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
+	service := NewStatsService(mockGlobalDBReader)
 
 	tests := []struct {
 		name           string

@@ -31,6 +31,7 @@ func NewServer(
 	workspaceHandler *handler.WorkspaceHandler,
 	marketplaceHandler *handler.MarketplaceHandler,
 	workflowHandler *handler.WorkflowHandler,
+	ragHandler *handler.RAGHandler,
 	mcpServer *mcp.MCPServer,
 ) *HTTPServer {
 	router := gin.Default()
@@ -78,6 +79,20 @@ func NewServer(
 		api.GET("/workflows", workflowHandler.ListWorkflows)
 		api.GET("/workflows/status", workflowHandler.GetWorkflowStatus)
 		api.GET("/workflows/:change_id", workflowHandler.GetWorkflowDetail)
+
+		// RAG 相关路由
+		if ragHandler != nil {
+			rag := api.Group("/rag")
+			{
+				rag.POST("/search", ragHandler.Search)
+				rag.POST("/index", ragHandler.Index)
+				rag.GET("/stats", ragHandler.Stats)
+				rag.GET("/config", ragHandler.GetConfig)
+				rag.POST("/config", ragHandler.UpdateConfig)
+				rag.POST("/config/test", ragHandler.TestConfig)
+				rag.POST("/qdrant/download", ragHandler.DownloadQdrant)
+			}
+		}
 	}
 
 	// 健康检查

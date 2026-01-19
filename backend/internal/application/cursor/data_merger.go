@@ -3,6 +3,7 @@ package cursor
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -12,13 +13,18 @@ import (
 
 // DataMerger 数据合并器
 type DataMerger struct {
-	dbReader *infraCursor.DBReader
+	dbReader      *infraCursor.DBReader
+	globalDBReader domainCursor.GlobalDBReader
 }
 
 // NewDataMerger 创建数据合并器实例
-func NewDataMerger() *DataMerger {
+func NewDataMerger(
+	dbReader *infraCursor.DBReader,
+	globalDBReader domainCursor.GlobalDBReader,
+) *DataMerger {
 	return &DataMerger{
-		dbReader: infraCursor.NewDBReader(),
+		dbReader:      dbReader,
+		globalDBReader: globalDBReader,
 	}
 }
 
@@ -26,15 +32,6 @@ func NewDataMerger() *DataMerger {
 // 注意：接受率统计存储在全局存储中，不是按工作区存储
 // 这里合并的是日期范围内的所有统计数据
 func (m *DataMerger) MergeAcceptanceStats(startDate, endDate string) (*domainCursor.DailyAcceptanceStats, []*domainCursor.DailyAcceptanceStats, error) {
-	pathResolver := infraCursor.NewPathResolver()
-	dbReader := infraCursor.NewDBReader()
-
-	// 获取全局存储路径
-	globalDBPath, err := pathResolver.GetGlobalStoragePath()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get global storage path: %w", err)
-	}
-
 	// 解析日期范围
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -53,13 +50,16 @@ func (m *DataMerger) MergeAcceptanceStats(startDate, endDate string) (*domainCur
 
 	// 遍历日期范围
 	current := start
+	foundCount := 0
 	for !current.After(end) {
 		dateStr := current.Format("2006-01-02")
 		key := fmt.Sprintf("aiCodeTracking.dailyStats.v1.5.%s", dateStr)
 
-		// 读取数据
-		value, err := dbReader.ReadValueFromTable(globalDBPath, key)
+		// 使用 GlobalDBReader 读取数据
+		value, err := m.globalDBReader.ReadValue(key)
 		if err != nil {
+			// 如果读取失败（可能是该日期没有数据），跳过该日期
+			// 注意：key not found 是正常情况（某些日期可能没有数据）
 			current = current.AddDate(0, 0, 1)
 			continue
 		}
@@ -67,11 +67,13 @@ func (m *DataMerger) MergeAcceptanceStats(startDate, endDate string) (*domainCur
 		// 解析数据
 		stats, err := domainCursor.ParseAcceptanceStats(string(value), dateStr)
 		if err != nil {
+			log.Printf("[MergeAcceptanceStats] Failed to parse stats for %s: %v", dateStr, err)
 			current = current.AddDate(0, 0, 1)
 			continue
 		}
 
 		rawStats = append(rawStats, stats)
+		foundCount++
 
 		// 累加统计数据
 		merged.TabSuggestedLines += stats.TabSuggestedLines
@@ -80,6 +82,14 @@ func (m *DataMerger) MergeAcceptanceStats(startDate, endDate string) (*domainCur
 		merged.ComposerAcceptedLines += stats.ComposerAcceptedLines
 
 		current = current.AddDate(0, 0, 1)
+	}
+
+	// 记录找到的数据数量
+	if foundCount == 0 {
+		log.Printf("[MergeAcceptanceStats] No acceptance stats found for date range %s to %s", startDate, endDate)
+	} else {
+		log.Printf("[MergeAcceptanceStats] Found %d days of data, merged: TabSuggested=%d, TabAccepted=%d, ComposerSuggested=%d, ComposerAccepted=%d",
+			foundCount, merged.TabSuggestedLines, merged.TabAcceptedLines, merged.ComposerSuggestedLines, merged.ComposerAcceptedLines)
 	}
 
 	// 重新计算接受率

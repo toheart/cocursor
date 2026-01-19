@@ -15,12 +15,16 @@ type MCPServer struct {
 	handler        http.Handler
 	projectManager *appCursor.ProjectManager
 	summaryRepo    infraStorage.DailySummaryRepository
+	workflowRepo   infraStorage.OpenSpecWorkflowRepository
+	sessionRepo    infraStorage.WorkspaceSessionRepository
 }
 
 // NewServer 创建 MCP 服务器
 func NewServer(
 	projectManager *appCursor.ProjectManager,
 	summaryRepo infraStorage.DailySummaryRepository,
+	workflowRepo infraStorage.OpenSpecWorkflowRepository,
+	sessionRepo infraStorage.WorkspaceSessionRepository,
 ) *MCPServer {
 	// 创建 MCP 服务器实例
 	server := mcp.NewServer(
@@ -54,6 +58,8 @@ func NewServer(
 		server:         server,
 		projectManager: projectManager,
 		summaryRepo:    summaryRepo,
+		workflowRepo:   workflowRepo,
+		sessionRepo:    sessionRepo,
 	}
 
 	// 注册新工具：get_daily_sessions
@@ -89,6 +95,12 @@ Returns: success status, summary ID, and message.`,
 		Name:        "get_daily_summary",
 		Description: "Query daily summary for the specified date. Parameters: date (string, required) - date in YYYY-MM-DD format. Returns: summary object (if found) and found flag.",
 	}, mcpServer.getDailySummaryTool)
+
+	// 注册新工具：get_daily_conversations（一次性返回所有项目的所有对话内容）
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_daily_conversations",
+		Description: "Get all conversation content for the specified date, grouped by project. Returns all sessions with their text messages in a single call. Parameters: date (string, optional) - date format YYYY-MM-DD, defaults to today. Returns: date, projects with sessions and messages, and total session count.",
+	}, mcpServer.getDailyConversationsTool)
 
 	// 注册 OpenSpec 工具：openspec_list
 	mcp.AddTool(server, &mcp.Tool{

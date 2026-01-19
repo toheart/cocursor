@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import axios from "axios";
+import { t, changeLanguage } from "../utils/i18n";
 
 // Token 使用统计接口
 interface TokenUsage {
@@ -41,6 +42,15 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
     });
   }
 
+  // 刷新语言并更新侧边栏
+  refreshLanguage(): void {
+    const savedLanguage = this.context.globalState.get<string>('cocursor-language');
+    if (savedLanguage === 'zh-CN' || savedLanguage === 'en') {
+      changeLanguage(savedLanguage);
+      this._onDidChangeTreeData.fire(); // 刷新侧边栏
+    }
+  }
+
   async loadTokenUsage(): Promise<void> {
     try {
       const response = await axios.get("http://localhost:19960/api/v1/stats/token-usage", {
@@ -53,7 +63,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       }
     } catch (error) {
       // 静默失败，不显示错误
-      console.log("加载 Token 使用统计失败:", error);
+      console.log("Failed to load token usage statistics:", error);
     }
   }
 
@@ -77,7 +87,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
         const trendIcon = this.tokenUsage.trend.startsWith("+") ? "↑" : this.tokenUsage.trend.startsWith("-") ? "↓" : "";
         items.push(
           new SidebarItem(
-            `今日 Token: ${tokenText} ${trendIcon} ${this.tokenUsage.trend}`,
+            `${t("sidebar.todayToken")}: ${tokenText} ${trendIcon} ${this.tokenUsage.trend}`,
             vscode.TreeItemCollapsibleState.Collapsed,
             undefined,
             "pulse"
@@ -86,7 +96,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       } else {
         items.push(
           new SidebarItem(
-            "今日 Token: 加载中...",
+            `${t("sidebar.todayToken")}: ${t("sidebar.tokenLoading")}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "sync~spin"
@@ -96,67 +106,77 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 
       items.push(
         new SidebarItem(
-          "工作分析",
+          t("sidebar.workAnalysis"),
           vscode.TreeItemCollapsibleState.None,
           {
             command: "cocursor.openWorkAnalysis",
-            title: "打开工作分析",
+            title: t("sidebar.openWorkAnalysis"),
             arguments: []
           },
           "graph"
         ),
         new SidebarItem(
-          "OpenSpec 工作流",
+          t("sidebar.workflow"),
           vscode.TreeItemCollapsibleState.None,
           {
             command: "cocursor.openWorkflows",
-            title: "打开工作流",
+            title: t("sidebar.openWorkflow"),
             arguments: []
           },
           "git-branch"
         ),
         // 隐藏最近对话功能
         // new SidebarItem(
-        //   "最近对话",
+        //   t("sidebar.recentSessions"),
         //   vscode.TreeItemCollapsibleState.None,
         //   {
         //     command: "cocursor.openSessions",
-        //     title: "打开最近对话",
+        //     title: t("sidebar.openSessions"),
         //     arguments: []
         //   },
         //   "comment-discussion"
         // ),
         new SidebarItem(
-          "插件市场",
+          t("sidebar.marketplace"),
           vscode.TreeItemCollapsibleState.None,
           {
             command: "cocursor.openMarketplace",
-            title: "打开插件市场",
+            title: t("sidebar.openMarketplace"),
             arguments: []
           },
           "extensions"
+        ),
+        new SidebarItem(
+          t("sidebar.ragSearch"),
+          vscode.TreeItemCollapsibleState.None,
+          {
+            command: "cocursor.openRAGSearch",
+            title: t("sidebar.openRAGSearch"),
+            arguments: []
+          },
+          "search"
         )
       );
 
       return Promise.resolve(items);
-    } else if (element.label && element.label.startsWith("今日 Token:")) {
-      // Token 消耗详情
+    } else if (element.label && (element.label.includes("Token:") || element.label.includes("Token"))) {
+      // Token 消耗详情 - 检查是否包含 "Token" 关键字
       if (this.tokenUsage) {
         return Promise.resolve([
           new SidebarItem(
-            `Tab: ${this.formatTokenCount(this.tokenUsage.by_type.tab)}`,
+            `${t("sidebar.tokenTypes.tab")}: ${this.formatTokenCount(this.tokenUsage.by_type.tab)}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "symbol-keyword"
           ),
           new SidebarItem(
-            `Composer: ${this.formatTokenCount(this.tokenUsage.by_type.composer)}`,
+            `${t("sidebar.tokenTypes.composer")}: ${this.formatTokenCount(this.tokenUsage.by_type.composer)}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "code"
           ),
           new SidebarItem(
-            `Chat: ${this.formatTokenCount(this.tokenUsage.by_type.chat)}`,
+            `${t("sidebar.tokenTypes.chat")}: ${this.formatTokenCount(this.tokenUsage.by_type.chat)}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "comment"

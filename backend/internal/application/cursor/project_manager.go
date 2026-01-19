@@ -14,35 +14,42 @@ import (
 
 // WorkspaceState 工作区运行时状态
 type WorkspaceState struct {
-	WorkspaceID    string    // 工作区 ID
-	Path           string    // 项目路径
-	LastHeartbeat  time.Time // 最后心跳时间
-	LastFocus      time.Time // 最后获得焦点时间
+	WorkspaceID   string    // 工作区 ID
+	Path          string    // 项目路径
+	LastHeartbeat time.Time // 最后心跳时间
+	LastFocus     time.Time // 最后获得焦点时间
 }
+
+// WorkspaceChangeCallback 工作区变化回调函数类型
+// action: "added" - 新工作区, "updated" - 工作区更新, "deleted" - 工作区删除
+type WorkspaceChangeCallback func(workspaceID string, action string)
 
 // ProjectManager 项目管理器（内存缓存）
 type ProjectManager struct {
-	mu                sync.RWMutex
-	projects          map[string]*domainCursor.ProjectInfo  // projectKey (Git URL 或目录名) -> *ProjectInfo
-	displayNameMap    map[string]string                      // displayName -> projectKey (用于通过显示名称查找)
-	pathMap           map[string]string                      // normalized path -> projectKey
-	workspaceStates   map[string]*WorkspaceState             // workspaceID -> 运行时状态
-	activeWorkspaceID string                                // 当前活跃工作区 ID
-	discovery         *ProjectDiscovery
-	matcher           *infraCursor.PathMatcher
-	pathResolver      *infraCursor.PathResolver
+	mu                       sync.RWMutex
+	projects                 map[string]*domainCursor.ProjectInfo // projectKey (Git URL 或目录名) -> *ProjectInfo
+	displayNameMap           map[string]string                    // displayName -> projectKey (用于通过显示名称查找)
+	pathMap                  map[string]string                    // normalized path -> projectKey
+	workspaceStates          map[string]*WorkspaceState           // workspaceID -> 运行时状态
+	activeWorkspaceID        string                               // 当前活跃工作区 ID
+	discovery                *ProjectDiscovery
+	matcher                  *infraCursor.PathMatcher
+	pathResolver             *infraCursor.PathResolver
+	workspaceChangeCallbacks []WorkspaceChangeCallback // 工作区变化回调列表
+	callbackMu               sync.RWMutex              // 回调列表的锁
 }
 
 // NewProjectManager 创建项目管理器实例
 func NewProjectManager() *ProjectManager {
 	return &ProjectManager{
-		projects:          make(map[string]*domainCursor.ProjectInfo),
-		displayNameMap:    make(map[string]string),
-		pathMap:           make(map[string]string),
-		workspaceStates:   make(map[string]*WorkspaceState),
-		discovery:         NewProjectDiscovery(),
-		matcher:           infraCursor.NewPathMatcher(),
-		pathResolver:      infraCursor.NewPathResolver(),
+		projects:                 make(map[string]*domainCursor.ProjectInfo),
+		displayNameMap:           make(map[string]string),
+		pathMap:                  make(map[string]string),
+		workspaceStates:          make(map[string]*WorkspaceState),
+		workspaceChangeCallbacks: make([]WorkspaceChangeCallback, 0),
+		discovery:                NewProjectDiscovery(),
+		matcher:                  infraCursor.NewPathMatcher(),
+		pathResolver:             infraCursor.NewPathResolver(),
 	}
 }
 
@@ -154,7 +161,7 @@ func (pm *ProjectManager) groupBySameProject(workspaces []*DiscoveredWorkspace) 
 
 			groups[projectKey] = &domainCursor.ProjectInfo{
 				ProjectName:   projectDisplayName, // 使用友好的显示名称
-				ProjectID:     projectKey,        // 使用唯一标识符作为 ID
+				ProjectID:     projectKey,         // 使用唯一标识符作为 ID
 				Workspaces:    workspaceInfos,
 				GitRemoteURL:  sameProject[0].GitRemoteURL,
 				GitBranch:     sameProject[0].GitBranch,
@@ -257,7 +264,8 @@ func (pm *ProjectManager) generateProjectDisplayName(workspaces []*DiscoveredWor
 
 // extractRepoNameFromURL 从 Git URL 提取仓库名
 // 例如：https://github.com/toheart/cocursor -> cocursor
-//      https://github.com/nsqio/nsq -> nsq
+//
+//	https://github.com/nsqio/nsq -> nsq
 func (pm *ProjectManager) extractRepoNameFromURL(gitURL string) string {
 	// 移除协议前缀
 	url := gitURL
@@ -468,6 +476,9 @@ func (pm *ProjectManager) RegisterWorkspace(path string) (*WorkspaceState, error
 		return nil, fmt.Errorf("failed to refresh workspace: %w", err)
 	}
 
+	// 触发回调通知新工作区（异步执行，不阻塞）
+	go pm.notifyWorkspaceChange(workspaceID, "added")
+
 	return state, nil
 }
 
@@ -624,4 +635,32 @@ func (pm *ProjectManager) refreshWorkspaceUnlocked(path string, workspaceID stri
 // RefreshAllWorkspaces 重新扫描所有工作区（用于手动刷新）
 func (pm *ProjectManager) RefreshAllWorkspaces() error {
 	return pm.Start()
+}
+
+// RegisterWorkspaceChangeCallback 注册工作区变化回调
+func (pm *ProjectManager) RegisterWorkspaceChangeCallback(callback WorkspaceChangeCallback) {
+	pm.callbackMu.Lock()
+	defer pm.callbackMu.Unlock()
+	pm.workspaceChangeCallbacks = append(pm.workspaceChangeCallbacks, callback)
+}
+
+// notifyWorkspaceChange 触发工作区变化回调（异步执行）
+func (pm *ProjectManager) notifyWorkspaceChange(workspaceID string, action string) {
+	pm.callbackMu.RLock()
+	callbacks := make([]WorkspaceChangeCallback, len(pm.workspaceChangeCallbacks))
+	copy(callbacks, pm.workspaceChangeCallbacks)
+	pm.callbackMu.RUnlock()
+
+	// 异步执行，避免阻塞
+	for _, callback := range callbacks {
+		go callback(workspaceID, action)
+	}
+}
+
+// HasWorkspace 检查工作区是否存在
+func (pm *ProjectManager) HasWorkspace(workspaceID string) bool {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	_, exists := pm.workspaceStates[workspaceID]
+	return exists
 }

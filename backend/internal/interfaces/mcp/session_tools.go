@@ -9,35 +9,34 @@ import (
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
-	"github.com/cocursor/backend/internal/infrastructure/cursor"
 	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // DailyReportContextInput 日报上下文工具输入
 type DailyReportContextInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"项目路径，如 D:/code/cocursor"`
+	ProjectPath string `json:"project_path" jsonschema:"Project path, e.g., D:/code/cocursor"`
 }
 
 // DailyReportContextOutput 日报上下文工具输出
 type DailyReportContextOutput struct {
-	Date        string   `json:"date" jsonschema:"日期"`
-	TotalChats  int      `json:"total_chats" jsonschema:"总对话数"`
-	ActiveUsers []string `json:"active_users" jsonschema:"活跃用户列表"`
-	Summary     string   `json:"summary" jsonschema:"摘要"`
+	Date        string   `json:"date" jsonschema:"Date"`
+	TotalChats  int      `json:"total_chats" jsonschema:"Total number of chats"`
+	ActiveUsers []string `json:"active_users" jsonschema:"Active users list"`
+	Summary     string   `json:"summary" jsonschema:"Summary"`
 }
 
 // SessionHealthInput 会话健康工具输入
 type SessionHealthInput struct {
-	ProjectPath string `json:"project_path,omitempty" jsonschema:"项目路径，如 D:/code/cocursor（可选，如果不提供则尝试自动检测）"`
+	ProjectPath string `json:"project_path,omitempty" jsonschema:"Project path, e.g., D:/code/cocursor (optional, will attempt auto-detection if not provided)"`
 }
 
 // SessionHealthOutput 会话健康工具输出
 type SessionHealthOutput struct {
-	Entropy float64 `json:"entropy" jsonschema:"会话熵值"`
-	Status  string  `json:"status" jsonschema:"健康状态：healthy/sub_healthy/dangerous"`
-	Warning string  `json:"warning,omitempty" jsonschema:"警告信息（如果有）"`
-	Message string  `json:"message" jsonschema:"建议消息"`
+	Entropy float64 `json:"entropy" jsonschema:"Session entropy value"`
+	Status  string  `json:"status" jsonschema:"Health status: healthy/sub_healthy/dangerous"`
+	Warning string  `json:"warning,omitempty" jsonschema:"Warning message (if any)"`
+	Message string  `json:"message" jsonschema:"Suggestion message"`
 }
 
 // getSessionHealthTool 获取当前活跃会话的健康状态工具
@@ -98,7 +97,10 @@ func getSessionHealthTool(
 	}
 
 	// 计算熵值
-	statsService := appCursor.NewStatsService()
+	// 注意：这里需要 GlobalDBReader，但 CalculateSessionEntropy 不需要它
+	// 使用 mock GlobalDBReader（实际不会用到）
+	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
+	statsService := appCursor.NewStatsService(mockGlobalDBReader)
 	entropy := statsService.CalculateSessionEntropy(*activeComposer)
 
 	// 获取健康状态
@@ -129,8 +131,8 @@ func generateDailyReportContextTool(
 	input DailyReportContextInput,
 ) (*mcp.CallToolResult, DailyReportContextOutput, error) {
 	// 创建路径解析器和数据库读取器
-	pathResolver := cursor.NewPathResolver()
-	dbReader := cursor.NewDBReader()
+	pathResolver := infraCursor.NewPathResolver()
+	dbReader := infraCursor.NewDBReader()
 
 	// 如果没有提供项目路径，返回错误
 	if input.ProjectPath == "" {

@@ -30,9 +30,9 @@
     "files": "files"
   },
   "marketplace": {
-    "title": "Marketplace",
-    "subtitle": "Discover and install powerful extensions",
-    "searchPlaceholder": "Search plugins...",
+    "title": "Skills Market",
+    "subtitle": "Discover and install powerful skills",
+    "searchPlaceholder": "Search skills...",
     "categories": {
       "all": "All",
       "tools": "Tools",
@@ -52,8 +52,8 @@
     "uninstallSuccess": "Uninstallation successful!",
     "uninstallFailed": "Uninstallation failed",
     "uninstallFailedRetry": "Uninstallation failed, please try again later",
-    "loadFailed": "Failed to load plugins:",
-    "noPlugins": "No plugins",
+    "loadFailed": "Failed to load skills:",
+    "noPlugins": "No skills",
     "noPluginsDesc": "Try adjusting search criteria or filters",
     "viewDetails": "View Details",
     "collapseDetails": "Collapse Details",
@@ -113,7 +113,105 @@
     "summary": "Summary",
     "metadata": "Metadata",
     "progress": "Progress",
-    "tasks": "tasks"
+    "tasks": "tasks",
+    "onboarding": {
+      "helpSection": {
+        "title": "Usage Instructions",
+        "expand": "Expand",
+        "collapse": "Collapse"
+      },
+      "skillInstallWarning": {
+        "title": "Important Notice",
+        "message": "Before using OpenSpec workflows, please install the \"OpenSpec\" skill plugin from the marketplace. After installation, command files will be automatically installed to the workspace's .cursor/commands/ directory."
+      },
+      "workflowDiagram": {
+        "title": "OpenSpec Workflow Diagram"
+      },
+      "stages": {
+        "title": "Four Stages Detailed Explanation (Based on OpenSpec Skill)",
+        "init": {
+          "name": "init (Initialize)",
+          "function": "Function: Initialize OpenSpec directory structure",
+          "command": "Command: /cocursor-openspec-init",
+          "output": "Output: Create openspec/ directory and base files"
+        },
+        "proposal": {
+          "name": "proposal (Proposal)",
+          "function": "Function: Create change proposal, define what to do",
+          "command": "Command: /cocursor-openspec-proposal",
+          "output": "Output:",
+          "outputItems": {
+            "proposal": "proposal.md (change description)",
+            "tasks": "tasks.md (implementation task list)",
+            "design": "design.md (technical design, if needed)",
+            "specDelta": "spec delta files (specification changes)"
+          },
+          "mcpTools": "MCP Tools:",
+          "mcpToolsList": {
+            "openspec_list": "openspec_list (get existing changes and specs)",
+            "openspec_validate": "openspec_validate (validate format)",
+            "record_openspec_workflow": "record_openspec_workflow (record state)"
+          }
+        },
+        "apply": {
+          "name": "apply (Apply)",
+          "function": "Function: Implement approved changes",
+          "command": "Command: /cocursor-openspec-apply",
+          "process": "Process:",
+          "processItems": {
+            "taskOrder": "Complete tasks in tasks.md order",
+            "autoUpdate": "Automatically update progress after each task completion",
+            "autoSummary": "Automatically generate work summary after all tasks are completed"
+          },
+          "mcpTools": "MCP Tools:",
+          "mcpToolsList": {
+            "openspec_list": "openspec_list (get change details)",
+            "record_openspec_workflow": "record_openspec_workflow (update progress)",
+            "generate_openspec_workflow_summary": "generate_openspec_workflow_summary (generate summary)"
+          }
+        },
+        "archive": {
+          "name": "archive (Archive)",
+          "function": "Function: Archive completed work",
+          "command": "Command: /cocursor-openspec-archive",
+          "process": "Process:",
+          "processItems": {
+            "moveDirectory": "Move change directory to archive/",
+            "mergeSpec": "Merge spec delta to main spec files",
+            "recordState": "Record archive state"
+          },
+          "mcpTools": "MCP Tools:",
+          "mcpToolsList": {
+            "record_openspec_workflow": "record_openspec_workflow (record archive state)"
+          }
+        }
+      },
+      "stateTracking": {
+        "title": "Workflow State Tracking:",
+        "description": "State is automatically recorded to ~/.cocursor/cocursor.db database",
+        "includes": "Includes:",
+        "includesItems": {
+          "stage": "Current stage (init/proposal/apply/archive)",
+          "status": "Status (in_progress/completed/paused)",
+          "progress": "Progress information (task completion status)",
+          "summary": "Work summary (automatically generated after tasks.md completion)"
+        }
+      },
+      "statusExplanation": {
+        "title": "Status Explanation:",
+        "inProgress": "in_progress (In Progress) - 🟡 Yellow",
+        "completed": "completed (Completed) - 🟢 Green",
+        "paused": "paused (Paused) - ⚪ Gray"
+      },
+      "usageTips": {
+        "title": "Usage Tips:",
+        "commandPalette": "Use command palette (Cmd+Shift+P / Ctrl+Shift+P) to execute commands",
+        "mcpTools": "All operations are performed through cocursor MCP tools, returning JSON data",
+        "viewDetail": "Click workflow list item to view detailed information",
+        "progressBar": "Progress bar shows task completion status",
+        "viewInUI": "Workflow state can be viewed in UI (this panel)"
+      }
+    }
   },
   "workAnalysis": {
     "title": "Work Analysis",
@@ -172,6 +270,86 @@
     "workflowDetail": "Workflow Detail",
     "workAnalysis": "Work Analysis",
     "recentSessions": "Recent Sessions",
-    "marketplace": "Marketplace"
+    "marketplace": "Skills Market",
+    "ragSearch": "RAG Search",
+    "ragConfig": "RAG Config"
+  },
+  "sidebar": {
+    "todayToken": "Today Token",
+    "tokenLoading": "Loading...",
+    "workAnalysis": "Work Analysis",
+    "openWorkAnalysis": "Open Work Analysis",
+    "workflow": "OpenSpec Workflow",
+    "openWorkflow": "Open Workflow",
+    "ragSearch": "RAG Search",
+    "openRAGSearch": "Open RAG Search",
+    "ragConfig": "RAG Config",
+    "openRAGConfig": "Open RAG Config",
+    "marketplace": "Marketplace",
+    "openMarketplace": "Open Marketplace",
+    "recentSessions": "Recent Sessions",
+    "openSessions": "Open Recent Sessions",
+    "tokenTypes": {
+      "tab": "Tab",
+      "composer": "Composer",
+      "chat": "Chat"
+    }
+  },
+  "rag": {
+    "search": {
+      "title": "RAG Search",
+      "placeholder": "Enter search keywords...",
+      "queryRequired": "Please enter search keywords",
+      "error": "Search Error",
+      "found": "Found",
+      "results": "results",
+      "score": "Score",
+      "user": "User",
+      "ai": "AI",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "messages": "messages",
+      "messagesInTurn": "Messages in turn",
+      "noResults": "No results found"
+    },
+    "config": {
+      "title": "RAG Config",
+      "embeddingApi": "Embedding API Configuration",
+      "apiUrl": "API URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter API Key",
+      "model": "Model",
+      "testConnection": "Test Connection",
+      "testing": "Testing...",
+      "testRequired": "Please fill in complete API configuration",
+      "testSuccess": "Connection test successful",
+      "testFailed": "Connection test failed",
+      "saveRequired": "Please fill in complete configuration",
+      "saveSuccess": "Configuration saved successfully",
+      "saveFailed": "Failed to save configuration",
+      "qdrantStatus": "Qdrant Status",
+      "qdrantVersion": "Version",
+      "qdrantPath": "Path",
+      "qdrantNotInstalled": "Qdrant not installed",
+      "downloadQdrant": "Download Qdrant",
+      "downloading": "Downloading...",
+      "qdrantDownloadSuccess": "Qdrant downloaded successfully",
+      "qdrantDownloadFailed": "Failed to download Qdrant",
+      "indexStatus": "Index Status",
+      "totalIndexed": "Total Indexed",
+      "lastFullScan": "Last Full Scan",
+      "lastIncrementalScan": "Last Incremental Scan",
+      "scanConfig": "Scan Configuration",
+      "enableAutoScan": "Enable Auto Scan",
+      "scanInterval": "Scan Interval",
+      "interval30m": "30 minutes",
+      "interval1h": "1 hour",
+      "interval2h": "2 hours",
+      "interval6h": "6 hours",
+      "interval24h": "24 hours",
+      "intervalManual": "Manual",
+      "batchSize": "Batch Size",
+      "concurrency": "Concurrency"
+    }
   }
 }

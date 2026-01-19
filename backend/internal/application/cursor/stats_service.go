@@ -13,11 +13,15 @@ import (
 )
 
 // StatsService 统计服务（包含所有统计相关的计算逻辑）
-type StatsService struct{}
+type StatsService struct {
+	globalDBReader domainCursor.GlobalDBReader
+}
 
 // NewStatsService 创建统计服务实例
-func NewStatsService() *StatsService {
-	return &StatsService{}
+func NewStatsService(globalDBReader domainCursor.GlobalDBReader) *StatsService {
+	return &StatsService{
+		globalDBReader: globalDBReader,
+	}
 }
 
 // CalculateSessionEntropy 计算会话熵值
@@ -89,15 +93,6 @@ type HealthInfo struct {
 // endDate: 结束日期 YYYY-MM-DD
 // 返回: DailyAcceptanceStats 切片和错误
 func (s *StatsService) GetAcceptanceRateStats(startDate, endDate string) ([]*domainCursor.DailyAcceptanceStats, error) {
-	pathResolver := infraCursor.NewPathResolver()
-	dbReader := infraCursor.NewDBReader()
-
-	// 获取全局存储路径
-	dbPath, err := pathResolver.GetGlobalStoragePath()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get global storage path: %w", err)
-	}
-
 	// 解析日期
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -125,8 +120,8 @@ func (s *StatsService) GetAcceptanceRateStats(startDate, endDate string) ([]*dom
 		dateStr := current.Format("2006-01-02")
 		key := fmt.Sprintf("aiCodeTracking.dailyStats.v1.5.%s", dateStr)
 
-		// 读取数据
-		value, err := dbReader.ReadValueFromTable(dbPath, key)
+		// 使用 GlobalDBReader 读取数据
+		value, err := s.globalDBReader.ReadValue(key)
 		if err != nil {
 			// 数据不存在时跳过，不返回错误
 			current = current.AddDate(0, 0, 1)

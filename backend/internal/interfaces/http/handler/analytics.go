@@ -67,14 +67,13 @@ func (h *AnalyticsHandler) TokenUsage(c *gin.Context) {
 	response.Success(c, usage)
 }
 
-// WorkAnalysis 获取工作分析数据
+// WorkAnalysis 获取工作分析数据（全局视图）
 // @Summary 获取工作分析数据
 // @Tags 统计
 // @Accept json
 // @Produce json
 // @Param start_date query string false "开始日期，格式 YYYY-MM-DD，默认最近 7 天"
 // @Param end_date query string false "结束日期，格式 YYYY-MM-DD，默认今天"
-// @Param project_name query string false "项目名称，如 cocursor（不提供则跨项目聚合）"
 // @Success 200 {object} response.Response{data=domainCursor.WorkAnalysis}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -94,11 +93,8 @@ func (h *AnalyticsHandler) WorkAnalysis(c *gin.Context) {
 		startDate = start.Format("2006-01-02")
 	}
 
-	// 获取项目名参数
-	projectName := c.Query("project_name")
-
-	// 调用服务获取工作分析数据
-	analysis, err := h.workAnalysisService.GetWorkAnalysis(startDate, endDate, projectName)
+	// 调用服务获取工作分析数据（全局视图，不按项目过滤）
+	analysis, err := h.workAnalysisService.GetWorkAnalysis(startDate, endDate)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, 700001, "获取工作分析数据失败: "+err.Error())
 		return

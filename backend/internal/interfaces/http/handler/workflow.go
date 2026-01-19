@@ -10,11 +10,15 @@ import (
 )
 
 // WorkflowHandler 工作流处理器
-type WorkflowHandler struct{}
+type WorkflowHandler struct {
+	workflowRepo infraStorage.OpenSpecWorkflowRepository
+}
 
-// NewWorkflowHandler 创建 WorkflowHandler
-func NewWorkflowHandler() *WorkflowHandler {
-	return &WorkflowHandler{}
+// NewWorkflowHandler 创建 WorkflowHandler（接受 Repository 作为参数）
+func NewWorkflowHandler(workflowRepo infraStorage.OpenSpecWorkflowRepository) *WorkflowHandler {
+	return &WorkflowHandler{
+		workflowRepo: workflowRepo,
+	}
 }
 
 // WorkflowItem 工作流列表项
@@ -56,14 +60,8 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	projectPath := c.Query("project_path")
 	status := c.Query("status")
 
-	// 获取工作流仓储
-	workflowRepo, err := infraStorage.NewOpenSpecWorkflowRepository()
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 700001, "创建工作流仓储失败: "+err.Error())
-		return
-	}
-
 	var workflows []*infraStorage.OpenSpecWorkflow
+	var err error
 
 	// 如果提供了项目路径，根据工作区查询
 	if projectPath != "" {
@@ -71,14 +69,14 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 		workspaceID, err := pathResolver.GetWorkspaceIDByPath(projectPath)
 		if err != nil {
 			// 如果找不到工作区，尝试直接通过 project_path 查询（备用方案）
-			workflows, err = workflowRepo.FindByProjectPath(projectPath)
+			workflows, err = h.workflowRepo.FindByProjectPath(projectPath)
 			if err != nil {
 				response.Error(c, http.StatusInternalServerError, 700001, "查询工作流失败: "+err.Error())
 				return
 			}
 		} else {
 			// 优先通过 workspace_id 查询
-			workflows, err = workflowRepo.FindByWorkspace(workspaceID)
+			workflows, err = h.workflowRepo.FindByWorkspace(workspaceID)
 			if err != nil {
 				response.Error(c, http.StatusInternalServerError, 700001, "查询工作流失败: "+err.Error())
 				return
@@ -86,7 +84,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 		}
 	} else if status != "" {
 		// 如果提供了状态，根据状态查询
-		workflows, err = workflowRepo.FindByStatus(status)
+		workflows, err = h.workflowRepo.FindByStatus(status)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, 700001, "查询工作流失败: "+err.Error())
 			return
@@ -158,13 +156,6 @@ func (h *WorkflowHandler) GetWorkflowDetail(c *gin.Context) {
 		return
 	}
 
-	// 获取工作流仓储
-	workflowRepo, err := infraStorage.NewOpenSpecWorkflowRepository()
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 700001, "创建工作流仓储失败: "+err.Error())
-		return
-	}
-
 	// 获取工作区 ID（可选）
 	pathResolver := infraCursor.NewPathResolver()
 	workspaceID, err := pathResolver.GetWorkspaceIDByPath(projectPath)
@@ -172,7 +163,7 @@ func (h *WorkflowHandler) GetWorkflowDetail(c *gin.Context) {
 	var workflow *infraStorage.OpenSpecWorkflow
 	if err == nil && workspaceID != "" {
 		// 优先通过 workspace_id 查询
-		workflow, err = workflowRepo.FindByWorkspaceAndChange(workspaceID, changeID)
+		workflow, err = h.workflowRepo.FindByWorkspaceAndChange(workspaceID, changeID)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, 700001, "查询工作流失败: "+err.Error())
 			return
@@ -181,7 +172,7 @@ func (h *WorkflowHandler) GetWorkflowDetail(c *gin.Context) {
 
 	// 如果通过 workspace_id 没找到，尝试通过 project_path 查询所有工作流，然后筛选
 	if workflow == nil {
-		workflows, err := workflowRepo.FindByProjectPath(projectPath)
+		workflows, err := h.workflowRepo.FindByProjectPath(projectPath)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, 700001, "查询工作流失败: "+err.Error())
 			return

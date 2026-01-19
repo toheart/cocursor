@@ -70,9 +70,9 @@ class ApiService {
     return this.postMessage("fetchCurrentSessionHealth", { projectPath }) as Promise<SessionHealth>;
   }
 
-  // 获取工作分析数据
-  async getWorkAnalysis(startDate?: string, endDate?: string, projectName?: string): Promise<unknown> {
-    return this.postMessage("fetchWorkAnalysis", { startDate, endDate, projectName });
+  // 获取工作分析数据（全局视图）
+  async getWorkAnalysis(startDate?: string, endDate?: string): Promise<unknown> {
+    return this.postMessage("fetchWorkAnalysis", { startDate, endDate });
   }
 
   // 获取会话列表
@@ -123,6 +123,46 @@ class ApiService {
   // 获取工作流详情
   async getWorkflowDetail(changeId: string, projectPath?: string): Promise<unknown> {
     return this.postMessage("fetchWorkflowDetail", { changeId, projectPath });
+  }
+
+  // ========== RAG 相关 API ==========
+  
+  // 获取 RAG 配置
+  async getRAGConfig(): Promise<unknown> {
+    return this.postMessage("fetchRAGConfig");
+  }
+
+  // 更新 RAG 配置
+  async updateRAGConfig(config: {
+    embedding_api: { url: string; api_key: string; model: string };
+    scan_config: { enabled: boolean; interval: string; batch_size: number; concurrency: number };
+  }): Promise<unknown> {
+    return this.postMessage("updateRAGConfig", { config });
+  }
+
+  // 测试 RAG 配置连接
+  async testRAGConfig(config: { url: string; api_key: string; model: string }): Promise<unknown> {
+    return this.postMessage("testRAGConfig", { config });
+  }
+
+  // RAG 语义搜索
+  async searchRAG(query: string, projectIds?: string[], limit?: number): Promise<unknown> {
+    return this.postMessage("searchRAG", { query, projectIds, limit });
+  }
+
+  // 触发 RAG 索引
+  async triggerRAGIndex(sessionId?: string): Promise<unknown> {
+    return this.postMessage("triggerRAGIndex", { sessionId });
+  }
+
+  // 获取 RAG 统计信息
+  async getRAGStats(): Promise<unknown> {
+    return this.postMessage("fetchRAGStats");
+  }
+
+  // 下载 Qdrant
+  async downloadQdrant(version?: string): Promise<unknown> {
+    return this.postMessage("downloadQdrant", { version });
   }
 }
 

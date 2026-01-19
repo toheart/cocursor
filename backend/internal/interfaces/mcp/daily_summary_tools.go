@@ -13,80 +13,114 @@ import (
 
 // GetDailySessionsInput 每日会话查询工具输入
 type GetDailySessionsInput struct {
-	Date string `json:"date,omitempty" jsonschema:"日期，格式 YYYY-MM-DD，默认今天"`
+	Date string `json:"date,omitempty" jsonschema:"Date in YYYY-MM-DD format, defaults to today"`
 }
 
 // GetDailySessionsOutput 每日会话查询工具输出
 type GetDailySessionsOutput struct {
-	Date     string             `json:"date" jsonschema:"日期"`
-	Projects []*ProjectSessions `json:"projects" jsonschema:"按项目分组的会话"`
-	Total    int                `json:"total" jsonschema:"总会话数"`
+	Date     string             `json:"date" jsonschema:"Date"`
+	Projects []*ProjectSessions `json:"projects" jsonschema:"Sessions grouped by project"`
+	Total    int                `json:"total" jsonschema:"Total number of sessions"`
 }
 
 // ProjectSessions 项目会话组
 type ProjectSessions struct {
-	ProjectName string         `json:"project_name" jsonschema:"项目名称"`
-	ProjectPath string         `json:"project_path" jsonschema:"项目路径"`
-	WorkspaceID string         `json:"workspace_id" jsonschema:"工作区ID"`
-	Sessions    []*SessionInfo `json:"sessions" jsonschema:"会话列表"`
+	ProjectName string         `json:"project_name" jsonschema:"Project name"`
+	ProjectPath string         `json:"project_path" jsonschema:"Project path"`
+	WorkspaceID string         `json:"workspace_id" jsonschema:"Workspace ID"`
+	Sessions    []*SessionInfo `json:"sessions" jsonschema:"Session list"`
 }
 
 // SessionInfo 会话信息
 type SessionInfo struct {
-	SessionID      string `json:"session_id" jsonschema:"会话ID"`
-	Name           string `json:"name" jsonschema:"会话名称"`
-	CreatedAt      int64  `json:"created_at" jsonschema:"创建时间戳（毫秒）"`
-	UpdatedAt      int64  `json:"updated_at" jsonschema:"更新时间戳（毫秒）"`
-	TranscriptPath string `json:"transcript_path,omitempty" jsonschema:"transcript 文件路径（可选）"`
+	SessionID      string `json:"session_id" jsonschema:"Session ID"`
+	Name           string `json:"name" jsonschema:"Session name"`
+	CreatedAt      int64  `json:"created_at" jsonschema:"Creation timestamp in milliseconds"`
+	UpdatedAt      int64  `json:"updated_at" jsonschema:"Update timestamp in milliseconds"`
+	TranscriptPath string `json:"transcript_path,omitempty" jsonschema:"Transcript file path (optional)"`
 }
 
 // GetSessionContentInput 会话内容读取工具输入
 type GetSessionContentInput struct {
-	SessionID string `json:"session_id" jsonschema:"会话ID（必填）"`
+	SessionID string `json:"session_id" jsonschema:"Session ID (required)"`
 }
 
 // GetSessionContentOutput 会话内容读取工具输出
 type GetSessionContentOutput struct {
-	SessionID     string         `json:"session_id" jsonschema:"会话ID"`
-	Name          string         `json:"name" jsonschema:"会话名称"`
-	ProjectName   string         `json:"project_name,omitempty" jsonschema:"所属项目名称"`
-	Messages      []*TextMessage `json:"messages" jsonschema:"纯文本消息列表"`
-	TotalMessages int            `json:"total_messages" jsonschema:"总消息数"`
+	SessionID     string         `json:"session_id" jsonschema:"Session ID"`
+	Name          string         `json:"name" jsonschema:"Session name"`
+	ProjectName   string         `json:"project_name,omitempty" jsonschema:"Project name"`
+	Messages      []*TextMessage `json:"messages" jsonschema:"Plain text messages list"`
+	TotalMessages int            `json:"total_messages" jsonschema:"Total number of messages"`
 }
 
 // TextMessage 纯文本消息（已过滤 tool 和代码）
 type TextMessage struct {
-	Type      string `json:"type" jsonschema:"消息类型：user 或 ai"`
-	Text      string `json:"text" jsonschema:"消息文本（去除代码块）"`
-	Timestamp int64  `json:"timestamp" jsonschema:"时间戳（毫秒）"`
+	Type      string `json:"type" jsonschema:"Message type: user or ai"`
+	Text      string `json:"text" jsonschema:"Message text (code blocks removed)"`
+	Timestamp int64  `json:"timestamp" jsonschema:"Timestamp in milliseconds"`
 }
 
 // SaveDailySummaryInput 保存每日总结工具输入
 type SaveDailySummaryInput struct {
-	Date          string                         `json:"date" jsonschema:"日期 YYYY-MM-DD"`
-	Summary       string                         `json:"summary" jsonschema:"总结内容（Markdown）"`
-	Language      string                         `json:"language" jsonschema:"语言：zh/en"`
-	Projects      []*domainCursor.ProjectSummary `json:"projects" jsonschema:"项目列表"`
-	Categories    *domainCursor.WorkCategories   `json:"categories,omitempty" jsonschema:"工作分类统计对象，包含 requirements_discussion, coding, problem_solving, refactoring, code_review, documentation, testing, other 字段（可选）"`
-	TotalSessions int                            `json:"total_sessions" jsonschema:"总会话数"`
+	Date              string                                 `json:"date" jsonschema:"Date in YYYY-MM-DD format"`
+	Summary           string                                 `json:"summary" jsonschema:"Summary content (Markdown)"`
+	Language          string                                 `json:"language" jsonschema:"Language: zh/en"`
+	Projects          []*domainCursor.ProjectSummary         `json:"projects" jsonschema:"Project list"`
+	Categories        *domainCursor.WorkCategories           `json:"categories,omitempty" jsonschema:"Work category statistics object, containing requirements_discussion, coding, problem_solving, refactoring, code_review, documentation, testing, other fields (optional)"`
+	TotalSessions     int                                    `json:"total_sessions" jsonschema:"Total number of sessions"`
+	CodeChanges       *domainCursor.CodeChangeSummary        `json:"code_changes,omitempty" jsonschema:"Code change statistics (optional)"`
+	TimeDistribution  *domainCursor.TimeDistributionSummary  `json:"time_distribution,omitempty" jsonschema:"Time distribution statistics (optional)"`
+	EfficiencyMetrics *domainCursor.EfficiencyMetricsSummary `json:"efficiency_metrics,omitempty" jsonschema:"Efficiency metrics (optional)"`
 }
 
 // SaveDailySummaryOutput 保存每日总结工具输出
 type SaveDailySummaryOutput struct {
-	Success   bool   `json:"success" jsonschema:"是否成功"`
-	SummaryID string `json:"summary_id,omitempty" jsonschema:"总结ID"`
-	Message   string `json:"message" jsonschema:"消息"`
+	Success   bool   `json:"success" jsonschema:"Whether the operation succeeded"`
+	SummaryID string `json:"summary_id,omitempty" jsonschema:"Summary ID"`
+	Message   string `json:"message" jsonschema:"Message"`
 }
 
 // GetDailySummaryInput 查询每日总结工具输入
 type GetDailySummaryInput struct {
-	Date string `json:"date" jsonschema:"日期 YYYY-MM-DD"`
+	Date string `json:"date" jsonschema:"Date in YYYY-MM-DD format"`
 }
 
 // GetDailySummaryOutput 查询每日总结工具输出
 type GetDailySummaryOutput struct {
-	Summary *domainCursor.DailySummary `json:"summary,omitempty" jsonschema:"总结对象"`
-	Found   bool                       `json:"found" jsonschema:"是否找到"`
+	Summary *domainCursor.DailySummary `json:"summary,omitempty" jsonschema:"Summary object"`
+	Found   bool                       `json:"found" jsonschema:"Whether the summary was found"`
+}
+
+// GetDailyConversationsInput 获取每日对话内容工具输入
+type GetDailyConversationsInput struct {
+	Date string `json:"date,omitempty" jsonschema:"Date in YYYY-MM-DD format, defaults to today"`
+}
+
+// GetDailyConversationsOutput 获取每日对话内容工具输出
+type GetDailyConversationsOutput struct {
+	Date     string                  `json:"date" jsonschema:"Date"`
+	Projects []*ProjectConversations `json:"projects" jsonschema:"Conversations grouped by project"`
+	Total    int                     `json:"total" jsonschema:"Total number of sessions"`
+}
+
+// ProjectConversations 项目对话组（包含完整的会话信息和消息内容）
+type ProjectConversations struct {
+	ProjectName string                 `json:"project_name" jsonschema:"Project name"`
+	ProjectPath string                 `json:"project_path" jsonschema:"Project path"`
+	WorkspaceID string                 `json:"workspace_id" jsonschema:"Workspace ID"`
+	Sessions    []*SessionConversation `json:"sessions" jsonschema:"Session conversations list"`
+}
+
+// SessionConversation 会话对话（包含会话信息和消息内容）
+type SessionConversation struct {
+	SessionID     string         `json:"session_id" jsonschema:"Session ID"`
+	Name          string         `json:"name" jsonschema:"Session name"`
+	ProjectName   string         `json:"project_name" jsonschema:"Project name"`
+	CreatedAt     int64          `json:"created_at" jsonschema:"Creation timestamp in milliseconds"`
+	UpdatedAt     int64          `json:"updated_at" jsonschema:"Update timestamp in milliseconds"`
+	Messages      []*TextMessage `json:"messages" jsonschema:"Plain text messages list"`
+	TotalMessages int            `json:"total_messages" jsonschema:"Total number of messages"`
 }
 
 // getDailySessionsTool 获取每日会话列表工具
@@ -205,8 +239,13 @@ func (s *MCPServer) getSessionContentTool(
 	}
 
 	// 创建 SessionService 来获取会话文本内容
-	sessionService := appCursor.NewSessionService(s.projectManager)
-	textMessages, err := sessionService.GetSessionTextContent(input.SessionID)
+	// 使用深度过滤选项，过滤日志和代码相关内容，只保留自然语言文本
+	sessionService := appCursor.NewSessionService(s.projectManager, s.sessionRepo)
+	options := &appCursor.TextContentOptions{
+		FilterLogsAndCode: true, // 启用深度过滤，用于日志分析
+		MaxMessageLength:  5000,
+	}
+	textMessages, err := sessionService.GetSessionTextContentWithOptions(input.SessionID, options)
 	if err != nil {
 		return nil, GetSessionContentOutput{}, fmt.Errorf("无法获取会话内容: %w", err)
 	}
@@ -297,7 +336,7 @@ func (s *MCPServer) saveDailySummaryTool(
 	if input.Language == "" {
 		input.Language = "zh" // 默认中文
 	}
-	
+
 	// 处理 categories 参数：如果为 nil，创建空对象
 	categories := input.Categories
 	if categories == nil {
@@ -306,14 +345,17 @@ func (s *MCPServer) saveDailySummaryTool(
 
 	// 构建 DailySummary 对象
 	summary := &domainCursor.DailySummary{
-		Date:           input.Date,
-		Summary:        input.Summary,
-		Language:       input.Language,
-		Projects:       input.Projects,
-		WorkCategories: categories,
-		TotalSessions:  input.TotalSessions,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		Date:              input.Date,
+		Summary:           input.Summary,
+		Language:          input.Language,
+		Projects:          input.Projects,
+		WorkCategories:    categories,
+		TotalSessions:     input.TotalSessions,
+		CodeChanges:       input.CodeChanges,
+		TimeDistribution:  input.TimeDistribution,
+		EfficiencyMetrics: input.EfficiencyMetrics,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 
 	// 保存到数据库
@@ -360,6 +402,155 @@ func (s *MCPServer) getDailySummaryTool(
 	output := GetDailySummaryOutput{
 		Summary: summary,
 		Found:   true,
+	}
+
+	return nil, output, nil
+}
+
+// getDailyConversationsTool 获取每日对话内容工具（一次性返回所有项目的所有对话）
+func (s *MCPServer) getDailyConversationsTool(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input GetDailyConversationsInput,
+) (*mcp.CallToolResult, GetDailyConversationsOutput, error) {
+	// 确定日期
+	date := input.Date
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+
+	// 解析日期
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, GetDailyConversationsOutput{}, fmt.Errorf("invalid date format: %w", err)
+	}
+
+	// 计算日期的开始和结束时间（本地时区）
+	startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, time.Local)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	startTimestamp := startOfDay.UnixMilli()
+	endTimestamp := endOfDay.UnixMilli()
+
+	// 获取所有项目
+	projects := s.projectManager.ListAllProjects()
+
+	// 创建 SessionService
+	sessionService := appCursor.NewSessionService(s.projectManager, s.sessionRepo)
+
+	// 按项目分组收集会话和对话内容
+	projectConversationsMap := make(map[string]*ProjectConversations)
+	pathResolver := infraCursor.NewPathResolver()
+	dbReader := infraCursor.NewDBReader()
+	totalSessions := 0
+
+	for _, project := range projects {
+		for _, ws := range project.Workspaces {
+			// 获取工作区数据库路径
+			workspaceDBPath, err := pathResolver.GetWorkspaceDBPath(ws.WorkspaceID)
+			if err != nil {
+				continue
+			}
+
+			// 读取 composer.composerData
+			composerDataValue, err := dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "composer.composerData")
+			if err != nil {
+				continue
+			}
+
+			// 解析 Composer 数据
+			composers, err := domainCursor.ParseComposerData(string(composerDataValue))
+			if err != nil {
+				continue
+			}
+
+			// 筛选当天创建或更新的会话
+			for i := range composers {
+				session := &composers[i]
+				// 检查是否在目标日期创建或更新
+				createdAt := session.CreatedAt
+				updatedAt := session.LastUpdatedAt
+
+				isCreatedToday := createdAt >= startTimestamp && createdAt < endTimestamp
+				isUpdatedToday := updatedAt >= startTimestamp && updatedAt < endTimestamp
+
+				if !isCreatedToday && !isUpdatedToday {
+					continue
+				}
+
+				// 获取或创建项目对话组
+				projectKey := ws.ProjectName
+				if _, exists := projectConversationsMap[projectKey]; !exists {
+					projectConversationsMap[projectKey] = &ProjectConversations{
+						ProjectName: ws.ProjectName,
+						ProjectPath: ws.Path,
+						WorkspaceID: ws.WorkspaceID,
+						Sessions:    []*SessionConversation{},
+					}
+				}
+
+				// 获取会话的文本内容
+				// 使用深度过滤选项，过滤日志和代码相关内容，只保留自然语言文本
+				options := &appCursor.TextContentOptions{
+					FilterLogsAndCode: true, // 启用深度过滤，用于日志分析
+					MaxMessageLength:  5000,
+				}
+				textMessages, err := sessionService.GetSessionTextContentWithOptions(session.ComposerID, options)
+				if err != nil {
+					// 如果获取内容失败，仍然添加会话信息，但消息列表为空
+					projectConversationsMap[projectKey].Sessions = append(
+						projectConversationsMap[projectKey].Sessions,
+						&SessionConversation{
+							SessionID:     session.ComposerID,
+							Name:          session.Name,
+							ProjectName:   ws.ProjectName,
+							CreatedAt:     createdAt,
+							UpdatedAt:     updatedAt,
+							Messages:      []*TextMessage{},
+							TotalMessages: 0,
+						},
+					)
+					totalSessions++
+					continue
+				}
+
+				// 转换为 TextMessage 格式
+				var textMsgList []*TextMessage
+				for _, msg := range textMessages {
+					textMsgList = append(textMsgList, &TextMessage{
+						Type:      string(msg.Type),
+						Text:      msg.Text,
+						Timestamp: msg.Timestamp,
+					})
+				}
+
+				// 添加到项目对话组
+				projectConversationsMap[projectKey].Sessions = append(
+					projectConversationsMap[projectKey].Sessions,
+					&SessionConversation{
+						SessionID:     session.ComposerID,
+						Name:          session.Name,
+						ProjectName:   ws.ProjectName,
+						CreatedAt:     createdAt,
+						UpdatedAt:     updatedAt,
+						Messages:      textMsgList,
+						TotalMessages: len(textMsgList),
+					},
+				)
+				totalSessions++
+			}
+		}
+	}
+
+	// 转换为切片
+	projectsList := make([]*ProjectConversations, 0, len(projectConversationsMap))
+	for _, pc := range projectConversationsMap {
+		projectsList = append(projectsList, pc)
+	}
+
+	output := GetDailyConversationsOutput{
+		Date:     date,
+		Projects: projectsList,
+		Total:    totalSessions,
 	}
 
 	return nil, output, nil
