@@ -366,6 +366,8 @@
   "team": {
     "title": "团队技能共享",
     "subtitle": "在团队内分享和发现技能",
+    "beta": "Beta",
+    "betaTooltip": "此功能处于 Beta 测试阶段，可能存在不稳定的情况",
     "identity": "身份",
     "setupIdentity": "设置身份",
     "editIdentity": "编辑身份",

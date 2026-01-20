@@ -185,16 +185,8 @@ export const RAGSearch: React.FC = () => {
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <h2>{t("rag.search.title")}</h2>
           <span
-            className="cocursor-rag-beta-badge"
+            className="cocursor-beta-badge"
             title={t("rag.betaTooltip")}
-            style={{
-              backgroundColor: "var(--vscode-statusBarItem-warningBackground)",
-              color: "var(--vscode-statusBarItem-warningForeground)",
-              padding: "2px 8px",
-              borderRadius: "3px",
-              fontSize: "12px",
-              fontWeight: "600"
-            }}
           >
             {t("rag.beta")}
           </span>

@@ -89,13 +89,29 @@ jobs:
     name: Build Verification
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
+          - os: ubuntu-latest
+            target_arch: amd64
+            goos: linux
+            goarch: amd64
+            binary_suffix: linux-amd64
+          - os: windows-latest
+            target_arch: amd64
+            goos: windows
+            goarch: amd64
+            binary_suffix: windows-amd64.exe
           - os: macos-latest
             target_arch: x64
+            goos: darwin
+            goarch: amd64
+            binary_suffix: darwin-amd64
           - os: macos-latest
             target_arch: arm64
+            goos: darwin
+            goarch: arm64
+            binary_suffix: darwin-arm64
 
     steps:
       - name: Checkout code
@@ -159,75 +175,75 @@ jobs:
 
           Copy-Item "src/webview/index.css" "dist/webview/index.css" -Force -ErrorAction SilentlyContinue
 
-      - name: Build backend daemon (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Generate Wire code (Unix-like)
+        if: runner.os != 'Windows'
+        working-directory: backend
+        run: make wire
+
+      - name: Generate Wire code (Windows)
+        if: runner.os == 'Windows'
         working-directory: backend
         run: |
-          make wire
-          GOOS=linux GOARCH=amd64 go build -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-linux-amd64
+          cd internal/wire && go run github.com/google/wire/cmd/wire
+
+      - name: Create bin directory
+        run: mkdir -p co-extension/bin
+        shell: bash
+
+      - name: Build backend daemon (Unix-like)
+        if: runner.os != 'Windows'
+        working-directory: backend
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-${{ matrix.binary_suffix }}
 
       - name: Build backend daemon (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         working-directory: backend
         shell: pwsh
         run: |
-          make wire
-          $env:GOOS="windows"; $env:GOARCH="amd64"
-          go build -o ../co-extension/bin/cocursor-windows-amd64.exe ./cmd/server
+          $env:GOOS="${{ matrix.goos }}"; $env:GOARCH="${{ matrix.goarch }}"
+          go build -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
 
-      - name: Build backend daemon (macOS x64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
-        working-directory: backend
-        run: |
-          make wire
-          GOOS=darwin GOARCH=amd64 go build -o ../co-extension/bin/cocursor-darwin-amd64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-darwin-amd64
-
-      - name: Build backend daemon (macOS ARM64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
-        working-directory: backend
-        run: |
-          make wire
-          GOOS=darwin GOARCH=arm64 go build -o ../co-extension/bin/cocursor-darwin-arm64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-darwin-arm64
+      - name: Verify binary
+        run: ls -lh co-extension/bin/
+        shell: bash
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
-      - name: Verify package (default)
-        if: matrix.os != 'macos-latest'
-        working-directory: co-extension
-        run: vsce package --out test.vsix
+      - name: Get vsce target
+        id: vsce-target
+        shell: bash
+        run: |
+          if [ "${{ matrix.goos }}" = "linux" ]; then
+            echo "target=linux-x64" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.goos }}" = "windows" ]; then
+            echo "target=win32-x64" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.goarch }}" = "arm64" ]; then
+            echo "target=darwin-arm64" >> $GITHUB_OUTPUT
+          else
+            echo "target=darwin-x64" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Verify package (macOS x64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
+      - name: Verify package
         working-directory: co-extension
-        run: vsce package --out test.vsix --target darwin-x64
-
-      - name: Verify package (macOS ARM64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
-        working-directory: co-extension
-        run: vsce package --out test.vsix --target darwin-arm64
+        run: vsce package --out test.vsix --target ${{ steps.vsce-target.outputs.target }}
 
       - name: Verify package contents (Unix-like)
         if: runner.os != 'Windows'
-        run: |
-          unzip -l test.vsix | head -20
+        working-directory: co-extension
+        run: unzip -l test.vsix | head -20
 
       - name: Verify package contents (Windows)
         if: runner.os == 'Windows'
+        working-directory: co-extension
         shell: pwsh
         run: |
-          # Expand archive to see contents
           Add-Type -Assembly System.IO.Compression.FileSystem
           [System.IO.Compression.ZipFile]::OpenRead("$PWD\test.vsix").Entries.FullName | Select-Object -First 20
 
-      - name: Clean up (Unix-like)
-        if: runner.os != 'Windows'
-        run: rm test.vsix
-
-      - name: Clean up (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: Remove-Item test.vsix -ErrorAction SilentlyContinue
+      - name: Clean up
+        working-directory: co-extension
+        run: rm -f test.vsix
+        shell: bash

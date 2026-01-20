@@ -21,24 +21,56 @@ jobs:
     name: Build Extension
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        target_arch: [x64]
         include:
           - os: ubuntu-latest
+            target_arch: x64
+            goos: linux
+            goarch: amd64
+            binary_suffix: linux-amd64
             artifact_name: cocursor-linux-x64
+            vsce_target: linux-x64
           - os: windows-latest
+            target_arch: x64
+            goos: windows
+            goarch: amd64
+            binary_suffix: windows-amd64.exe
             artifact_name: cocursor-win32-x64
+            vsce_target: win32-x64
           - os: macos-latest
             target_arch: x64
+            goos: darwin
+            goarch: amd64
+            binary_suffix: darwin-amd64
             artifact_name: cocursor-darwin-x64
+            vsce_target: darwin-x64
           - os: macos-latest
             target_arch: arm64
+            goos: darwin
+            goarch: arm64
+            binary_suffix: darwin-arm64
             artifact_name: cocursor-darwin-arm64
+            vsce_target: darwin-arm64
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -69,85 +101,73 @@ jobs:
         working-directory: backend
         run: go test -v -race -cover ./...
 
-      - name: Build extension
+      - name: Build extension (Unix-like)
+        if: runner.os != 'Windows'
         working-directory: co-extension
         run: make build
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
+      - name: Build extension (Windows)
+        if: runner.os == 'Windows'
+        working-directory: co-extension
+        shell: pwsh
+        run: |
+          # 确保目录存在
+          if (-not (Test-Path "dist")) {
+            New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+          }
+          if (-not (Test-Path "dist/webview")) {
+            New-Item -ItemType Directory -Path "dist/webview" -Force | Out-Null
+          }
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          # 构建 Extension
+          npx esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/extension.js --external:vscode --sourcemap --minify
 
-      - name: Build backend daemon (Linux)
-        if: matrix.os == 'ubuntu-latest'
+          # 构建 Webview
+          npx esbuild src/webview/index.tsx --bundle --platform=browser --target=es2020 --format=iife --outfile=dist/webview/index.js --jsx=automatic --sourcemap --minify --define:process.env.NODE_ENV='"production"' --global-name=cocursor
+
+          Copy-Item "src/webview/index.css" "dist/webview/index.css" -Force -ErrorAction SilentlyContinue
+
+      - name: Generate Wire code (Unix-like)
+        if: runner.os != 'Windows'
+        working-directory: backend
+        run: make wire
+
+      - name: Generate Wire code (Windows)
+        if: runner.os == 'Windows'
         working-directory: backend
         run: |
-          make wire
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-linux-amd64
+          cd internal/wire && go run github.com/google/wire/cmd/wire
+
+      - name: Create bin directory
+        run: mkdir -p co-extension/bin
+        shell: bash
+
+      - name: Build backend daemon (Unix-like)
+        if: runner.os != 'Windows'
+        working-directory: backend
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-${{ matrix.binary_suffix }}
 
       - name: Build backend daemon (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         working-directory: backend
         shell: pwsh
         run: |
-          make wire
-          $env:GOOS="windows"; $env:GOARCH="amd64"
-          go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ') -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-windows-amd64.exe ./cmd/server
-
-      - name: Build backend daemon (macOS x64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
-        working-directory: backend
-        run: |
-          make wire
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-darwin-amd64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-darwin-amd64
-
-      - name: Build backend daemon (macOS ARM64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
-        working-directory: backend
-        run: |
-          make wire
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-darwin-arm64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-darwin-arm64
+          $env:GOOS="${{ matrix.goos }}"; $env:GOARCH="${{ matrix.goarch }}"
+          $buildTime = (Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ')
+          go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$buildTime -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
 
       - name: Verify binary files
-        run: |
-          echo "Checking binary files in co-extension/bin:"
-          ls -lh co-extension/bin/
+        run: ls -lh co-extension/bin/
+        shell: bash
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
-      - name: Package extension (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Package extension
         working-directory: co-extension
-        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target linux-x64
-
-      - name: Package extension (Windows)
-        if: matrix.os == 'windows-latest'
-        working-directory: co-extension
-        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target win32-x64
-
-      - name: Package extension (macOS x64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'x64'
-        working-directory: co-extension
-        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target darwin-x64
-
-      - name: Package extension (macOS ARM64)
-        if: matrix.os == 'macos-latest' && matrix.target_arch == 'arm64'
-        working-directory: co-extension
-        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target darwin-arm64
+        run: vsce package --out ../${{ matrix.artifact_name }}.vsix --target ${{ matrix.vsce_target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -258,11 +278,4 @@ jobs:
           else
             echo "✅ All platforms published successfully!"
           fi
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all platform artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
 

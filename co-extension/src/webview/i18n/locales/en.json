@@ -366,6 +366,8 @@
   "team": {
     "title": "Team Skill Sharing",
     "subtitle": "Share and discover skills within your team",
+    "beta": "Beta",
+    "betaTooltip": "This feature is in Beta and may be unstable",
     "identity": "Identity",
     "setupIdentity": "Set Up Identity",
     "editIdentity": "Edit Identity",

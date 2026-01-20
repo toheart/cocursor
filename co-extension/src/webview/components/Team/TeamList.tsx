@@ -100,7 +100,15 @@ export const TeamList: React.FC = () => {
 
       {/* Hero 区域 */}
       <div className="cocursor-team-hero">
-        <h1 className="cocursor-team-title">{t("team.title")}</h1>
+        <div className="cocursor-team-title-row">
+          <h1 className="cocursor-team-title">{t("team.title")}</h1>
+          <span
+            className="cocursor-beta-badge"
+            title={t("team.betaTooltip")}
+          >
+            {t("team.beta")}
+          </span>
+        </div>
         <p className="cocursor-team-subtitle">{t("team.subtitle")}</p>
       </div>
 
