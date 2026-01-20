@@ -266,6 +266,7 @@ jobs:
         working-directory: artifact
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
           # 检查 PAT 是否存在
           if [ -z "$VSCE_PAT" ]; then
@@ -274,9 +275,9 @@ jobs:
             exit 1
           fi
           echo "✓ VSCE_PAT is configured (length: ${#VSCE_PAT})"
-          echo "Publishing ${{ matrix.platform }}..."
+          echo "Publishing ${PLATFORM}..."
           vsce publish -p "$VSCE_PAT" --packagePath *.vsix
-na          echo "✅ ${{ matrix.platform }} published successfully!"
+          echo "✅ ${PLATFORM} published successfully!"
 
   # ============================================================================
   # 阶段5: 发布结果汇总
