@@ -1,8 +1,6 @@
 package vector
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -44,7 +42,7 @@ func TestBuildDownloadURL(t *testing.T) {
 			osName:   "macos",
 			arch:     "arm64",
 			wantErr:  false,
-			contains: "qdrant-aarch64-apple-darwin.zip",
+			contains: "qdrant-aarch64-apple-darwin.tar.gz",
 		},
 		{
 			name:    "Unsupported OS",
@@ -67,136 +65,6 @@ func TestBuildDownloadURL(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestDownloadFile_Success 测试成功下载（使用 mock HTTP server）
-func TestDownloadFile_Success(t *testing.T) {
-	// 创建测试服务器
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Length", "10")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test data"))
-	}))
-	defer server.Close()
-
-	// 创建临时文件
-	tmpDir := t.TempDir()
-	destPath := filepath.Join(tmpDir, "test.zip")
-
-	// 测试下载
-	err := downloadFile(server.URL, destPath)
-	require.NoError(t, err)
-
-	// 验证文件存在且内容正确
-	data, err := os.ReadFile(destPath)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("test data"), data)
-}
-
-// TestDownloadFile_HTTPError 测试 HTTP 错误
-func TestDownloadFile_HTTPError(t *testing.T) {
-	// 创建返回 404 的测试服务器
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	destPath := filepath.Join(tmpDir, "test.zip")
-
-	err := downloadFile(server.URL, destPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "status code 404")
-}
-
-// TestDownloadFile_NetworkError 测试网络错误
-func TestDownloadFile_NetworkError(t *testing.T) {
-	tmpDir := t.TempDir()
-	destPath := filepath.Join(tmpDir, "test.zip")
-
-	// 使用无效 URL
-	err := downloadFile("http://invalid-url-that-does-not-exist.local/test", destPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to download file")
-}
-
-// TestDownloadFile_Retry 测试重试机制
-func TestDownloadFile_Retry(t *testing.T) {
-	attempts := 0
-	// 创建前两次失败、第三次成功的服务器
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts < 3 {
-			w.WriteHeader(http.StatusInternalServerError)
-		} else {
-			w.Header().Set("Content-Length", "5")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("data"))
-		}
-	}))
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	destPath := filepath.Join(tmpDir, "test.zip")
-
-	err := downloadFile(server.URL, destPath)
-	require.NoError(t, err)
-	assert.Equal(t, 3, attempts) // 应该重试了 3 次
-
-	// 验证文件内容
-	data, err := os.ReadFile(destPath)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("data"), data)
-}
-
-// TestDownloadFile_FileSizeMismatch 测试文件大小不匹配
-func TestDownloadFile_FileSizeMismatch(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Length", "10") // 声明 10 字节
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("data")) // 实际只写 4 字节
-	}))
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	destPath := filepath.Join(tmpDir, "test.zip")
-
-	err := downloadFile(server.URL, destPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "file size mismatch")
-}
-
-// TestExtractZip 测试 ZIP 解压
-func TestExtractZip(t *testing.T) {
-	// 创建测试 ZIP 文件
-	// 注意：这个测试需要真实的 ZIP 文件，可能需要使用 archive/zip 包创建
-	// 暂时跳过，因为需要创建真实的 ZIP 文件
-	t.Skip("需要真实的 ZIP 文件进行测试")
-}
-
-// TestFindBinaryInExtracted 测试查找二进制文件
-func TestFindBinaryInExtracted(t *testing.T) {
-	tmpDir := t.TempDir()
-	extractDir := filepath.Join(tmpDir, "extracted")
-
-	// 创建测试目录结构
-	binaryPath := filepath.Join(extractDir, "qdrant")
-	require.NoError(t, os.MkdirAll(filepath.Dir(binaryPath), 0755))
-	require.NoError(t, os.WriteFile(binaryPath, []byte("binary"), 0755))
-
-	// 测试查找
-	found := findBinaryInExtracted(extractDir, "qdrant")
-	assert.Equal(t, binaryPath, found)
-}
-
-// TestFindBinaryInExtracted_NotFound 测试找不到二进制文件
-func TestFindBinaryInExtracted_NotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	extractDir := filepath.Join(tmpDir, "extracted")
-	require.NoError(t, os.MkdirAll(extractDir, 0755))
-
-	found := findBinaryInExtracted(extractDir, "qdrant")
-	assert.Empty(t, found)
 }
 
 // TestCopyFile 测试文件复制

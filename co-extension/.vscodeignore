@@ -51,6 +51,7 @@ temp
 # Documentation
 docs
 *.md
+!LICENSE
 
 # Ensure bin is included (daemon binaries)
 !bin/**

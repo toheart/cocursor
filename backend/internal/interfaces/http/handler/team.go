@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	appMarketplace "github.com/cocursor/backend/internal/application/marketplace"
 	appTeam "github.com/cocursor/backend/internal/application/team"
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 	"github.com/cocursor/backend/internal/infrastructure/marketplace"
@@ -16,6 +18,7 @@ import (
 // TeamHandler 团队管理处理器
 type TeamHandler struct {
 	teamService     *appTeam.TeamService
+	pluginService   *appMarketplace.PluginService
 	skillPublisher  *marketplace.TeamSkillPublisher
 	skillDownloader *marketplace.TeamSkillDownloader
 }
@@ -23,11 +26,13 @@ type TeamHandler struct {
 // NewTeamHandler 创建团队管理处理器
 func NewTeamHandler(
 	teamService *appTeam.TeamService,
+	pluginService *appMarketplace.PluginService,
 	skillPublisher *marketplace.TeamSkillPublisher,
 	skillDownloader *marketplace.TeamSkillDownloader,
 ) *TeamHandler {
 	return &TeamHandler{
 		teamService:     teamService,
+		pluginService:   pluginService,
 		skillPublisher:  skillPublisher,
 		skillDownloader: skillDownloader,
 	}
@@ -446,20 +451,21 @@ func (h *TeamHandler) PublishSkill(c *gin.Context) {
 // @Tags 团队技能
 // @Accept json
 // @Produce json
+// @Param id path string true "团队 ID"
 // @Param body body DownloadSkillRequest true "下载信息"
 // @Success 200 {object} response.Response
-// @Router /team/skills/{id}/download [post]
+// @Router /team/{id}/skills/download [post]
 func (h *TeamHandler) DownloadSkill(c *gin.Context) {
-	pluginID := c.Param("id")
-	if pluginID == "" {
-		response.Error(c, http.StatusBadRequest, 600033, "Plugin ID is required")
+	teamID := c.Param("id")
+	if teamID == "" {
+		response.Error(c, http.StatusBadRequest, 600033, "Team ID is required")
 		return
 	}
 
 	var req struct {
-		TeamID           string `json:"team_id" binding:"required"`
+		PluginID         string `json:"plugin_id" binding:"required"`
 		AuthorEndpoint   string `json:"author_endpoint" binding:"required"`
-		ExpectedChecksum string `json:"expected_checksum"`
+		ExpectedChecksum string `json:"checksum"` // 前端使用 checksum
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 600034, "Invalid request: "+err.Error())
@@ -470,8 +476,8 @@ func (h *TeamHandler) DownloadSkill(c *gin.Context) {
 	defer cancel()
 
 	downloadReq := &marketplace.DownloadRequest{
-		TeamID:           req.TeamID,
-		PluginID:         pluginID,
+		TeamID:           teamID,
+		PluginID:         req.PluginID,
 		AuthorEndpoint:   req.AuthorEndpoint,
 		ExpectedChecksum: req.ExpectedChecksum,
 	}
@@ -518,5 +524,188 @@ func (h *TeamHandler) GetSkillIndex(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"skill_index": index,
+	})
+}
+
+// PublishSkillWithMetadata 带元数据发布技能到团队
+// @Summary 带元数据发布技能到团队
+// @Tags 团队技能
+// @Accept json
+// @Produce json
+// @Param id path string true "团队 ID"
+// @Param body body PublishSkillWithMetadataRequest true "发布信息"
+// @Success 200 {object} response.Response
+// @Router /team/{id}/skills/publish-with-metadata [post]
+func (h *TeamHandler) PublishSkillWithMetadata(c *gin.Context) {
+	teamID := c.Param("id")
+	if teamID == "" {
+		response.Error(c, http.StatusBadRequest, 600040, "Team ID is required")
+		return
+	}
+
+	var req struct {
+		LocalPath string                   `json:"local_path" binding:"required"`
+		Metadata  domainTeam.SkillMetadata `json:"metadata" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 600041, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 验证元数据
+	if err := req.Metadata.Validate(); err != nil {
+		response.Error(c, http.StatusBadRequest, 600042, "Invalid metadata: "+err.Error())
+		return
+	}
+
+	// 获取身份
+	identity, err := h.teamService.GetIdentity()
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 600043, "Please set your identity first")
+		return
+	}
+
+	// 获取团队信息
+	team, err := h.teamService.GetTeam(teamID)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, 600044, "Team not found")
+		return
+	}
+
+	// 构建端点
+	interfaces, _ := h.teamService.GetNetworkInterfaces()
+	var endpoint string
+	if len(interfaces) > 0 && len(interfaces[0].Addresses) > 0 {
+		endpoint = interfaces[0].Addresses[0] + ":19960"
+	}
+
+	publishReq := &marketplace.PublishWithMetadataRequest{
+		TeamID:    teamID,
+		LocalPath: req.LocalPath,
+		Metadata:  &req.Metadata,
+		AuthorID:  identity.ID,
+		Endpoint:  endpoint,
+	}
+
+	// 如果是 Leader，直接发布到本地
+	if team.IsLeader {
+		entry, err := h.skillPublisher.PublishLocalWithMetadata(publishReq)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, 600045, "Failed to publish skill: "+err.Error())
+			return
+		}
+
+		// 更新技能索引
+		if err := h.teamService.AddSkillToIndex(teamID, entry); err != nil {
+			// 记录错误但不影响响应
+			c.Error(fmt.Errorf("failed to update skill index: %w", err))
+		}
+
+		response.Success(c, gin.H{
+			"entry": entry,
+		})
+		return
+	}
+
+	// 否则发布到 Leader
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := h.skillPublisher.PublishWithMetadata(ctx, publishReq, team.LeaderEndpoint)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 600046, "Failed to publish skill: "+err.Error())
+		return
+	}
+
+	if !result.Success {
+		response.Error(c, http.StatusBadRequest, 600047, result.Error)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"entry": result.Entry,
+	})
+}
+
+// InstallTeamSkill 安装团队技能
+// @Summary 安装团队技能
+// @Tags 团队技能
+// @Accept json
+// @Produce json
+// @Param id path string true "团队 ID"
+// @Param plugin_id path string true "插件 ID"
+// @Param body body InstallTeamSkillRequest true "安装请求"
+// @Success 200 {object} response.Response
+// @Router /team/{id}/skills/{plugin_id}/install [post]
+func (h *TeamHandler) InstallTeamSkill(c *gin.Context) {
+	teamID := c.Param("id")
+	pluginID := c.Param("plugin_id")
+
+	if teamID == "" || pluginID == "" {
+		response.Error(c, http.StatusBadRequest, 600048, "Team ID and Plugin ID are required")
+		return
+	}
+
+	var req struct {
+		WorkspacePath string `json:"workspace_path" binding:"required"`
+		Version       string `json:"version"`
+		Force         bool   `json:"force"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 600049, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 如果没有指定版本，默认 1.0.0
+	version := req.Version
+	if version == "" {
+		version = "1.0.0"
+	}
+
+	result, err := h.pluginService.InstallTeamSkill(teamID, pluginID, version, req.WorkspacePath, req.Force)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 600050, "Failed to install team skill: "+err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
+// UninstallTeamSkill 卸载团队技能
+// @Summary 卸载团队技能
+// @Tags 团队技能
+// @Accept json
+// @Produce json
+// @Param id path string true "团队 ID"
+// @Param plugin_id path string true "插件 ID"
+// @Param body body UninstallTeamSkillRequest true "卸载请求"
+// @Success 200 {object} response.Response
+// @Router /team/{id}/skills/{plugin_id}/uninstall [post]
+func (h *TeamHandler) UninstallTeamSkill(c *gin.Context) {
+	teamID := c.Param("id")
+	pluginID := c.Param("plugin_id")
+
+	if teamID == "" || pluginID == "" {
+		response.Error(c, http.StatusBadRequest, 600051, "Team ID and Plugin ID are required")
+		return
+	}
+
+	var req struct {
+		WorkspacePath string `json:"workspace_path" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 600052, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.pluginService.UninstallTeamSkill(teamID, pluginID, req.WorkspacePath)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 600053, "Failed to uninstall team skill: "+err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"success": true,
+		"message": "Team skill uninstalled successfully",
 	})
 }

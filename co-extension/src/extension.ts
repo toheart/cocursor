@@ -11,6 +11,9 @@ let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
 let daemonManager: DaemonManager | null = null;
 let windowStateListener: vscode.Disposable | null = null;
+let activeEditorListener: vscode.Disposable | null = null;
+let statusReportThrottle: NodeJS.Timeout | null = null;
+let lastReportedStatus: { project: string; file: string } | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
   // 初始化 i18n
@@ -210,7 +213,188 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // 注册代码分享命令（右键菜单和命令面板）
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.shareCodeToTeam", () => {
+      shareSelectedCode();
+    })
+  );
+
+  // 监听活动编辑器变化，用于工作状态上报
+  const statusSharingEnabled = context.globalState.get<boolean>("cocursor.statusSharingEnabled", false);
+  if (statusSharingEnabled) {
+    activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (editor) {
+        throttledReportWorkStatus(editor);
+      }
+    });
+    context.subscriptions.push(activeEditorListener);
+  }
+
+  // 注册状态分享开关命令
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.toggleStatusSharing", () => {
+      const current = context.globalState.get<boolean>("cocursor.statusSharingEnabled", false);
+      const newValue = !current;
+      context.globalState.update("cocursor.statusSharingEnabled", newValue);
+
+      if (newValue && !activeEditorListener) {
+        activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
+          if (editor) {
+            throttledReportWorkStatus(editor);
+          }
+        });
+        context.subscriptions.push(activeEditorListener);
+        vscode.window.showInformationMessage("工作状态分享已开启");
+      } else if (!newValue && activeEditorListener) {
+        activeEditorListener.dispose();
+        activeEditorListener = null;
+        vscode.window.showInformationMessage("工作状态分享已关闭");
+      }
+    })
+  );
+
   console.log("CoCursor: 所有命令已注册完成");
+}
+
+// 分享选中的代码到团队
+async function shareSelectedCode(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage("请先打开一个文件并选择代码");
+    return;
+  }
+
+  const selection = editor.selection;
+  if (selection.isEmpty) {
+    vscode.window.showWarningMessage("请先选择要分享的代码");
+    return;
+  }
+
+  const selectedText = editor.document.getText(selection);
+  if (!selectedText.trim()) {
+    vscode.window.showWarningMessage("选中的代码为空");
+    return;
+  }
+
+  // 检查代码大小（10KB 限制）
+  if (selectedText.length > 10 * 1024) {
+    vscode.window.showWarningMessage("选中的代码过大（超过 10KB），请选择较小的片段");
+    return;
+  }
+
+  // 获取文件信息
+  const fileName = editor.document.fileName.split(/[\\/]/).pop() || "unknown";
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const relativePath = workspaceFolder
+    ? vscode.workspace.asRelativePath(editor.document.uri)
+    : fileName;
+  const language = editor.document.languageId;
+  const startLine = selection.start.line + 1;
+  const endLine = selection.end.line + 1;
+
+  // 询问附加消息（可选）
+  const message = await vscode.window.showInputBox({
+    prompt: "添加说明（可选）",
+    placeHolder: "如：这段代码有问题，帮我看看",
+  });
+
+  try {
+    // 调用后端 API 分享代码
+    // 需要先获取当前加入的团队 ID
+    const teamsResp = await axios.get("http://localhost:19960/api/v1/team/list", { timeout: 5000 });
+    const teams = teamsResp.data?.teams || [];
+
+    if (teams.length === 0) {
+      vscode.window.showWarningMessage("您尚未加入任何团队，请先加入或创建团队");
+      return;
+    }
+
+    // 如果加入了多个团队，让用户选择
+    let teamId: string;
+    if (teams.length === 1) {
+      teamId = teams[0].id;
+    } else {
+      const selected = await vscode.window.showQuickPick(
+        teams.map((t: { id: string; name: string }) => ({ label: t.name, id: t.id })),
+        { placeHolder: "选择要分享到的团队" }
+      );
+      if (!selected) {
+        return;
+      }
+      teamId = selected.id;
+    }
+
+    // 调用分享 API
+    await axios.post(
+      `http://localhost:19960/api/v1/team/${teamId}/share-code`,
+      {
+        file_name: fileName,
+        file_path: relativePath,
+        language: language,
+        start_line: startLine,
+        end_line: endLine,
+        code: selectedText,
+        message: message || "",
+      },
+      { timeout: 10000 }
+    );
+
+    vscode.window.showInformationMessage(`代码已分享到团队 (${fileName}:${startLine}-${endLine})`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`分享代码失败: ${errorMsg}`);
+  }
+}
+
+// 节流上报工作状态（30 秒）
+function throttledReportWorkStatus(editor: vscode.TextEditor): void {
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const projectName = workspaceFolder?.name || "unknown";
+  const relativePath = workspaceFolder
+    ? vscode.workspace.asRelativePath(editor.document.uri)
+    : editor.document.fileName.split(/[\\/]/).pop() || "unknown";
+
+  // 检查是否有变化
+  if (
+    lastReportedStatus &&
+    lastReportedStatus.project === projectName &&
+    lastReportedStatus.file === relativePath
+  ) {
+    return;
+  }
+
+  // 清除之前的节流定时器
+  if (statusReportThrottle) {
+    clearTimeout(statusReportThrottle);
+  }
+
+  // 设置节流
+  statusReportThrottle = setTimeout(async () => {
+    try {
+      // 获取当前加入的团队
+      const teamsResp = await axios.get("http://localhost:19960/api/v1/team/list", { timeout: 5000 });
+      const teams = teamsResp.data?.teams || [];
+
+      // 向所有加入的团队上报状态
+      for (const team of teams) {
+        await axios.post(
+          `http://localhost:19960/api/v1/team/${team.id}/status`,
+          {
+            project_name: projectName,
+            current_file: relativePath,
+            status_visible: true,
+          },
+          { timeout: 5000 }
+        );
+      }
+
+      lastReportedStatus = { project: projectName, file: relativePath };
+    } catch (error) {
+      // 静默失败
+      console.log("CoCursor: 工作状态上报失败:", error instanceof Error ? error.message : String(error));
+    }
+  }, 30000); // 30 秒节流
 }
 
 async function startBackendServer(_context: vscode.ExtensionContext): Promise<void> {
@@ -304,6 +488,18 @@ export function deactivate(): void {
   if (windowStateListener) {
     windowStateListener.dispose();
     windowStateListener = null;
+  }
+
+  // 清理编辑器监听器
+  if (activeEditorListener) {
+    activeEditorListener.dispose();
+    activeEditorListener = null;
+  }
+
+  // 清理节流定时器
+  if (statusReportThrottle) {
+    clearTimeout(statusReportThrottle);
+    statusReportThrottle = null;
   }
 
   // 停止后端服务器

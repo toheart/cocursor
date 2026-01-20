@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"log/slog"
 
@@ -211,6 +213,165 @@ func (s *ChunkService) IndexSession(sessionID, filePath string) error {
 	return nil
 }
 
+// IndexSessionWithCount 索引会话并返回索引的消息数
+func (s *ChunkService) IndexSessionWithCount(sessionID, filePath string) (int, error) {
+	s.logger.Info("Indexing session with count",
+		"session_id", sessionID,
+		"file_path", filePath,
+	)
+
+	// 1. 获取项目信息
+	projectInfo, err := s.getProjectInfo(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get project info: %w", err)
+	}
+
+	// 2. 读取会话消息
+	messages, err := s.sessionService.GetSessionTextContent(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get session text content: %w", err)
+	}
+
+	if len(messages) == 0 {
+		s.logger.Debug("No messages in session, skipping", "session_id", sessionID)
+		return 0, nil
+	}
+
+	// 3. 配对消息为对话对
+	turns := PairMessages(messages, sessionID)
+	if len(turns) == 0 {
+		s.logger.Debug("No turns after pairing, skipping", "session_id", sessionID)
+		return 0, nil
+	}
+
+	// 4. 计算文件信息
+	fileInfo, _ := os.Stat(filePath)
+	fileMtime := int64(0)
+	if fileInfo != nil {
+		fileMtime = fileInfo.ModTime().Unix()
+	}
+	contentHash := s.calculateFileHash(filePath)
+	indexedAt := time.Now().Unix()
+
+	// 5. 提取内容并创建 KnowledgeChunks
+	chunks := make([]*domainRAG.KnowledgeChunk, 0, len(turns))
+	vectorTexts := make([]string, 0, len(turns))
+
+	for i, turn := range turns {
+		// 跳过未完成的对话对
+		if turn.IsIncomplete {
+			continue
+		}
+
+		// 提取内容
+		extraction := s.contentExtractor.ExtractFromTurn(turn)
+
+		// 跳过空内容
+		if extraction.UserQuery == "" && extraction.AIResponseCore == "" {
+			continue
+		}
+
+		// 创建 KnowledgeChunk
+		chunk := &domainRAG.KnowledgeChunk{
+			ID:               uuid.New().String(),
+			SessionID:        sessionID,
+			ChunkIndex:       i,
+			ProjectID:        projectInfo.ProjectID,
+			ProjectName:      projectInfo.ProjectName,
+			WorkspaceID:      projectInfo.WorkspaceID,
+			UserQuery:        extraction.UserQuery,
+			AIResponseCore:   extraction.AIResponseCore,
+			VectorText:       extraction.VectorText,
+			ToolsUsed:        extraction.ToolsUsed,
+			FilesModified:    extraction.FilesModified,
+			CodeLanguages:    extraction.CodeLanguages,
+			HasCode:          extraction.HasCode,
+			EnrichmentStatus: domainRAG.EnrichmentStatusPending,
+			Timestamp:        turn.Timestamp,
+			ContentHash:      contentHash,
+			FilePath:         filePath,
+			IndexedAt:        indexedAt,
+		}
+
+		chunks = append(chunks, chunk)
+		vectorTexts = append(vectorTexts, extraction.VectorText)
+	}
+
+	if len(chunks) == 0 {
+		s.logger.Info("No valid chunks to index", "session_id", sessionID)
+		return 0, nil
+	}
+
+	// 6. 批量向量化
+	vectors, err := s.embeddingClient.EmbedTexts(vectorTexts)
+	if err != nil {
+		return 0, fmt.Errorf("failed to embed texts: %w", err)
+	}
+
+	// 7. 构建 Qdrant 点并写入
+	points := s.buildChunkPoints(chunks, vectors)
+
+	client := s.qdrantManager.GetClient()
+	if client == nil {
+		return 0, fmt.Errorf("qdrant client not initialized")
+	}
+
+	ctx := context.Background()
+	_, err = client.Upsert(ctx, &qdrant.UpsertPoints{
+		CollectionName: "cursor_knowledge",
+		Points:         points,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to upsert chunks: %w", err)
+	}
+
+	// 8. 保存元数据到 SQLite
+	if err := s.chunkRepo.SaveChunks(chunks); err != nil {
+		return 0, fmt.Errorf("failed to save chunk metadata: %w", err)
+	}
+
+	// 9. 更新索引状态
+	indexStatus := &domainRAG.IndexStatus{
+		FilePath:      filePath,
+		SessionID:     sessionID,
+		ProjectID:     projectInfo.ProjectID,
+		ContentHash:   contentHash,
+		ChunkCount:    len(chunks),
+		FileMtime:     fileMtime,
+		LastIndexedAt: indexedAt,
+		Status:        domainRAG.IndexStatusIndexed,
+	}
+	if err := s.indexStatusRepo.SaveIndexStatus(indexStatus); err != nil {
+		return 0, fmt.Errorf("failed to save index status: %w", err)
+	}
+
+	// 10. 添加到增强队列
+	tasks := make([]*domainRAG.EnrichmentTask, len(chunks))
+	for i, chunk := range chunks {
+		tasks[i] = domainRAG.NewEnrichmentTask(chunk.ID)
+	}
+	if err := s.enrichmentQueue.EnqueueTasks(tasks); err != nil {
+		s.logger.Warn("Failed to enqueue enrichment tasks", "error", err)
+	}
+
+	s.logger.Info("Session indexed successfully with count",
+		"session_id", sessionID,
+		"chunk_count", len(chunks),
+	)
+
+	return len(chunks), nil
+}
+
+// sanitizeUTF8 清理字符串中的无效 UTF-8 字符
+// Qdrant 客户端要求所有字符串必须是有效的 UTF-8
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	// 使用 strings.ToValidUTF8 替换无效字符为空字符串
+	return strings.ToValidUTF8(s, "")
+}
+
 // buildChunkPoints 构建 Qdrant 点
 func (s *ChunkService) buildChunkPoints(chunks []*domainRAG.KnowledgeChunk, vectors [][]float32) []*qdrant.PointStruct {
 	points := make([]*qdrant.PointStruct, len(chunks))
@@ -223,18 +384,19 @@ func (s *ChunkService) buildChunkPoints(chunks []*domainRAG.KnowledgeChunk, vect
 		// 序列化工具列表
 		toolsUsedJSON, _ := json.Marshal(chunk.ToolsUsed)
 
+		// 清理所有字符串字段，确保 UTF-8 有效
 		points[i] = &qdrant.PointStruct{
 			Id:      qdrant.NewID(chunk.ID),
 			Vectors: qdrant.NewVectors(vectorArgs...),
 			Payload: qdrant.NewValueMap(map[string]interface{}{
 				"chunk_id":           chunk.ID,
 				"session_id":         chunk.SessionID,
-				"project_id":         chunk.ProjectID,
-				"project_name":       chunk.ProjectName,
+				"project_id":         sanitizeUTF8(chunk.ProjectID),
+				"project_name":       sanitizeUTF8(chunk.ProjectName),
 				"timestamp":          chunk.Timestamp,
 				"has_code":           chunk.HasCode,
 				"tools_used":         string(toolsUsedJSON),
-				"user_query_preview": chunk.UserQueryPreview(),
+				"user_query_preview": sanitizeUTF8(chunk.UserQueryPreview()),
 			}),
 		}
 	}

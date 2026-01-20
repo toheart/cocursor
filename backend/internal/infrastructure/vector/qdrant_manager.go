@@ -1,16 +1,9 @@
 package vector
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -285,6 +278,26 @@ func (q *QdrantManager) EnsureCollections(vectorSize uint64) error {
 	return nil
 }
 
+// GetCollectionPointsCount 获取集合中的点数（实际索引数量）
+func (q *QdrantManager) GetCollectionPointsCount(collectionName string) (uint64, error) {
+	if q.client == nil {
+		return 0, fmt.Errorf("qdrant client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	info, err := q.client.GetCollectionInfo(ctx, collectionName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get collection info: %w", err)
+	}
+
+	if info.PointsCount == nil {
+		return 0, nil
+	}
+	return *info.PointsCount, nil
+}
+
 // ClearCollections 清空所有集合中的数据（通过删除并重新创建集合）
 func (q *QdrantManager) ClearCollections() error {
 	if q.client == nil {
@@ -375,52 +388,67 @@ func GetQdrantDataPath() (string, error) {
 	return dataPath, nil
 }
 
-// GitHubRelease GitHub Release 信息
-type GitHubRelease struct {
-	TagName string `json:"tag_name"`
-	Assets  []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	} `json:"assets"`
+// QdrantDownloadOptions Qdrant 下载选项
+type QdrantDownloadOptions struct {
+	// Version 版本号，如 "v1.16.3"，空字符串使用默认版本
+	Version string
+	// OnProgress 进度回调函数
+	OnProgress ProgressCallback
 }
 
-// DownloadQdrant 下载并安装 Qdrant
-// version: 版本号，如 "v1.16.3"，如果为空则使用最新稳定版
+// DefaultQdrantVersion 默认 Qdrant 版本
+const DefaultQdrantVersion = "v1.16.3"
+
+// DownloadQdrant 下载并安装 Qdrant（向后兼容的简化版本）
+// version: 版本号，如 "v1.16.3"，如果为空则使用默认版本
 func DownloadQdrant(version string) (string, error) {
-	// 如果版本为空，使用固定版本 v1.16.3
+	return DownloadQdrantWithContext(context.Background(), QdrantDownloadOptions{
+		Version: version,
+	})
+}
+
+// DownloadQdrantWithContext 下载并安装 Qdrant（支持 Context 和进度回调）
+// ctx: 用于取消下载的 context
+// opts: 下载选项
+func DownloadQdrantWithContext(ctx context.Context, opts QdrantDownloadOptions) (string, error) {
+	logger := log.NewModuleLogger("qdrant", "download")
+
+	// 设置默认版本
+	version := opts.Version
 	if version == "" {
-		version = "v1.16.3"
+		version = DefaultQdrantVersion
 	}
 
-	fmt.Printf("[Qdrant Download] Starting download process for version %s\n", version)
+	logger.Info("starting download", "version", version)
 
 	// 获取平台信息
 	osName, arch := GetPlatformInfo()
-	fmt.Printf("[Qdrant Download] Platform: %s/%s\n", osName, arch)
+	logger.Info("platform detected", "os", osName, "arch", arch)
 
 	// 构建下载 URL
 	downloadURL, err := buildDownloadURL(version, osName, arch)
 	if err != nil {
 		return "", fmt.Errorf("failed to build download URL: %w", err)
 	}
-	fmt.Printf("[Qdrant Download] Download URL: %s\n", downloadURL)
+	logger.Info("download URL", "url", downloadURL)
 
 	// 获取安装路径
 	installPath, err := GetQdrantInstallPath()
 	if err != nil {
 		return "", fmt.Errorf("failed to get install path: %w", err)
 	}
-	fmt.Printf("[Qdrant Download] Install path: %s\n", installPath)
+	logger.Info("install path", "path", installPath)
 
 	// 检查是否已安装
 	if _, err := os.Stat(installPath); err == nil {
-		// 已安装，检查版本
 		installedVersion, err := getInstalledVersion(installPath)
 		if err == nil && installedVersion == version {
-			fmt.Printf("[Qdrant Download] Already installed with version %s\n", installedVersion)
+			logger.Info("already installed", "version", installedVersion)
 			return installPath, nil
 		}
-		fmt.Printf("[Qdrant Download] Installed version %s differs from requested %s, will reinstall\n", installedVersion, version)
+		logger.Info("version mismatch, will reinstall",
+			"installed", installedVersion,
+			"requested", version)
 	}
 
 	// 创建临时目录
@@ -430,76 +458,81 @@ func DownloadQdrant(version string) (string, error) {
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			fmt.Printf("[Qdrant Download] Warning: failed to remove temp directory %s: %v\n", tmpDir, err)
+			logger.Warn("failed to remove temp directory", "path", tmpDir, "error", err)
 		}
 	}()
-	fmt.Printf("[Qdrant Download] Temp directory: %s\n", tmpDir)
+	logger.Debug("temp directory created", "path", tmpDir)
+
+	// 创建下载器和解压器
+	downloader := NewHTTPDownloader()
+	extractor := NewArchiveExtractor()
+
+	// 准备下载选项
+	downloadPath := filepath.Join(tmpDir, filepath.Base(downloadURL))
+	downloadOpts := DefaultDownloadOptions()
+	downloadOpts.OnProgress = opts.OnProgress
+
+	// 尝试获取校验和（不阻止下载）
+	checksumURL := downloadURL + ".sha256"
+	if checksum, err := downloader.FetchChecksum(ctx, checksumURL); err == nil {
+		downloadOpts.ExpectedChecksum = checksum
+		logger.Info("checksum fetched", "checksum", checksum[:16]+"...")
+	} else {
+		logger.Warn("failed to fetch checksum", "error", err)
+	}
 
 	// 下载文件
-	downloadPath := filepath.Join(tmpDir, filepath.Base(downloadURL))
-	fmt.Printf("[Qdrant Download] Starting download to %s\n", downloadPath)
-	if err := downloadFile(downloadURL, downloadPath); err != nil {
-		return "", fmt.Errorf("failed to download qdrant from %s: %w", downloadURL, err)
+	logger.Info("starting download", "dest", downloadPath)
+	if err := downloader.Download(ctx, downloadURL, downloadPath, downloadOpts); err != nil {
+		return "", fmt.Errorf("failed to download qdrant: %w", err)
 	}
-
-	// 验证文件完整性（如果有 SHA256 文件）
-	fmt.Printf("[Qdrant Download] Verifying checksum...\n")
-	if err := verifyChecksum(downloadURL, downloadPath); err != nil {
-		// 验证失败，但不阻止安装（某些版本可能没有 checksum 文件）
-		fmt.Printf("[Qdrant Download] Warning: failed to verify checksum: %v (continuing anyway)\n", err)
-	} else {
-		fmt.Printf("[Qdrant Download] Checksum verified successfully\n")
-	}
+	logger.Info("download completed")
 
 	// 解压文件
-	fmt.Printf("[Qdrant Download] Extracting archive...\n")
 	extractDir := filepath.Join(tmpDir, "extracted")
-	if err := extractArchive(downloadPath, extractDir, osName); err != nil {
+	logger.Info("extracting archive", "dest", extractDir)
+	if err := extractor.Extract(downloadPath, extractDir); err != nil {
 		return "", fmt.Errorf("failed to extract archive: %w", err)
 	}
-	fmt.Printf("[Qdrant Download] Archive extracted successfully\n")
+	logger.Info("extraction completed")
 
 	// 查找二进制文件
 	binaryName := "qdrant"
 	if osName == "windows" {
 		binaryName = "qdrant.exe"
 	}
-	fmt.Printf("[Qdrant Download] Looking for binary: %s\n", binaryName)
-	binaryPath := findBinaryInExtracted(extractDir, binaryName)
-	if binaryPath == "" {
-		return "", fmt.Errorf("binary %s not found in extracted archive (searched in %s)", binaryName, extractDir)
+	binaryPath, err := extractor.FindBinary(extractDir, binaryName)
+	if err != nil {
+		return "", fmt.Errorf("binary not found: %w", err)
 	}
-	fmt.Printf("[Qdrant Download] Binary found at: %s\n", binaryPath)
+	logger.Info("binary found", "path", binaryPath)
 
 	// 确保安装目录存在
 	installDir := filepath.Dir(installPath)
-	fmt.Printf("[Qdrant Download] Creating install directory: %s\n", installDir)
 	if err := os.MkdirAll(installDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create install directory %s: %w", installDir, err)
+		return "", fmt.Errorf("failed to create install directory: %w", err)
 	}
 
 	// 复制二进制文件
-	fmt.Printf("[Qdrant Download] Copying binary to %s\n", installPath)
 	if err := copyFile(binaryPath, installPath); err != nil {
-		return "", fmt.Errorf("failed to copy binary from %s to %s: %w", binaryPath, installPath, err)
+		return "", fmt.Errorf("failed to copy binary: %w", err)
 	}
+	logger.Info("binary copied", "dest", installPath)
 
 	// 设置执行权限（非 Windows）
 	if osName != "windows" {
-		fmt.Printf("[Qdrant Download] Setting executable permissions\n")
 		if err := os.Chmod(installPath, 0755); err != nil {
 			return "", fmt.Errorf("failed to set executable permission: %w", err)
 		}
 	}
 
 	// 验证安装
-	fmt.Printf("[Qdrant Download] Verifying installation...\n")
 	if err := verifyInstallation(installPath); err != nil {
 		return "", fmt.Errorf("failed to verify installation: %w", err)
 	}
-	fmt.Printf("[Qdrant Download] Installation verified successfully\n")
+	logger.Info("installation verified")
 
-	fmt.Printf("[Qdrant Download] Qdrant %s installed successfully at %s\n", version, installPath)
+	logger.Info("Qdrant installed successfully", "version", version, "path", installPath)
 	return installPath, nil
 }
 
@@ -542,311 +575,6 @@ func buildDownloadURL(version, osName, arch string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s/%s/%s", baseURL, version, filename), nil
-}
-
-// downloadFile 下载文件（带超时和重试）
-func downloadFile(url, destPath string) error {
-	const maxRetries = 3
-	const timeout = 5 * time.Minute // 5分钟超时
-
-	var lastErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if attempt > 1 {
-			fmt.Printf("Retrying download (attempt %d/%d)...\n", attempt, maxRetries)
-			time.Sleep(time.Duration(attempt) * time.Second) // 递增延迟
-		}
-
-		// 创建带超时的 HTTP 客户端
-		client := &http.Client{
-			Timeout: timeout,
-		}
-
-		resp, err := client.Get(url)
-		if err != nil {
-			lastErr = fmt.Errorf("failed to download file: %w", err)
-			fmt.Printf("Download attempt %d failed: %v\n", attempt, err)
-			continue
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			lastErr = fmt.Errorf("failed to download file: status code %d", resp.StatusCode)
-			fmt.Printf("Download attempt %d failed: HTTP %d\n", attempt, resp.StatusCode)
-			continue
-		}
-
-		// 获取文件大小（用于进度显示）
-		contentLength := resp.ContentLength
-		if contentLength > 0 {
-			fmt.Printf("Downloading %s (%.2f MB)...\n", filepath.Base(destPath), float64(contentLength)/(1024*1024))
-		}
-
-		// 创建目标文件
-		out, err := os.Create(destPath)
-		if err != nil {
-			lastErr = fmt.Errorf("failed to create file: %w", err)
-			fmt.Printf("Download attempt %d failed: %v\n", attempt, err)
-			continue
-		}
-
-		// 复制数据
-		written, err := io.Copy(out, resp.Body)
-		if err != nil {
-			out.Close()
-			os.Remove(destPath) // 删除不完整的文件
-			lastErr = fmt.Errorf("failed to write file: %w", err)
-			fmt.Printf("Download attempt %d failed: %v (written: %d bytes)\n", attempt, err, written)
-			continue
-		}
-
-		if err := out.Close(); err != nil {
-			lastErr = fmt.Errorf("failed to close file: %w", err)
-			fmt.Printf("Download attempt %d failed: %v\n", attempt, err)
-			continue
-		}
-
-		// 验证文件大小
-		if contentLength > 0 && written != contentLength {
-			os.Remove(destPath)
-			lastErr = fmt.Errorf("file size mismatch: expected %d bytes, got %d bytes", contentLength, written)
-			fmt.Printf("Download attempt %d failed: %v\n", attempt, lastErr)
-			continue
-		}
-
-		fmt.Printf("Download completed successfully (%d bytes)\n", written)
-		return nil
-	}
-
-	return fmt.Errorf("download failed after %d attempts: %w", maxRetries, lastErr)
-}
-
-// verifyChecksum 验证文件校验和
-func verifyChecksum(downloadURL, filePath string) error {
-	// 尝试下载 SHA256 文件
-	checksumURL := downloadURL + ".sha256"
-	resp, err := http.Get(checksumURL)
-	if err != nil {
-		return fmt.Errorf("checksum file not available: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("checksum file not found")
-	}
-
-	checksumData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read checksum: %w", err)
-	}
-
-	// 解析校验和（格式：hash  filename）
-	checksumParts := strings.Fields(string(checksumData))
-	if len(checksumParts) == 0 {
-		return fmt.Errorf("invalid checksum format")
-	}
-	expectedHash := checksumParts[0]
-
-	// 计算文件哈希
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return fmt.Errorf("failed to calculate hash: %w", err)
-	}
-
-	actualHash := hex.EncodeToString(hash.Sum(nil))
-
-	if actualHash != expectedHash {
-		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
-	}
-
-	return nil
-}
-
-// extractArchive 解压归档文件
-func extractArchive(archivePath, destDir string, osName string) error {
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return fmt.Errorf("failed to create extract directory: %w", err)
-	}
-
-	// 根据文件扩展名选择解压方式
-	if strings.HasSuffix(archivePath, ".zip") {
-		return extractZip(archivePath, destDir)
-	} else if strings.HasSuffix(archivePath, ".tar.gz") || strings.HasSuffix(archivePath, ".tgz") {
-		return extractTarGz(archivePath, destDir)
-	}
-
-	return fmt.Errorf("unsupported archive format")
-}
-
-// extractZip 解压 ZIP 文件
-func extractZip(zipPath, destDir string) error {
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return fmt.Errorf("failed to open zip: %w", err)
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-		path := filepath.Join(destDir, f.Name)
-
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, f.FileInfo().Mode())
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return fmt.Errorf("failed to create directory: %w", err)
-		}
-
-		rc, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("failed to open file in zip: %w", err)
-		}
-
-		out, err := os.Create(path)
-		if err != nil {
-			rc.Close()
-			return fmt.Errorf("failed to create file: %w", err)
-		}
-
-		_, err = io.Copy(out, rc)
-		rc.Close()
-		out.Close()
-
-		if err != nil {
-			return fmt.Errorf("failed to extract file: %w", err)
-		}
-
-		os.Chmod(path, f.FileInfo().Mode())
-	}
-
-	return nil
-}
-
-// extractTarGz 解压 tar.gz 文件（纯 Go 实现，跨平台）
-func extractTarGz(tarGzPath, destDir string) error {
-	// 打开 tar.gz 文件
-	file, err := os.Open(tarGzPath)
-	if err != nil {
-		return fmt.Errorf("failed to open tar.gz file: %w", err)
-	}
-	defer file.Close()
-
-	// 创建 gzip 读取器
-	gzReader, err := gzip.NewReader(file)
-	if err != nil {
-		return fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-	defer gzReader.Close()
-
-	// 创建 tar 读取器
-	tarReader := tar.NewReader(gzReader)
-
-	// 遍历 tar 文件中的所有条目
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			break // 文件结束
-		}
-		if err != nil {
-			return fmt.Errorf("failed to read tar entry: %w", err)
-		}
-
-		// 构建目标路径
-		targetPath := filepath.Join(destDir, header.Name)
-
-		// 检查路径安全性（防止路径遍历攻击）
-		// 使用 filepath.Clean 和 filepath.EvalSymlinks 来规范化路径
-		cleanDest := filepath.Clean(destDir)
-		cleanTarget := filepath.Clean(targetPath)
-		if !strings.HasPrefix(cleanTarget, cleanDest+string(os.PathSeparator)) && cleanTarget != cleanDest {
-			return fmt.Errorf("invalid path in tar archive: %s (potential path traversal)", header.Name)
-		}
-
-		// 根据文件类型处理
-		switch header.Typeflag {
-		case tar.TypeDir:
-			// 创建目录
-			if err := os.MkdirAll(targetPath, os.FileMode(header.Mode)); err != nil {
-				return fmt.Errorf("failed to create directory: %w", err)
-			}
-
-		case tar.TypeReg:
-			// 创建文件
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-				return fmt.Errorf("failed to create directory for file: %w", err)
-			}
-
-			outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return fmt.Errorf("failed to create file: %w", err)
-			}
-
-			// 复制文件内容
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
-				return fmt.Errorf("failed to extract file content: %w", err)
-			}
-
-			outFile.Close()
-
-		case tar.TypeSymlink:
-			// 处理符号链接（可选，某些平台可能不支持）
-			if err := os.Symlink(header.Linkname, targetPath); err != nil {
-				// 在某些系统上符号链接可能失败，记录但不阻止解压
-				fmt.Printf("Warning: failed to create symlink %s -> %s: %v\n", targetPath, header.Linkname, err)
-			}
-
-		default:
-			// 忽略其他类型的条目（如硬链接等）
-			fmt.Printf("Warning: unsupported tar entry type %c for %s\n", header.Typeflag, header.Name)
-		}
-	}
-
-	return nil
-}
-
-// findBinaryInExtracted 在解压目录中查找二进制文件
-func findBinaryInExtracted(extractDir, binaryName string) string {
-	var foundPath string
-	filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() && info.Name() == binaryName {
-			foundPath = path
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	return foundPath
-}
-
-// copyFile 复制文件
-func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
-	}
-
-	return nil
 }
 
 // verifyInstallation 验证安装

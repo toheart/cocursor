@@ -33,7 +33,7 @@ func DefaultWatchConfig() WatchConfig {
 	return WatchConfig{
 		SessionDir:        filepath.Join(homeDir, ".cursor", "projects"),
 		WorkspaceDir:      "", // 需要通过 PathResolver 获取
-		DebounceDelay:     500 * time.Millisecond,
+		DebounceDelay:     1 * time.Minute, // 1 分钟防抖，避免频繁触发
 		FullScanThreshold: 24 * time.Hour,
 	}
 }

@@ -1,5 +1,7 @@
 package rag
 
+import "unicode/utf8"
+
 // KnowledgeChunk 知识片段模型
 // 表示一个完整的问答对，是 RAG 检索的最小有意义单位
 type KnowledgeChunk struct {
@@ -58,10 +60,13 @@ func (c *KnowledgeChunk) IsEnriched() bool {
 	return c.EnrichmentStatus == EnrichmentStatusCompleted
 }
 
-// UserQueryPreview 获取用户问题预览（前 200 字符）
+// UserQueryPreview 获取用户问题预览（前 200 个 rune）
+// 使用 rune 计数而非字节计数，避免在 UTF-8 多字节字符中间截断
 func (c *KnowledgeChunk) UserQueryPreview() string {
-	if len(c.UserQuery) <= 200 {
+	if utf8.RuneCountInString(c.UserQuery) <= 200 {
 		return c.UserQuery
 	}
-	return c.UserQuery[:200] + "..."
+	// 按 rune 截取前 200 个字符
+	runes := []rune(c.UserQuery)
+	return string(runes[:200]) + "..."
 }

@@ -68,6 +68,8 @@ func NewTeamService(port int, version string) (*TeamService, error) {
 
 	networkManager := infraP2P.NewNetworkManager()
 
+	logger := log.NewModuleLogger("team", "service")
+
 	service := &TeamService{
 		identityStore:      identityStore,
 		teamStore:          teamStore,
@@ -82,8 +84,13 @@ func NewTeamService(port int, version string) (*TeamService, error) {
 		},
 		port:    port,
 		version: version,
-		logger:  log.NewModuleLogger("team", "service"),
+		logger:  logger,
 	}
+
+	// 初始化 WebSocket 服务器（启动时就创建，供后续 Leader 使用）
+	wsServer := infraP2P.NewWebSocketServer(nil) // 事件处理器可以后续设置
+	service.wsServer = wsServer
+	logger.Info("websocket server initialized")
 
 	// 初始化 Leader 相关存储（如果是 Leader）
 	if err := service.initLeaderStores(); err != nil {
@@ -723,6 +730,39 @@ func (s *TeamService) GetSkillIndex(teamID string) (*domainTeam.TeamSkillIndex, 
 	return &index, nil
 }
 
+// AddSkillToIndex 添加技能到索引（仅 Leader 使用）
+func (s *TeamService) AddSkillToIndex(teamID string, entry *domainTeam.TeamSkillEntry) error {
+	s.mu.Lock()
+	store, exists := s.skillIndexStores[teamID]
+	if !exists {
+		// 创建新的索引存储
+		var err error
+		store, err = infraTeam.NewSkillIndexStore(teamID)
+		if err != nil {
+			s.mu.Unlock()
+			return err
+		}
+		s.skillIndexStores[teamID] = store
+	}
+	s.mu.Unlock()
+
+	return store.AddOrUpdate(*entry)
+}
+
+// RemoveSkillFromIndex 从索引中移除技能（仅 Leader 使用）
+func (s *TeamService) RemoveSkillFromIndex(teamID, pluginID string) error {
+	s.mu.RLock()
+	store, exists := s.skillIndexStores[teamID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return nil // 索引不存在，无需移除
+	}
+
+	store.Remove(pluginID)
+	return nil
+}
+
 // Close 关闭服务
 func (s *TeamService) Close() error {
 	s.advertiser.Stop()
@@ -734,6 +774,37 @@ func (s *TeamService) Close() error {
 	}
 	s.discovery.Close()
 	return nil
+}
+
+// BroadcastEvent 广播事件到团队所有成员
+func (s *TeamService) BroadcastEvent(teamID string, eventType p2p.EventType, payload interface{}) error {
+	// 检查是否是 Leader
+	leaderTeam := s.teamStore.GetLeaderTeam()
+	if leaderTeam == nil || leaderTeam.ID != teamID {
+		return fmt.Errorf("not the leader of team %s", teamID)
+	}
+
+	if s.wsServer == nil {
+		return fmt.Errorf("websocket server not initialized")
+	}
+
+	event, err := p2p.NewEvent(eventType, teamID, payload)
+	if err != nil {
+		return fmt.Errorf("failed to create event: %w", err)
+	}
+
+	s.wsServer.Broadcast(event)
+	s.logger.Debug("broadcasted event",
+		"teamID", teamID,
+		"eventType", eventType,
+	)
+
+	return nil
+}
+
+// GetWebSocketServer 获取 WebSocket 服务器（用于 P2P handler）
+func (s *TeamService) GetWebSocketServer() interface{} {
+	return s.wsServer
 }
 
 // bytesReader 辅助函数

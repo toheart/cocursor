@@ -91,8 +91,12 @@ func (a *AgentsUpdater) FindAgentsMDFile(workspacePath string) (string, error) {
 
 	agentsPath := filepath.Join(workspaceRoot, "AGENTS.md")
 
+	// 获取用户主目录用于构建路径
+	homeDir, _ := os.UserHomeDir()
+	skillsDir := filepath.Join(homeDir, ".claude", "skills")
+
 	// 创建默认的 AGENTS.md 文件
-	defaultContent := `# AGENTS
+	defaultContent := fmt.Sprintf(`# AGENTS
 
 <skills_system priority="1">
 
@@ -103,14 +107,17 @@ func (a *AgentsUpdater) FindAgentsMDFile(workspacePath string) (string, error) {
 When users ask you to perform tasks, check if any of the available skills below can help complete the task more effectively. Skills provide specialized capabilities and domain knowledge.
 
 How to use skills:
-- Invoke: Bash("openskills read <skill-name>")
+- Each skill has a <path> tag containing the full path to the SKILL.md file
+- Read the skill file directly using: Read("<path-from-skill-tag>")
 - The skill content will load with detailed instructions on how to complete the task
-- Base directory provided in output for resolving bundled resources (references/, scripts/, assets/)
+- The parent directory of SKILL.md contains bundled resources (references/, scripts/, assets/)
 
 Usage notes:
 - Only use skills listed in <available_skills> below
 - Do not invoke a skill that is already loaded in your context
 - Each skill invocation is stateless
+
+Skills directory: %s
 </usage>
 
 <available_skills>
@@ -119,7 +126,7 @@ Usage notes:
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>
-`
+`, skillsDir)
 
 	// 确保目录存在
 	if err := os.MkdirAll(workspaceRoot, 0755); err != nil {
@@ -135,7 +142,8 @@ Usage notes:
 }
 
 // AddSkillToAgentsMD 在 AGENTS.md 中添加技能条目
-func (a *AgentsUpdater) AddSkillToAgentsMD(agentsPath string, metadata *SkillMetadata) error {
+// skillDirName 是安装目录名（用于构建读取路径），如果为空则使用 metadata.Name
+func (a *AgentsUpdater) AddSkillToAgentsMD(agentsPath string, metadata *SkillMetadata, skillDirName ...string) error {
 	content, err := os.ReadFile(agentsPath)
 	if err != nil {
 		return fmt.Errorf("failed to read AGENTS.md: %w", err)
@@ -143,8 +151,14 @@ func (a *AgentsUpdater) AddSkillToAgentsMD(agentsPath string, metadata *SkillMet
 
 	contentStr := string(content)
 
-	// 检查技能是否已存在
-	skillPattern := regexp.MustCompile(fmt.Sprintf(`<skill>\s*<name>%s</name>`, regexp.QuoteMeta(metadata.Name)))
+	// 确定技能目录名
+	dirName := metadata.Name
+	if len(skillDirName) > 0 && skillDirName[0] != "" {
+		dirName = skillDirName[0]
+	}
+
+	// 检查技能是否已存在（按目录名检查）
+	skillPattern := regexp.MustCompile(fmt.Sprintf(`<skill>\s*<name>%s</name>`, regexp.QuoteMeta(dirName)))
 	if skillPattern.MatchString(contentStr) {
 		// 技能已存在，跳过
 		return nil
@@ -157,14 +171,19 @@ func (a *AgentsUpdater) AddSkillToAgentsMD(agentsPath string, metadata *SkillMet
 		return fmt.Errorf("SKILLS_TABLE_END marker not found in AGENTS.md")
 	}
 
-	// 构建新的 skill 条目
+	// 获取技能完整路径
+	homeDir, _ := os.UserHomeDir()
+	skillPath := filepath.Join(homeDir, ".claude", "skills", dirName, "SKILL.md")
+
+	// 构建新的 skill 条目（包含完整路径）
 	skillEntry := fmt.Sprintf(`<skill>
 <name>%s</name>
 <description>%s</description>
+<path>%s</path>
 <location>global</location>
 </skill>
 
-`, metadata.Name, metadata.Description)
+`, dirName, metadata.Description, skillPath)
 
 	// 在 endMarker 之前插入 skill 条目
 	newContent := contentStr[:endIndex] + skillEntry + contentStr[endIndex:]
@@ -187,9 +206,9 @@ func (a *AgentsUpdater) RemoveSkillFromAgentsMD(agentsPath string, skillName str
 	contentStr := string(content)
 
 	// 查找并移除 skill 条目（包括前后的空行）
-	// 匹配整个 skill 块，包括可能的空行
+	// 匹配整个 skill 块，包括可能的 <path> 标签和空行
 	skillPattern := regexp.MustCompile(
-		fmt.Sprintf(`(?s)<skill>\s*<name>%s</name>\s*<description>.*?</description>\s*<location>.*?</location>\s*</skill>\s*\n?`,
+		fmt.Sprintf(`(?s)<skill>\s*<name>%s</name>\s*<description>.*?</description>\s*(?:<path>.*?</path>\s*)?<location>.*?</location>\s*</skill>\s*\n?`,
 			regexp.QuoteMeta(skillName)),
 	)
 

@@ -202,13 +202,16 @@ export class WebviewPanel {
         this._handleFetchInstalledPlugins();
         break;
       case "installPlugin":
-        this._handleInstallPlugin(message.payload as { id: string; workspacePath: string });
+        this._handleInstallPlugin(message.payload as { id: string; workspacePath: string; force?: boolean });
         break;
       case "uninstallPlugin":
         this._handleUninstallPlugin(message.payload as { id: string; workspacePath: string });
         break;
       case "checkPluginStatus":
         this._handleCheckPluginStatus(message.payload as { id: string });
+        break;
+      case "showConfirmDialog":
+        this._handleShowConfirmDialog(message.payload as { message: string; confirmText?: string; cancelText?: string });
         break;
       case "fetchWorkflows":
         this._handleFetchWorkflows(message.payload as { projectPath?: string; status?: string });
@@ -231,11 +234,17 @@ export class WebviewPanel {
       case "searchRAG":
         this._handleSearchRAG(message.payload as { query: string; projectIds?: string[]; limit?: number });
         break;
+      case "searchRAGChunks":
+        this._handleSearchRAGChunks(message.payload as { query: string; projectIds?: string[]; limit?: number });
+        break;
       case "triggerRAGIndex":
         this._handleTriggerRAGIndex(message.payload as { sessionId?: string });
         break;
       case "triggerFullIndex":
-        this._handleTriggerFullIndex();
+        this._handleTriggerFullIndex(message.payload as { batch_size?: number; concurrency?: number } | undefined);
+        break;
+      case "fetchIndexProgress":
+        this._handleFetchIndexProgress();
         break;
       case "clearAllData":
         this._handleClearAllData();
@@ -243,11 +252,17 @@ export class WebviewPanel {
       case "fetchRAGStats":
         this._handleFetchRAGStats();
         break;
+      case "fetchIndexedProjects":
+        this._handleFetchIndexedProjects();
+        break;
       case "fetchQdrantStatus":
         this._handleFetchQdrantStatus();
         break;
       case "downloadQdrant":
         this._handleDownloadQdrant(message.payload as { version?: string });
+        break;
+      case "uploadQdrantPackage":
+        this._handleUploadQdrantPackage(message.payload as { filename: string; fileBase64: string });
         break;
       case "startQdrant":
         this._handleStartQdrant();
@@ -298,6 +313,28 @@ export class WebviewPanel {
       case "publishTeamSkill":
         this._handlePublishTeamSkill(message.payload as { teamId: string; pluginId: string; localPath: string });
         break;
+      case "publishTeamSkillWithMetadata":
+        this._handlePublishTeamSkillWithMetadata(message.payload as { 
+          teamId: string; 
+          localPath: string; 
+          metadata: {
+            plugin_id: string;
+            name: string;
+            name_zh_cn?: string;
+            description: string;
+            description_zh_cn?: string;
+            version: string;
+            category: string;
+            author: string;
+          };
+        });
+        break;
+      case "installTeamSkill":
+        this._handleInstallTeamSkill(message.payload as { teamId: string; pluginId: string; version?: string; force?: boolean });
+        break;
+      case "uninstallTeamSkill":
+        this._handleUninstallTeamSkill(message.payload as { teamId: string; pluginId: string });
+        break;
       case "downloadTeamSkill":
         this._handleDownloadTeamSkill(message.payload as { teamId: string; pluginId: string; authorEndpoint: string; checksum?: string });
         break;
@@ -310,6 +347,22 @@ export class WebviewPanel {
         break;
       case "fetchDailySummary":
         this._handleFetchDailySummary(message.payload as { date: string });
+        break;
+      // 团队协作相关
+      case "shareCode":
+        this._handleShareCode(message.payload as { teamId: string; file_name: string; file_path?: string; language?: string; start_line?: number; end_line?: number; code: string; message?: string });
+        break;
+      case "updateWorkStatus":
+        this._handleUpdateWorkStatus(message.payload as { teamId: string; project_name?: string; current_file?: string; status_visible?: boolean });
+        break;
+      case "shareTeamDailySummary":
+        this._handleShareTeamDailySummary(message.payload as { teamId: string; date: string });
+        break;
+      case "fetchTeamDailySummaries":
+        this._handleFetchTeamDailySummaries(message.payload as { teamId: string; date?: string });
+        break;
+      case "fetchTeamDailySummaryDetail":
+        this._handleFetchTeamDailySummaryDetail(message.payload as { teamId: string; memberId: string; date: string });
         break;
       default:
         console.warn(`未知命令: ${message.command}`);
@@ -783,11 +836,12 @@ export class WebviewPanel {
     }
   }
 
-  private async _handleInstallPlugin(payload: { id: string; workspacePath: string }): Promise<void> {
+  private async _handleInstallPlugin(payload: { id: string; workspacePath: string; force?: boolean }): Promise<void> {
     try {
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/install`;
       const response = await axios.post(apiUrl, {
-        workspace_path: payload.workspacePath
+        workspace_path: payload.workspacePath,
+        force: payload.force || false
       }, { timeout: 30000 });
 
       if (response.data.code === 0) {
@@ -812,6 +866,28 @@ export class WebviewPanel {
         throw new Error(response.data.message || "Failed to install plugin");
       }
     } catch (error) {
+      // 处理 409 冲突响应
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const conflictData = error.response.data?.data as {
+          skill_name: string;
+          plugin_id: string;
+          message: string;
+          conflict_type: string;
+        };
+        
+        // 返回冲突信息给前端，让前端决定是否强制覆盖
+        this._sendMessage({
+          type: "installPlugin-response",
+          data: {
+            conflict: true,
+            conflict_type: conflictData?.conflict_type || "unknown",
+            skill_name: conflictData?.skill_name || "",
+            message: conflictData?.message || "Skill conflict detected"
+          }
+        });
+        return;
+      }
+      
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       vscode.window.showErrorMessage(`Failed to install plugin: ${errorMessage}`);
       this._sendMessage({
@@ -866,6 +942,23 @@ export class WebviewPanel {
         data: { error: error instanceof Error ? error.message : "Unknown error" }
       });
     }
+  }
+
+  private async _handleShowConfirmDialog(payload: { message: string; confirmText?: string; cancelText?: string }): Promise<void> {
+    const confirmText = payload.confirmText || "Yes";
+    const cancelText = payload.cancelText || "No";
+    
+    const result = await vscode.window.showWarningMessage(
+      payload.message,
+      { modal: true },
+      confirmText,
+      cancelText
+    );
+    
+    this._sendMessage({
+      type: "showConfirmDialog-response",
+      data: result === confirmText
+    });
   }
 
   private async _handleFetchWorkflows(payload: { projectPath?: string; status?: string }): Promise<void> {
@@ -1008,6 +1101,30 @@ export class WebviewPanel {
     }
   }
 
+  private async _handleSearchRAGChunks(payload: { query: string; projectIds?: string[]; limit?: number }): Promise<void> {
+    try {
+      const requestBody: any = {
+        query: payload.query,
+        limit: payload.limit || 20
+      };
+      // 只有当 projectIds 有值时才添加到请求体
+      if (payload.projectIds && payload.projectIds.length > 0) {
+        requestBody.project_ids = payload.projectIds;
+      }
+
+      const response = await axios.post("http://localhost:19960/api/v1/rag/search/chunks", requestBody, { timeout: 30000 });
+      this._sendMessage({
+        type: "searchRAGChunks-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "searchRAGChunks-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
   private async _handleTriggerRAGIndex(payload: { sessionId?: string }): Promise<void> {
     try {
       const response = await axios.post("http://localhost:19960/api/v1/rag/index", {
@@ -1043,16 +1160,41 @@ export class WebviewPanel {
     }
   }
 
-  private async _handleTriggerFullIndex(): Promise<void> {
+  private async _handleTriggerFullIndex(payload?: { batch_size?: number; concurrency?: number }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/index/full", {}, { timeout: 10000 });
+      const response = await axios.post("http://localhost:19960/api/v1/rag/index/full", {
+        batch_size: payload?.batch_size,
+        concurrency: payload?.concurrency
+      }, { timeout: 10000 });
       this._sendMessage({
         type: "triggerFullIndex-response",
         data: response.data
       });
     } catch (error) {
+      // 尝试从 axios 响应中获取后端错误消息
+      let errorMessage = "未知错误";
+      if (axios.isAxiosError(error) && error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       this._sendMessage({
         type: "triggerFullIndex-response",
+        data: { error: errorMessage }
+      });
+    }
+  }
+
+  private async _handleFetchIndexProgress(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/rag/index/progress", { timeout: 10000 });
+      this._sendMessage({
+        type: "fetchIndexProgress-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchIndexProgress-response",
         data: { error: error instanceof Error ? error.message : "未知错误" }
       });
     }
@@ -1088,11 +1230,27 @@ export class WebviewPanel {
     }
   }
 
+  private async _handleFetchIndexedProjects(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/rag/projects", { timeout: 10000 });
+      this._sendMessage({
+        type: "fetchIndexedProjects-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchIndexedProjects-response",
+        data: { projects: [], total: 0, error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
   private async _handleDownloadQdrant(payload: { version?: string }): Promise<void> {
     try {
+      // 异步下载模式：接口立即返回，前端通过轮询 status 获取进度
       const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/download", {
         version: payload.version || ""
-      }, { timeout: 300000 }); // 5 分钟超时，因为下载可能需要较长时间
+      }, { timeout: 30000 }); // 30秒超时（只是启动下载任务，不需要等待下载完成）
       this._sendMessage({
         type: "downloadQdrant-response",
         data: response.data
@@ -1111,6 +1269,44 @@ export class WebviewPanel {
   private _handleOpenRAGSearch(payload?: { route?: string }): void {
     const route = payload?.route || "/";
     WebviewPanel.createOrShow(this._extensionUri, "ragSearch", this._context, route);
+  }
+
+  private async _handleUploadQdrantPackage(payload: { filename: string; fileBase64: string }): Promise<void> {
+    try {
+      // 将 base64 转换为 Buffer
+      const fileBuffer = Buffer.from(payload.fileBase64, "base64");
+      
+      // 创建 FormData（使用 form-data 包或手动构建 multipart）
+      // 由于 axios 支持直接发送 Buffer，我们使用 FormData 的方式
+      const FormData = require("form-data");
+      const form = new FormData();
+      form.append("file", fileBuffer, {
+        filename: payload.filename,
+        contentType: payload.filename.endsWith(".zip") ? "application/zip" : "application/gzip"
+      });
+
+      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/upload", form, {
+        headers: {
+          ...form.getHeaders()
+        },
+        timeout: 120000, // 2分钟超时
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      });
+
+      this._sendMessage({
+        type: "uploadQdrantPackage-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "uploadQdrantPackage-response",
+        data: {
+          success: false,
+          error: error instanceof Error ? error.message : "未知错误"
+        }
+      });
+    }
   }
 
   private async _handleFetchQdrantStatus(): Promise<void> {
@@ -1411,6 +1607,108 @@ export class WebviewPanel {
     }
   }
 
+  // 带元数据发布技能
+  private async _handlePublishTeamSkillWithMetadata(payload: { 
+    teamId: string; 
+    localPath: string; 
+    metadata: {
+      plugin_id: string;
+      name: string;
+      name_zh_cn?: string;
+      description: string;
+      description_zh_cn?: string;
+      version: string;
+      category: string;
+      author: string;
+    };
+  }): Promise<void> {
+    try {
+      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/publish-with-metadata`, {
+        local_path: payload.localPath,
+        metadata: payload.metadata
+      }, { timeout: 60000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "publishTeamSkillWithMetadata-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "发布技能失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "publishTeamSkillWithMetadata-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  // 安装团队技能
+  private async _handleInstallTeamSkill(payload: { teamId: string; pluginId: string; version?: string; force?: boolean }): Promise<void> {
+    try {
+      // 获取当前工作区路径
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      const workspacePath = workspaceFolders && workspaceFolders.length > 0 
+        ? workspaceFolders[0].uri.fsPath 
+        : "";
+      
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/${payload.pluginId}/install`, 
+        {
+          workspace_path: workspacePath,
+          version: payload.version || "1.0.0",
+          force: payload.force || false
+        }, 
+        { timeout: 60000 }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "installTeamSkill-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "安装技能失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "installTeamSkill-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  // 卸载团队技能
+  private async _handleUninstallTeamSkill(payload: { teamId: string; pluginId: string }): Promise<void> {
+    try {
+      // 获取当前工作区路径
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      const workspacePath = workspaceFolders && workspaceFolders.length > 0 
+        ? workspaceFolders[0].uri.fsPath 
+        : "";
+      
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/${payload.pluginId}/uninstall`, 
+        {
+          workspace_path: workspacePath
+        }, 
+        { timeout: 60000 }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "uninstallTeamSkill-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "卸载技能失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "uninstallTeamSkill-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
   private async _handleDownloadTeamSkill(payload: { teamId: string; pluginId: string; authorEndpoint: string; checksum?: string }): Promise<void> {
     try {
       const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/download`, {
@@ -1520,6 +1818,154 @@ export class WebviewPanel {
           data: { error: error instanceof Error ? error.message : "未知错误" }
         });
       }
+    }
+  }
+
+  // ========== 团队协作 API 处理器 ==========
+
+  private async _handleShareCode(payload: { 
+    teamId: string; 
+    file_name: string; 
+    file_path?: string; 
+    language?: string; 
+    start_line?: number; 
+    end_line?: number; 
+    code: string; 
+    message?: string 
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/share-code`,
+        {
+          file_name: payload.file_name,
+          file_path: payload.file_path,
+          language: payload.language,
+          start_line: payload.start_line,
+          end_line: payload.end_line,
+          code: payload.code,
+          message: payload.message
+        },
+        { timeout: 10000 }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "shareCode-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "分享代码失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "shareCode-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleUpdateWorkStatus(payload: { 
+    teamId: string; 
+    project_name?: string; 
+    current_file?: string; 
+    status_visible?: boolean 
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/status`,
+        {
+          project_name: payload.project_name,
+          current_file: payload.current_file,
+          status_visible: payload.status_visible
+        },
+        { timeout: 5000 }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "updateWorkStatus-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "更新工作状态失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "updateWorkStatus-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleShareTeamDailySummary(payload: { teamId: string; date: string }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/daily-summaries/share`,
+        { date: payload.date },
+        { timeout: 30000 }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "shareTeamDailySummary-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "分享日报失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "shareTeamDailySummary-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchTeamDailySummaries(payload: { teamId: string; date?: string }): Promise<void> {
+    try {
+      const date = payload.date || new Date().toISOString().split("T")[0];
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/daily-summaries`,
+        { 
+          params: { date },
+          timeout: 10000 
+        }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchTeamDailySummaries-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取团队日报列表失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamDailySummaries-response",
+        data: { summaries: [], error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchTeamDailySummaryDetail(payload: { teamId: string; memberId: string; date: string }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/daily-summaries/${payload.memberId}`,
+        { 
+          params: { date: payload.date },
+          timeout: 30000 
+        }
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchTeamDailySummaryDetail-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取日报详情失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamDailySummaryDetail-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
     }
   }
 

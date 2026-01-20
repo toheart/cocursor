@@ -20,12 +20,19 @@ class ApiService {
   }
 
   // 发送消息到 Extension
-  private postMessage(command: string, payload?: unknown): Promise<unknown> {
+  // timeout: 超时时间（毫秒），0 表示不超时
+  private postMessage(command: string, payload?: unknown, timeout: number = 30000): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const messageId = `${command}-${Date.now()}-${Math.random()}`;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      
       const handler = (event: MessageEvent<ExtensionMessage>) => {
         if (event.data.type === `${command}-response`) {
           window.removeEventListener("message", handler);
+          // 清除超时计时器
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
           if (event.data.data && typeof event.data.data === "object" && "error" in event.data.data) {
             reject(new Error(String(event.data.data.error)));
           } else {
@@ -37,11 +44,13 @@ class ApiService {
       window.addEventListener("message", handler);
       this.vscode.postMessage({ command, payload, messageId });
 
-      // 超时处理
-      setTimeout(() => {
-        window.removeEventListener("message", handler);
-        reject(new Error("Request timeout"));
-      }, 30000);
+      // 超时处理（timeout > 0 时启用）
+      if (timeout > 0) {
+        timeoutId = setTimeout(() => {
+          window.removeEventListener("message", handler);
+          reject(new Error("Request timeout"));
+        }, timeout);
+      }
     });
   }
 
@@ -96,8 +105,14 @@ class ApiService {
   }
 
   // 安装插件
-  async installPlugin(id: string, workspacePath: string): Promise<unknown> {
-    return this.postMessage("installPlugin", { id, workspacePath });
+  // force: 强制覆盖（当检测到手动安装的同名 skill 时）
+  async installPlugin(id: string, workspacePath: string, force?: boolean): Promise<unknown> {
+    return this.postMessage("installPlugin", { id, workspacePath, force: force || false });
+  }
+
+  // 显示确认对话框（通过 VSCode API）
+  async showConfirmDialog(message: string, confirmText?: string, cancelText?: string): Promise<boolean> {
+    return this.postMessage("showConfirmDialog", { message, confirmText, cancelText }) as Promise<boolean>;
   }
 
   // 卸载插件
@@ -171,6 +186,13 @@ class ApiService {
     return this.postMessage("fetchQdrantStatus");
   }
 
+  // 上传 Qdrant 安装包
+  // 注意：此方法接收 base64 编码的文件内容，因为 webview 无法直接传输 File 对象
+  async uploadQdrantPackage(filename: string, fileBase64: string): Promise<unknown> {
+    // 使用较长超时（2分钟），因为上传可能需要一些时间
+    return this.postMessage("uploadQdrantPackage", { filename, fileBase64 }, 120000);
+  }
+
   // 启动 Qdrant
   async startQdrant(): Promise<unknown> {
     return this.postMessage("startQdrant");
@@ -181,9 +203,14 @@ class ApiService {
     return this.postMessage("stopQdrant");
   }
 
-  // 触发全量索引
-  async triggerFullIndex(): Promise<unknown> {
-    return this.postMessage("triggerFullIndex");
+  // 触发全量索引（支持配置参数）
+  async triggerFullIndex(batchSize?: number, concurrency?: number): Promise<unknown> {
+    return this.postMessage("triggerFullIndex", { batch_size: batchSize, concurrency });
+  }
+
+  // 获取索引进度
+  async getIndexProgress(): Promise<unknown> {
+    return this.postMessage("fetchIndexProgress");
   }
 
   // 清空所有数据
@@ -216,6 +243,11 @@ class ApiService {
   // 获取索引统计（新）
   async getIndexStats(): Promise<unknown> {
     return this.postMessage("fetchIndexStats");
+  }
+
+  // 获取已索引的项目列表
+  async getIndexedProjects(): Promise<{ projects: Array<{ project_id: string; project_name: string; chunk_count: number }>; total: number }> {
+    return this.postMessage("fetchIndexedProjects") as Promise<{ projects: Array<{ project_id: string; project_name: string; chunk_count: number }>; total: number }>;
   }
 
   // ========== 团队相关 API ==========
@@ -280,9 +312,33 @@ class ApiService {
     return this.postMessage("validateSkillDirectory", { path });
   }
 
-  // 发布技能到团队
+  // 发布技能到团队（旧版，向后兼容）
   async publishTeamSkill(teamId: string, pluginId: string, localPath: string): Promise<unknown> {
     return this.postMessage("publishTeamSkill", { teamId, pluginId, localPath });
+  }
+
+  // 发布技能到团队（带元数据）
+  async publishTeamSkillWithMetadata(teamId: string, localPath: string, metadata: {
+    plugin_id: string;
+    name: string;
+    name_zh_cn?: string;
+    description: string;
+    description_zh_cn?: string;
+    version: string;
+    category: string;
+    author: string;
+  }): Promise<unknown> {
+    return this.postMessage("publishTeamSkillWithMetadata", { teamId, localPath, metadata });
+  }
+
+  // 安装团队技能
+  async installTeamSkill(teamId: string, pluginId: string, version?: string, force?: boolean): Promise<unknown> {
+    return this.postMessage("installTeamSkill", { teamId, pluginId, version, force });
+  }
+
+  // 卸载团队技能
+  async uninstallTeamSkill(teamId: string, pluginId: string): Promise<unknown> {
+    return this.postMessage("uninstallTeamSkill", { teamId, pluginId });
   }
 
   // 下载团队技能
@@ -291,8 +347,48 @@ class ApiService {
   }
 
   // 选择目录（调用 VSCode 文件选择器）
+  // 用户交互操作，使用较长超时（5分钟）
   async selectDirectory(): Promise<unknown> {
-    return this.postMessage("selectDirectory");
+    return this.postMessage("selectDirectory", undefined, 300000);
+  }
+
+  // ========== 团队协作 API ==========
+
+  // 分享代码片段
+  async shareCode(teamId: string, snippet: {
+    file_name: string;
+    file_path?: string;
+    language?: string;
+    start_line?: number;
+    end_line?: number;
+    code: string;
+    message?: string;
+  }): Promise<unknown> {
+    return this.postMessage("shareCode", { teamId, ...snippet });
+  }
+
+  // 更新工作状态
+  async updateWorkStatus(teamId: string, status: {
+    project_name?: string;
+    current_file?: string;
+    status_visible?: boolean;
+  }): Promise<unknown> {
+    return this.postMessage("updateWorkStatus", { teamId, ...status });
+  }
+
+  // 分享日报到团队
+  async shareTeamDailySummary(teamId: string, date: string): Promise<unknown> {
+    return this.postMessage("shareTeamDailySummary", { teamId, date });
+  }
+
+  // 获取团队日报列表
+  async getTeamDailySummaries(teamId: string, date?: string): Promise<unknown> {
+    return this.postMessage("fetchTeamDailySummaries", { teamId, date });
+  }
+
+  // 获取团队日报详情
+  async getTeamDailySummaryDetail(teamId: string, memberId: string, date: string): Promise<unknown> {
+    return this.postMessage("fetchTeamDailySummaryDetail", { teamId, memberId, date });
   }
 
   // ========== 日报相关 API ==========
@@ -313,6 +409,14 @@ export interface DailyReportStatusResponse {
   statuses: Record<string, boolean>;
 }
 
+// 项目摘要类型
+export interface ProjectSummary {
+  project_name: string;
+  project_path: string;
+  workspace_id: string;
+  session_count: number;
+}
+
 // 日报类型
 export interface DailySummary {
   id: string;
@@ -320,6 +424,7 @@ export interface DailySummary {
   summary: string;
   language: string;
   total_sessions: number;
+  projects?: ProjectSummary[];
   created_at?: string;
   updated_at?: string;
 }

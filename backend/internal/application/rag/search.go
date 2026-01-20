@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	domainRAG "github.com/cocursor/backend/internal/domain/rag"
 	"github.com/cocursor/backend/internal/infrastructure/embedding"
+	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/vector"
 	"github.com/qdrant/go-client/qdrant"
 )
@@ -16,6 +18,7 @@ type SearchService struct {
 	embeddingClient *embedding.Client
 	qdrantManager   *vector.QdrantManager
 	chunkRepo       domainRAG.ChunkRepository
+	logger          *slog.Logger
 }
 
 // NewSearchService 创建搜索服务
@@ -28,6 +31,7 @@ func NewSearchService(
 		embeddingClient: embeddingClient,
 		qdrantManager:   qdrantManager,
 		chunkRepo:       chunkRepo,
+		logger:          log.NewModuleLogger("rag", "search"),
 	}
 }
 
@@ -79,18 +83,29 @@ func (s *SearchService) SearchChunks(ctx context.Context, req *SearchRequest) ([
 		req.Limit = 100
 	}
 
+	s.logger.Info("Starting search",
+		"query", req.Query,
+		"limit", req.Limit,
+		"project_ids", req.ProjectIDs,
+	)
+
 	// 1. 向量化查询文本
 	queryVectors, err := s.embeddingClient.EmbedTexts([]string{req.Query})
 	if err != nil {
+		s.logger.Error("Failed to embed query", "error", err)
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 	if len(queryVectors) == 0 || len(queryVectors[0]) == 0 {
+		s.logger.Error("Invalid embedding result", "vectors_count", len(queryVectors))
 		return nil, fmt.Errorf("invalid embedding result")
 	}
 
 	queryVector := queryVectors[0]
+	s.logger.Debug("Query embedded", "vector_dim", len(queryVector))
+
 	client := s.qdrantManager.GetClient()
 	if client == nil {
+		s.logger.Error("Qdrant client not initialized")
 		return nil, fmt.Errorf("qdrant client not initialized")
 	}
 
@@ -104,10 +119,14 @@ func (s *SearchService) SearchChunks(ctx context.Context, req *SearchRequest) ([
 		Query:          qdrant.NewQuery(queryVector...),
 		Limit:          &limit,
 		Filter:         filter,
+		WithPayload:    qdrant.NewWithPayload(true),
 	})
 	if err != nil {
+		s.logger.Error("Failed to query qdrant", "error", err)
 		return nil, fmt.Errorf("failed to query qdrant: %w", err)
 	}
+
+	s.logger.Info("Qdrant search completed", "hits_count", len(searchResp))
 
 	// 4. 转换结果
 	results := make([]*ChunkSearchResult, 0, len(searchResp))
@@ -117,6 +136,8 @@ func (s *SearchService) SearchChunks(ctx context.Context, req *SearchRequest) ([
 			results = append(results, result)
 		}
 	}
+
+	s.logger.Info("Search completed", "results_count", len(results))
 
 	return results, nil
 }

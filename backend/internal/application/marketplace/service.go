@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	domainMarketplace "github.com/cocursor/backend/internal/domain/marketplace"
@@ -177,7 +178,8 @@ type InstallPluginResult struct {
 
 // InstallPlugin 安装插件
 // workspacePath: 工作区路径（用于更新 AGENTS.md）
-func (s *PluginService) InstallPlugin(id, workspacePath string) (*InstallPluginResult, error) {
+// force: 强制覆盖（当检测到手动安装的同名 skill 时）
+func (s *PluginService) InstallPlugin(id, workspacePath string, force bool) (*InstallPluginResult, error) {
 	// 加载插件
 	plugin, err := s.pluginLoader.LoadPlugin(id)
 	if err != nil {
@@ -185,7 +187,7 @@ func (s *PluginService) InstallPlugin(id, workspacePath string) (*InstallPluginR
 	}
 
 	// 安装 Skill
-	if err := s.skillInstaller.InstallSkill(id, &plugin.Skill, workspacePath); err != nil {
+	if err := s.skillInstaller.InstallSkill(id, &plugin.Skill, workspacePath, force); err != nil {
 		return nil, fmt.Errorf("failed to install skill: %w", err)
 	}
 
@@ -327,6 +329,69 @@ func (s *PluginService) SyncInstalledSkillsToAgentsMD(workspacePath string) erro
 			// 记录错误但继续处理其他插件
 			continue
 		}
+	}
+
+	return nil
+}
+
+// InstallTeamSkill 安装团队技能
+// teamID: 团队 ID
+// pluginID: 插件 ID
+// version: 版本号
+// workspacePath: 工作区路径（用于更新 AGENTS.md）
+// force: 强制覆盖
+func (s *PluginService) InstallTeamSkill(teamID, pluginID, version, workspacePath string, force bool) (*InstallPluginResult, error) {
+	// 获取下载目录路径
+	sourcePath, err := infraMarketplace.GetTeamSkillStoragePath(teamID, pluginID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get download path: %w", err)
+	}
+
+	// 检查下载目录是否存在
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("skill not downloaded, please download first")
+	}
+
+	// 构建安装目录名和完整 ID
+	// 安装目录名只使用 pluginID，保持友好的技能名称
+	// 完整 ID 使用 teamID:pluginID，用于状态管理和冲突检测
+	installDirName := pluginID
+	fullID := teamID + ":" + pluginID
+
+	// 从路径安装
+	if err := s.skillInstaller.InstallSkillFromPath(sourcePath, installDirName, fullID, workspacePath, force); err != nil {
+		return nil, fmt.Errorf("failed to install skill: %w", err)
+	}
+
+	// 更新安装状态
+	if err := s.stateManager.UpdateInstalledPlugin(fullID, version); err != nil {
+		return nil, fmt.Errorf("failed to update plugin state: %w", err)
+	}
+
+	return &InstallPluginResult{
+		Success: true,
+		Message: "Team skill installed successfully",
+	}, nil
+}
+
+// UninstallTeamSkill 卸载团队技能
+// teamID: 团队 ID
+// pluginID: 插件 ID
+// workspacePath: 工作区路径（用于更新 AGENTS.md）
+func (s *PluginService) UninstallTeamSkill(teamID, pluginID, workspacePath string) error {
+	// 构建安装目录名和完整 ID
+	// 安装目录名只使用 pluginID，与安装时保持一致
+	installDirName := pluginID
+	fullID := teamID + ":" + pluginID
+
+	// 卸载技能
+	if err := s.skillInstaller.UninstallSkill(installDirName, workspacePath); err != nil {
+		return fmt.Errorf("failed to uninstall skill: %w", err)
+	}
+
+	// 更新安装状态
+	if err := s.stateManager.RemoveInstalledPlugin(fullID); err != nil {
+		return fmt.Errorf("failed to update plugin state: %w", err)
 	}
 
 	return nil

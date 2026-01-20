@@ -42,6 +42,10 @@ func (m *mockWorkspaceSessionRepository) GetCachedComposerIDs(workspaceID string
 	return []string{}, nil
 }
 
+func (m *mockWorkspaceSessionRepository) GetDailyTokenUsage(workspaceIDs []string, startDate, endDate string) ([]*storage.DailyTokenUsage, error) {
+	return []*storage.DailyTokenUsage{}, nil
+}
+
 // mockDailySummaryRepository 模拟 DailySummaryRepository
 type mockDailySummaryRepository struct{}
 

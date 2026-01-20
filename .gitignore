@@ -44,3 +44,5 @@ backend/**/wire_gen.go
 backend/internal/wire/wire_gen.go
 backend/.qdrant-initialized
 tmp
+backend/server
+co-extension/nul

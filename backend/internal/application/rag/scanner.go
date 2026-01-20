@@ -18,7 +18,7 @@ import (
 	"github.com/cocursor/backend/internal/infrastructure/log"
 )
 
-// ScanScheduler 扫描调度器
+// ScanScheduler 扫描调度器（事件驱动 + 手动全量索引）
 type ScanScheduler struct {
 	chunkService    *ChunkService
 	ragInitializer  *RAGInitializer // 用于延迟初始化
@@ -27,18 +27,32 @@ type ScanScheduler struct {
 	config          *ScanConfig
 	mu              sync.RWMutex
 	stopChan        chan struct{}
-	ticker          *time.Ticker
 	initialized     bool
 	logger          *slog.Logger
+
+	// 全量索引进度
+	indexProgress *IndexProgress
+	progressMu    sync.RWMutex
 }
 
-// ScanConfig 扫描配置
+// ScanConfig 扫描配置（仅用于全量索引）
 type ScanConfig struct {
-	Enabled     bool
-	Interval    time.Duration
-	BatchSize   int
-	Concurrency int
+	BatchSize   int // 每批处理的文件数
+	Concurrency int // 并发处理数
 }
+
+// IndexProgress 索引进度
+type IndexProgress struct {
+	Status          string    `json:"status"`           // running, completed, failed, cancelled
+	TotalFiles      int       `json:"total_files"`      // 总文件数
+	ProcessedFiles  int       `json:"processed_files"`  // 已处理文件数
+	IndexedMessages int       `json:"indexed_messages"` // 已索引消息数
+	StartTime       time.Time `json:"start_time"`       // 开始时间
+	ErrorMessage    string    `json:"error_message"`    // 错误信息（如果失败）
+}
+
+// ProgressCallback 进度回调函数
+type ProgressCallback func(progress *IndexProgress)
 
 // NewScanScheduler 创建扫描调度器
 func NewScanScheduler(
@@ -47,6 +61,20 @@ func NewScanScheduler(
 	indexStatusRepo domainRAG.IndexStatusRepository,
 	config *ScanConfig,
 ) *ScanScheduler {
+	// 设置默认值
+	if config == nil {
+		config = &ScanConfig{
+			BatchSize:   10,
+			Concurrency: 3,
+		}
+	}
+	if config.BatchSize <= 0 {
+		config.BatchSize = 10
+	}
+	if config.Concurrency <= 0 {
+		config.Concurrency = 3
+	}
+
 	return &ScanScheduler{
 		chunkService:    chunkService,
 		projectManager:  projectManager,
@@ -63,40 +91,9 @@ func (s *ScanScheduler) SetRAGInitializer(initializer *RAGInitializer) {
 	s.ragInitializer = initializer
 }
 
-// Start 启动扫描调度器
+// Start 启动扫描调度器（现在只是初始化，不再有定时扫描）
 func (s *ScanScheduler) Start() error {
-	if !s.config.Enabled {
-		return nil
-	}
-
-	// 如果 chunkService 为 nil，尝试通过 initializer 初始化
-	if s.chunkService == nil && s.ragInitializer != nil && !s.initialized {
-		chunkService := s.ragInitializer.GetChunkService()
-		if chunkService != nil {
-			s.chunkService = chunkService
-			s.initialized = true
-		} else {
-			// 初始化失败，禁用调度器
-			s.config.Enabled = false
-			return nil
-		}
-	}
-
-	// 如果仍然没有 chunkService，不启动
-	if s.chunkService == nil {
-		return nil
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// 不再启动时自动全量扫描，改为手动触发
-	// 只启动定时扫描（如果配置了 interval）
-	if s.config.Interval > 0 {
-		s.ticker = time.NewTicker(s.config.Interval)
-		go s.runPeriodicScan()
-	}
-
+	s.logger.Info("ScanScheduler started (event-driven mode)")
 	return nil
 }
 
@@ -105,48 +102,50 @@ func (s *ScanScheduler) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
 	close(s.stopChan)
+	s.logger.Info("ScanScheduler stopped")
 
 	return nil
 }
 
-// runPeriodicScan 运行定时扫描
-func (s *ScanScheduler) runPeriodicScan() {
-	for {
-		select {
-		case <-s.ticker.C:
-			s.scanOnce()
-		case <-s.stopChan:
-			return
+// UpdateConfig 更新配置（仅更新 BatchSize 和 Concurrency）
+func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if config.BatchSize > 0 {
+		s.config.BatchSize = config.BatchSize
+	}
+	if config.Concurrency > 0 {
+		s.config.Concurrency = config.Concurrency
+	}
+
+	// 尝试初始化 chunkService（如果还没有）
+	if s.chunkService == nil && s.ragInitializer != nil {
+		chunkService := s.ragInitializer.GetChunkService()
+		if chunkService != nil {
+			s.chunkService = chunkService
+			s.initialized = true
+			s.logger.Info("ChunkService initialized via UpdateConfig")
 		}
 	}
 }
 
-// scanOnce 执行一次扫描
-func (s *ScanScheduler) scanOnce() {
-	// 阶段 1: 快速扫描（只读文件信息）
-	filesToUpdate := s.phase1QuickScan()
-
-	// 阶段 2: 批量处理（只处理更新的文件）
-	s.phase2BatchProcess(filesToUpdate)
-}
-
-// phase1QuickScan 阶段 1: 快速扫描（只读文件信息）
-func (s *ScanScheduler) phase1QuickScan() []*FileToUpdate {
-	var filesToUpdate []*FileToUpdate
+// scanAllFiles 扫描所有会话文件
+func (s *ScanScheduler) scanAllFiles() []*FileToUpdate {
+	var allFiles []*FileToUpdate
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return filesToUpdate
+		s.logger.Error("Failed to get home directory", "error", err)
+		return allFiles
 	}
 
 	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
 	entries, err := os.ReadDir(projectsDir)
 	if err != nil {
-		return filesToUpdate
+		s.logger.Error("Failed to read projects directory", "error", err)
+		return allFiles
 	}
 
 	for _, entry := range entries {
@@ -166,7 +165,6 @@ func (s *ScanScheduler) phase1QuickScan() []*FileToUpdate {
 		project := s.projectManager.GetProject(projectKey)
 		var projectInfo *ProjectInfo
 		if project == nil {
-			// 如果项目不存在，使用 projectKey 作为 ProjectID
 			projectInfo = &ProjectInfo{
 				ProjectID:   projectKey,
 				ProjectName: projectKey,
@@ -190,23 +188,15 @@ func (s *ScanScheduler) phase1QuickScan() []*FileToUpdate {
 			sessionID := strings.TrimSuffix(file.Name(), ".txt")
 			filePath := filepath.Join(transcriptsDir, file.Name())
 
-			fileInfo, err := os.Stat(filePath)
-			if err != nil {
-				continue
-			}
-
-			// 检查是否需要更新
-			if s.needsUpdate(sessionID, filePath, fileInfo.ModTime()) {
-				filesToUpdate = append(filesToUpdate, &FileToUpdate{
-					SessionID:   sessionID,
-					FilePath:    filePath,
-					ProjectInfo: projectInfo,
-				})
-			}
+			allFiles = append(allFiles, &FileToUpdate{
+				SessionID:   sessionID,
+				FilePath:    filePath,
+				ProjectInfo: projectInfo,
+			})
 		}
 	}
 
-	return filesToUpdate
+	return allFiles
 }
 
 // FileToUpdate 需要更新的文件
@@ -216,39 +206,51 @@ type FileToUpdate struct {
 	ProjectInfo *ProjectInfo
 }
 
-// phase2BatchProcess 阶段 2: 批量处理
-func (s *ScanScheduler) phase2BatchProcess(filesToUpdate []*FileToUpdate) {
-	if len(filesToUpdate) == 0 {
+// processBatchWithProgress 批量处理文件（带进度更新）
+func (s *ScanScheduler) processBatchWithProgress(files []*FileToUpdate, callback ProgressCallback) {
+	if len(files) == 0 {
 		return
 	}
 
-	// 使用简单的并发控制（不使用 conc 库，保持依赖简单）
 	batchSize := s.config.BatchSize
-	if batchSize <= 0 {
-		batchSize = 10
-	}
-
 	concurrency := s.config.Concurrency
-	if concurrency <= 0 {
-		concurrency = 3
-	}
 
 	// 分批处理
-	for i := 0; i < len(filesToUpdate); i += batchSize {
-		end := i + batchSize
-		if end > len(filesToUpdate) {
-			end = len(filesToUpdate)
+	for i := 0; i < len(files); i += batchSize {
+		// 检查是否取消
+		select {
+		case <-s.stopChan:
+			return
+		default:
 		}
 
-		batch := filesToUpdate[i:end]
-		s.processBatch(batch, concurrency)
+		end := i + batchSize
+		if end > len(files) {
+			end = len(files)
+		}
+
+		batch := files[i:end]
+		indexedCount := s.processBatch(batch, concurrency)
+
+		// 更新进度
+		s.progressMu.Lock()
+		if s.indexProgress != nil {
+			s.indexProgress.ProcessedFiles = end
+			s.indexProgress.IndexedMessages += indexedCount
+			if callback != nil {
+				callback(s.indexProgress)
+			}
+		}
+		s.progressMu.Unlock()
 	}
 }
 
-// processBatch 处理一批文件
-func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
+// processBatch 处理一批文件，返回索引的消息数
+func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) int {
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
+	var indexedCount int
+	var countMu sync.Mutex
 
 	for _, file := range batch {
 		wg.Add(1)
@@ -274,16 +276,20 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
 
 			// 检查内容哈希（精确检测）
 			if s.needsReindex(f.SessionID, f.FilePath) {
-				err := s.chunkService.IndexSession(f.SessionID, f.FilePath)
+				count, err := s.chunkService.IndexSessionWithCount(f.SessionID, f.FilePath)
 				if err != nil {
 					s.logger.Error("Failed to index session",
 						"session_id", f.SessionID,
 						"file_path", f.FilePath,
 						"error", err,
 					)
+				} else {
+					countMu.Lock()
+					indexedCount += count
+					countMu.Unlock()
 				}
 			} else {
-				// 只更新文件修改时间（使用 indexStatusRepo）
+				// 只更新文件修改时间
 				fileInfo, _ := os.Stat(f.FilePath)
 				if fileInfo != nil {
 					s.indexStatusRepo.UpdateFileMtime(f.FilePath, fileInfo.ModTime().Unix())
@@ -293,17 +299,7 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
 	}
 
 	wg.Wait()
-}
-
-// needsUpdate 检查文件是否需要更新（快速检测：只检查 mtime）
-func (s *ScanScheduler) needsUpdate(sessionID, filePath string, fileMtime time.Time) bool {
-	status, err := s.indexStatusRepo.GetIndexStatus(filePath)
-	if err != nil || status == nil {
-		return true // 没有状态，需要索引
-	}
-
-	// 比较文件修改时间
-	return fileMtime.Unix() > status.FileMtime
+	return indexedCount
 }
 
 // needsReindex 检查是否需要重新索引（精确检测：检查内容哈希）
@@ -361,140 +357,112 @@ func (s *ScanScheduler) toProjectInfo(project *domainCursor.ProjectInfo) *Projec
 	}
 }
 
-// TriggerScan 手动触发扫描
-func (s *ScanScheduler) TriggerScan() {
-	go s.scanOnce()
-}
+// TriggerFullScan 触发全量扫描（带进度回调）
+func (s *ScanScheduler) TriggerFullScan(chunkService *ChunkService, batchSize, concurrency int, callback ProgressCallback) error {
+	s.logger.Info("Triggering full RAG index",
+		"batch_size", batchSize,
+		"concurrency", concurrency,
+	)
 
-// UpdateConfig 更新扫描配置
-func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	oldEnabled := s.config.Enabled
-	s.config = config
-
-	// 如果从禁用变为启用，启动调度器
-	if config.Enabled && !oldEnabled {
-		// 尝试初始化服务
-		if s.chunkService == nil && s.ragInitializer != nil && !s.initialized {
-			chunkService := s.ragInitializer.GetChunkService()
-			if chunkService != nil {
-				s.chunkService = chunkService
-				s.initialized = true
-			} else {
-				// 初始化失败，禁用调度器
-				s.config.Enabled = false
-				return
-			}
-		}
-
-		// 如果有 chunkService，启动定时器
-		if s.chunkService != nil && config.Interval > 0 {
-			if s.ticker != nil {
-				s.ticker.Stop()
-			}
-			s.ticker = time.NewTicker(config.Interval)
-			go s.runPeriodicScan()
-		}
-	}
-
-	// 如果从启用变为禁用，停止调度器
-	if !config.Enabled && oldEnabled {
-		if s.ticker != nil {
-			s.ticker.Stop()
-			s.ticker = nil
-		}
-	}
-
-	// 如果间隔时间变化，重启定时器
-	if config.Enabled && oldEnabled && config.Interval != s.config.Interval {
-		if s.ticker != nil {
-			s.ticker.Stop()
-		}
-		s.ticker = time.NewTicker(config.Interval)
-		go s.runPeriodicScan()
-	}
-}
-
-// TriggerFullScan 触发全量扫描
-func (s *ScanScheduler) TriggerFullScan(chunkService *ChunkService) {
-	s.logger.Info("Triggering full RAG index")
 	// 更新 chunkService（如果传入）
 	if chunkService != nil {
 		s.chunkService = chunkService
+		s.initialized = true
 	}
-	// 执行全量扫描（覆盖 needsUpdate 逻辑）
-	go s.runFullScan()
+
+	// 检查 chunkService 是否可用
+	if s.chunkService == nil {
+		if s.ragInitializer != nil {
+			s.chunkService = s.ragInitializer.GetChunkService()
+			if s.chunkService != nil {
+				s.initialized = true
+			}
+		}
+	}
+	if s.chunkService == nil {
+		return fmt.Errorf("RAG service not initialized, please configure RAG first")
+	}
+
+	// 更新配置
+	if batchSize > 0 {
+		s.config.BatchSize = batchSize
+	}
+	if concurrency > 0 {
+		s.config.Concurrency = concurrency
+	}
+
+	// 异步执行全量扫描
+	go s.runFullScanWithProgress(callback)
+
+	return nil
 }
 
-// runFullScan 执行全量扫描
-func (s *ScanScheduler) runFullScan() {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		s.logger.Error("Failed to get home directory", "error", err)
-		return
+// runFullScanWithProgress 执行全量扫描（带进度）
+func (s *ScanScheduler) runFullScanWithProgress(callback ProgressCallback) {
+	// 扫描所有文件
+	allFiles := s.scanAllFiles()
+
+	// 初始化进度
+	s.progressMu.Lock()
+	s.indexProgress = &IndexProgress{
+		Status:          "running",
+		TotalFiles:      len(allFiles),
+		ProcessedFiles:  0,
+		IndexedMessages: 0,
+		StartTime:       time.Now(),
 	}
-
-	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
-	entries, err := os.ReadDir(projectsDir)
-	if err != nil {
-		s.logger.Error("Failed to read projects directory", "error", err)
-		return
+	if callback != nil {
+		callback(s.indexProgress)
 	}
+	s.progressMu.Unlock()
 
-	var allFiles []*FileToUpdate
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
+	s.logger.Info("Full scan started", "total_files", len(allFiles))
 
-		projectKey := entry.Name()
-		transcriptsDir := filepath.Join(projectsDir, projectKey, "agent-transcripts")
-		
-		// 检查目录是否存在
-		if _, err := os.Stat(transcriptsDir); os.IsNotExist(err) {
-			continue
-		}
+	// 批量处理
+	s.processBatchWithProgress(allFiles, callback)
 
-		// 获取项目信息
-		project := s.projectManager.GetProject(projectKey)
-		var projectInfo *ProjectInfo
-		if project == nil {
-			projectInfo = &ProjectInfo{
-				ProjectID:   projectKey,
-				ProjectName: projectKey,
-				WorkspaceID: "",
-			}
-		} else {
-			projectInfo = s.toProjectInfo(project)
-		}
-
-		// 扫描所有会话文件（不考虑 mtime）
-		transcriptFiles, err := os.ReadDir(transcriptsDir)
-		if err != nil {
-			continue
-		}
-
-		for _, file := range transcriptFiles {
-			if !strings.HasSuffix(file.Name(), ".txt") {
-				continue
-			}
-
-			sessionID := strings.TrimSuffix(file.Name(), ".txt")
-			filePath := filepath.Join(transcriptsDir, file.Name())
-			
-			// 全量扫描时，添加所有文件
-			allFiles = append(allFiles, &FileToUpdate{
-				SessionID:   sessionID,
-				FilePath:    filePath,
-				ProjectInfo: projectInfo,
-			})
+	// 完成
+	s.progressMu.Lock()
+	if s.indexProgress != nil {
+		s.indexProgress.Status = "completed"
+		if callback != nil {
+			callback(s.indexProgress)
 		}
 	}
+	s.progressMu.Unlock()
 
-	s.logger.Info("Full scan found files", "count", len(allFiles))
-	s.phase2BatchProcess(allFiles)
+	s.logger.Info("Full scan completed",
+		"total_files", len(allFiles),
+		"indexed_messages", s.indexProgress.IndexedMessages,
+	)
+}
+
+// GetProgress 获取当前索引进度
+func (s *ScanScheduler) GetProgress() *IndexProgress {
+	s.progressMu.RLock()
+	defer s.progressMu.RUnlock()
+
+	if s.indexProgress == nil {
+		return nil
+	}
+
+	// 返回副本
+	return &IndexProgress{
+		Status:          s.indexProgress.Status,
+		TotalFiles:      s.indexProgress.TotalFiles,
+		ProcessedFiles:  s.indexProgress.ProcessedFiles,
+		IndexedMessages: s.indexProgress.IndexedMessages,
+		StartTime:       s.indexProgress.StartTime,
+		ErrorMessage:    s.indexProgress.ErrorMessage,
+	}
+}
+
+// IsRunning 检查是否正在运行全量索引
+func (s *ScanScheduler) IsRunning() bool {
+	s.progressMu.RLock()
+	defer s.progressMu.RUnlock()
+
+	return s.indexProgress != nil && s.indexProgress.Status == "running"
 }
 
 // ClearMetadata 清空元数据

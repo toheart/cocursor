@@ -5,6 +5,11 @@
   "version": "0.1.0",
   "publisher": "cocursor",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toheart/cocursor"
+  },
   "icon": "resources/icon.png",
   "keywords": [
     "cursor",
@@ -16,11 +21,6 @@
   "engines": {
     "vscode": "^1.80.0"
   },
-  "files": [
-    "dist",
-    "bin",
-    "resources"
-  ],
   "categories": [
     "Other"
   ],
@@ -74,8 +74,25 @@
       {
         "command": "cocursor.openMarketplace",
         "title": "打开技能市场"
+      },
+      {
+        "command": "cocursor.shareCodeToTeam",
+        "title": "CoCursor: 分享代码到团队"
+      },
+      {
+        "command": "cocursor.toggleStatusSharing",
+        "title": "CoCursor: 切换工作状态分享"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cocursor.shareCodeToTeam",
+          "group": "cocursor@1",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
     "views": {
       "cocursor": [
         {

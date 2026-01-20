@@ -137,6 +137,12 @@ Usage notes:
 </skill>
 
 </available_skills>
+<skill>
+<name>Test Skill</name>
+<description>A test skill</description>
+<location>global</location>
+</skill>
+
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>

@@ -186,9 +186,9 @@ export const NavigationBar: React.FC = () => {
               cursor: "pointer",
               transition: "all 0.2s"
             }}
-            title="切换到中文"
+            title={t("navigation.switchToChinese")}
           >
-            中文
+            {t("navigation.chinese")}
           </button>
           <button
             onClick={() => handleLanguageChange('en')}
@@ -206,9 +206,9 @@ export const NavigationBar: React.FC = () => {
               cursor: "pointer",
               transition: "all 0.2s"
             }}
-            title="Switch to English"
+            title={t("navigation.switchToEnglish")}
           >
-            English
+            {t("navigation.english")}
           </button>
         </div>
       </div>

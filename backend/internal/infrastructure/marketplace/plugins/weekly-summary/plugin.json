@@ -1,0 +1,30 @@
+{
+  "id": "weekly-summary",
+  "name": "每周总结",
+  "name_i18n": {
+    "zh-CN": "每周总结",
+    "en": "Weekly Summary"
+  },
+  "description": "聚合每日报告，生成以成果和进度为核心的周度工作汇报",
+  "description_i18n": {
+    "zh-CN": "聚合每日报告，生成以成果和进度为核心的周度工作汇报",
+    "en": "Aggregate daily summaries to generate weekly work reports focused on accomplishments and progress"
+  },
+  "author": "CoCursor Team",
+  "version": "1.0.0",
+  "category": "productivity",
+  "category_i18n": {
+    "zh-CN": "生产力",
+    "en": "Productivity"
+  },
+  "skill": {
+    "skill_name": "weekly-summary"
+  },
+  "command": {
+    "commands": [
+      {
+        "command_id": "weekly-summary"
+      }
+    ]
+  }
+}

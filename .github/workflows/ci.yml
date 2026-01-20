@@ -8,8 +8,12 @@ on:
 
 env:
   NODE_VERSION: '20'
+  GO_VERSION: '1.24'
 
 jobs:
+  # ============================================================================
+  # 阶段1: 测试和 Lint（只运行一次）
+  # ============================================================================
   test:
     name: Test and Lint
     runs-on: ubuntu-latest
@@ -21,7 +25,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -50,68 +54,45 @@ jobs:
         working-directory: co-extension
         run: npm ci
 
-      - name: Run lint (extension)
-        working-directory: co-extension
-        run: npm run lint
-
-      - name: Run tests (backend)
-        working-directory: backend
-        run: go test -v -race -cover ./...
+      # 使用根目录 Makefile 运行 CI 测试
+      - name: Run CI tests
+        run: make ci-test
 
       - name: Compile TypeScript
         working-directory: co-extension
         run: npm run compile
 
-      - name: Build extension (frontend)
-        working-directory: co-extension
-        run: make build
-
-      - name: Build backend daemon (Linux)
-        working-directory: backend
-        run: |
-          make wire
-          GOOS=linux GOARCH=amd64 go build -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
-          chmod +x ../co-extension/bin/cocursor-linux-amd64
-
-      - name: Verify binary
-        run: ls -lh co-extension/bin/
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            co-extension/dist
-            co-extension/bin
-          retention-days: 7
-
+  # ============================================================================
+  # 阶段2: 多平台构建验证（依赖测试通过）
+  # ============================================================================
   build-verification:
     name: Build Verification
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            target_arch: amd64
             goos: linux
             goarch: amd64
             binary_suffix: linux-amd64
+            vsce_target: linux-x64
           - os: windows-latest
-            target_arch: amd64
             goos: windows
             goarch: amd64
             binary_suffix: windows-amd64.exe
+            vsce_target: win32-x64
           - os: macos-latest
-            target_arch: x64
             goos: darwin
             goarch: amd64
             binary_suffix: darwin-amd64
+            vsce_target: darwin-x64
           - os: macos-latest
-            target_arch: arm64
             goos: darwin
             goarch: arm64
             binary_suffix: darwin-arm64
+            vsce_target: darwin-arm64
 
     steps:
       - name: Checkout code
@@ -120,7 +101,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -145,51 +126,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      # Windows 安装 Make 以统一构建方式
+      - name: Install Make (Windows)
+        if: runner.os == 'Windows'
+        run: choco install make -y
+
       - name: Install dependencies
         working-directory: co-extension
         run: npm ci
 
-      - name: Build extension (Unix-like)
-        if: runner.os != 'Windows'
-        working-directory: co-extension
-        run: make build
+      # 统一使用 Makefile 构建前端
+      - name: Build extension
+        run: make build-frontend
 
-      - name: Build extension (Windows)
-        if: runner.os == 'Windows'
-        working-directory: co-extension
-        shell: pwsh
-        run: |
-          # Ensure dist directory exists
-          if (-not (Test-Path "dist")) {
-            New-Item -ItemType Directory -Path "dist" -Force | Out-Null
-          }
-          if (-not (Test-Path "dist/webview")) {
-            New-Item -ItemType Directory -Path "dist/webview" -Force | Out-Null
-          }
-
-          # Build extension
-          npx esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/extension.js --external:vscode --sourcemap
-
-          # Build webview
-          npx esbuild src/webview/index.tsx --bundle --platform=browser --target=es2020 --format=iife --outfile=dist/webview/index.js --jsx=automatic --sourcemap --define:process.env.NODE_ENV='"production"' --global-name=cocursor
-
-          Copy-Item "src/webview/index.css" "dist/webview/index.css" -Force -ErrorAction SilentlyContinue
-
-      - name: Generate Wire code (Unix-like)
-        if: runner.os != 'Windows'
-        working-directory: backend
+      # 统一使用 Makefile 生成 Wire 代码
+      - name: Generate Wire code
         run: make wire
-
-      - name: Generate Wire code (Windows)
-        if: runner.os == 'Windows'
-        working-directory: backend
-        run: |
-          cd internal/wire && go run github.com/google/wire/cmd/wire
 
       - name: Create bin directory
         run: mkdir -p co-extension/bin
         shell: bash
 
+      # 构建后端 daemon
       - name: Build backend daemon (Unix-like)
         if: runner.os != 'Windows'
         working-directory: backend
@@ -212,23 +170,9 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
-      - name: Get vsce target
-        id: vsce-target
-        shell: bash
-        run: |
-          if [ "${{ matrix.goos }}" = "linux" ]; then
-            echo "target=linux-x64" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.goos }}" = "windows" ]; then
-            echo "target=win32-x64" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.goarch }}" = "arm64" ]; then
-            echo "target=darwin-arm64" >> $GITHUB_OUTPUT
-          else
-            echo "target=darwin-x64" >> $GITHUB_OUTPUT
-          fi
-
       - name: Verify package
         working-directory: co-extension
-        run: vsce package --out test.vsix --target ${{ steps.vsce-target.outputs.target }}
+        run: vsce package --out test.vsix --target ${{ matrix.vsce_target }}
 
       - name: Verify package contents (Unix-like)
         if: runner.os != 'Windows'
@@ -247,3 +191,69 @@ jobs:
         working-directory: co-extension
         run: rm -f test.vsix
         shell: bash
+
+  # ============================================================================
+  # 阶段3: 上传构建产物（仅 Linux 构建）
+  # ============================================================================
+  upload-artifacts:
+    name: Upload Build Artifacts
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: co-extension/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('co-extension/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        working-directory: co-extension
+        run: npm ci
+
+      # 使用 Makefile 构建
+      - name: Build extension
+        run: make ci-build
+
+      - name: Build backend daemon (Linux)
+        working-directory: backend
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o ../co-extension/bin/cocursor-linux-amd64 ./cmd/server
+          chmod +x ../co-extension/bin/cocursor-linux-amd64
+
+      - name: Verify binary
+        run: ls -lh co-extension/bin/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            co-extension/dist
+            co-extension/bin
+          retention-days: 7

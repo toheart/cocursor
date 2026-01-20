@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { apiService, SessionHealth, DailySummary, getVscodeApi } from "../services/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 /**
  * 工作分析数据接口
@@ -139,20 +140,48 @@ export const WorkAnalysis: React.FC = () => {
   const [loadingReport, setLoadingReport] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // 加载健康状态
+  // 加载健康状态（页面可见时才轮询）
   useEffect(() => {
     isMountedRef.current = true;
     loadSessionHealth();
     
-    // 定时刷新健康状态（每 30 秒）
-    healthIntervalRef.current = setInterval(() => {
-      if (isMountedRef.current) {
-        loadSessionHealth();
+    // 监听页面可见性，只在可见时轮询
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // 页面隐藏，停止轮询
+        if (healthIntervalRef.current) {
+          clearInterval(healthIntervalRef.current);
+          healthIntervalRef.current = null;
+        }
+      } else {
+        // 页面可见，恢复轮询并立即刷新
+        if (isMountedRef.current) {
+          loadSessionHealth();
+        }
+        if (!healthIntervalRef.current) {
+          healthIntervalRef.current = setInterval(() => {
+            if (isMountedRef.current) {
+              loadSessionHealth();
+            }
+          }, 30000);
+        }
       }
-    }, 30000);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // 初始状态：如果页面可见，启动轮询
+    if (!document.hidden) {
+      healthIntervalRef.current = setInterval(() => {
+        if (isMountedRef.current) {
+          loadSessionHealth();
+        }
+      }, 30000);
+    }
     
     return () => {
       isMountedRef.current = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (healthIntervalRef.current) {
         clearInterval(healthIntervalRef.current);
         healthIntervalRef.current = null;
@@ -714,61 +743,90 @@ export const WorkAnalysis: React.FC = () => {
           onClick={handleCloseModal}
         >
           <div
-            className="cocursor-modal"
-            style={{
-              backgroundColor: "var(--vscode-editor-background)",
-              borderRadius: "8px",
-              padding: "24px",
-              maxWidth: "600px",
-              width: "90%",
-              maxHeight: "80vh",
-              overflow: "auto",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
-            }}
+            className="cocursor-modal cocursor-work-daily-report-modal"
             onClick={(e) => e.stopPropagation()}
           >
             {reportModalType === "view" ? (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h2 style={{ margin: 0 }}>{selectedDate} {t("workAnalysis.dailyReport.viewTitle")}</h2>
-                  <button
-                    onClick={handleCloseModal}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--vscode-foreground)",
-                      cursor: "pointer",
-                      fontSize: "18px"
-                    }}
-                  >
-                    ✕
-                  </button>
+                <div className="cocursor-work-daily-report-header">
+                  <div className="cocursor-work-daily-report-title">
+                    <span className="cocursor-work-daily-report-icon">📊</span>
+                    <div>
+                      <h2>{selectedDate}</h2>
+                      <span className="cocursor-work-daily-report-subtitle">{t("workAnalysis.dailyReport.viewTitle")}</span>
+                    </div>
+                  </div>
+                  <button className="cocursor-modal-close-btn" onClick={handleCloseModal}>×</button>
                 </div>
                 {loadingReport ? (
-                  <div style={{ textAlign: "center", padding: "20px" }}>
-                    {t("workAnalysis.loading")}
+                  <div className="cocursor-work-daily-report-loading">
+                    <div className="cocursor-loading-spinner"></div>
+                    <span>{t("workAnalysis.loading")}</span>
                   </div>
                 ) : dailySummary ? (
-                  <div className="cocursor-markdown-content" style={{ lineHeight: "1.6" }}>
-                    <ReactMarkdown>{dailySummary.summary}</ReactMarkdown>
-                  </div>
+                  <>
+                    {/* 统计信息 */}
+                    <div className="cocursor-work-daily-report-stats">
+                      <div className="cocursor-work-daily-report-stat">
+                        <span className="cocursor-work-daily-report-stat-icon">💬</span>
+                        <span className="cocursor-work-daily-report-stat-value">{dailySummary.total_sessions}</span>
+                        <span className="cocursor-work-daily-report-stat-label">{t("team.sessions")}</span>
+                      </div>
+                      <div className="cocursor-work-daily-report-stat">
+                        <span className="cocursor-work-daily-report-stat-icon">📁</span>
+                        <span className="cocursor-work-daily-report-stat-value">{dailySummary.projects?.length || 0}</span>
+                        <span className="cocursor-work-daily-report-stat-label">{t("team.projects")}</span>
+                      </div>
+                    </div>
+                    {/* Markdown 内容 */}
+                    <div className="cocursor-daily-report-markdown-container">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({ children }) => <h1 className="cocursor-md-h1">{children}</h1>,
+                          h2: ({ children }) => <h2 className="cocursor-md-h2">{children}</h2>,
+                          h3: ({ children }) => <h3 className="cocursor-md-h3">{children}</h3>,
+                          h4: ({ children }) => <h4 className="cocursor-md-h4">{children}</h4>,
+                          p: ({ children }) => <p className="cocursor-md-p">{children}</p>,
+                          ul: ({ children }) => <ul className="cocursor-md-ul">{children}</ul>,
+                          ol: ({ children }) => <ol className="cocursor-md-ol">{children}</ol>,
+                          li: ({ children }) => <li className="cocursor-md-li">{children}</li>,
+                          code: ({ className, children, ...props }) => {
+                            const isInline = !className;
+                            return isInline ? (
+                              <code className="cocursor-md-code-inline" {...props}>{children}</code>
+                            ) : (
+                              <code className={`cocursor-md-code-block ${className || ""}`} {...props}>{children}</code>
+                            );
+                          },
+                          pre: ({ children }) => <pre className="cocursor-md-pre">{children}</pre>,
+                          blockquote: ({ children }) => <blockquote className="cocursor-md-blockquote">{children}</blockquote>,
+                          a: ({ href, children }) => (
+                            <a href={href} className="cocursor-md-link" target="_blank" rel="noopener noreferrer">{children}</a>
+                          ),
+                          strong: ({ children }) => <strong className="cocursor-md-strong">{children}</strong>,
+                          em: ({ children }) => <em className="cocursor-md-em">{children}</em>,
+                          hr: () => <hr className="cocursor-md-hr" />,
+                          table: ({ children }) => <table className="cocursor-md-table">{children}</table>,
+                          thead: ({ children }) => <thead className="cocursor-md-thead">{children}</thead>,
+                          tbody: ({ children }) => <tbody className="cocursor-md-tbody">{children}</tbody>,
+                          tr: ({ children }) => <tr className="cocursor-md-tr">{children}</tr>,
+                          th: ({ children }) => <th className="cocursor-md-th">{children}</th>,
+                          td: ({ children }) => <td className="cocursor-md-td">{children}</td>,
+                        }}
+                      >
+                        {dailySummary.summary}
+                      </ReactMarkdown>
+                    </div>
+                  </>
                 ) : (
-                  <div style={{ textAlign: "center", padding: "20px", color: "var(--vscode-descriptionForeground)" }}>
-                    {t("workAnalysis.dailyReport.notAvailable")}
+                  <div className="cocursor-work-daily-report-empty">
+                    <span className="cocursor-empty-icon">📝</span>
+                    <span>{t("workAnalysis.dailyReport.notAvailable")}</span>
                   </div>
                 )}
-                <div style={{ marginTop: "16px", textAlign: "right" }}>
-                  <button
-                    onClick={handleCloseModal}
-                    style={{
-                      background: "var(--vscode-button-background)",
-                      color: "var(--vscode-button-foreground)",
-                      border: "none",
-                      padding: "8px 16px",
-                      borderRadius: "4px",
-                      cursor: "pointer"
-                    }}
-                  >
+                <div className="cocursor-work-daily-report-footer">
+                  <button className="cocursor-btn primary" onClick={handleCloseModal}>
                     {t("workAnalysis.dailyReport.close")}
                   </button>
                 </div>

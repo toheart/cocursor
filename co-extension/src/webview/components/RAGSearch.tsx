@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { apiService } from "../services/api";
 import { getVscodeApi } from "../services/api";
-import { useApi, useDebounce, useToast } from "../hooks";
+import { useApi, useToast } from "../hooks";
 import { ToastContainer } from "./shared";
 import type { ChunkSearchResult } from "../types";
 
@@ -48,7 +48,12 @@ function isChunkResult(result: SearchResult): result is ChunkSearchResult {
   return 'chunk_id' in result;
 }
 
-const DEBOUNCE_DELAY = 500;
+// 项目信息接口
+interface IndexedProject {
+  project_id: string;
+  project_name: string;
+  chunk_count: number;
+}
 
 export const RAGSearch: React.FC = () => {
   const { t } = useTranslation();
@@ -58,18 +63,52 @@ export const RAGSearch: React.FC = () => {
   const [query, setQuery] = useState("");
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
-  const debouncedQuery = useDebounce(query, DEBOUNCE_DELAY);
+  const [availableProjects, setAvailableProjects] = useState<IndexedProject[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+
+  // 加载已索引的项目列表
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        setLoadingProjects(true);
+        const response = await apiService.getIndexedProjects();
+        if (response.projects) {
+          setAvailableProjects(response.projects);
+        }
+      } catch (error) {
+        console.error("Failed to load indexed projects:", error);
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+    loadProjects();
+  }, []);
+
+  // 处理项目选择变化
+  const handleProjectToggle = useCallback((projectId: string) => {
+    setSelectedProjects(prev => {
+      if (prev.includes(projectId)) {
+        return prev.filter(id => id !== projectId);
+      }
+      return [...prev, projectId];
+    });
+  }, []);
+
+  // 清除所有项目过滤
+  const handleClearProjectFilter = useCallback(() => {
+    setSelectedProjects([]);
+  }, []);
 
   // 搜索（优先使用新的 chunks 接口）
   const performSearch = useCallback(async () => {
-    if (!debouncedQuery.trim()) {
+    if (!query.trim()) {
       return { results: [], count: 0 };
     }
 
     try {
       // 优先尝试新的 chunks 接口
       const response = await apiService.searchChunks(
-        debouncedQuery,
+        query,
         selectedProjects.length > 0 ? selectedProjects : undefined,
         20
       ) as { results?: ChunkSearchResult[]; count?: number; error?: string };
@@ -88,13 +127,13 @@ export const RAGSearch: React.FC = () => {
       console.warn("Chunks search error, falling back to legacy:", error);
       return performLegacySearch();
     }
-  }, [debouncedQuery, selectedProjects]);
+  }, [query, selectedProjects]);
 
   // 旧的搜索接口（兼容）
   const performLegacySearch = useCallback(async () => {
     try {
       const response = await apiService.searchRAG(
-        debouncedQuery,
+        query,
         selectedProjects.length > 0 ? selectedProjects : undefined,
         20
       ) as { results?: LegacySearchResult[]; count?: number; error?: string };
@@ -116,7 +155,7 @@ export const RAGSearch: React.FC = () => {
       console.error("RAG search failed:", error);
       throw error;
     }
-  }, [debouncedQuery, selectedProjects, t]);
+  }, [query, selectedProjects, t]);
 
   const {
     data: searchResponse,
@@ -127,14 +166,7 @@ export const RAGSearch: React.FC = () => {
 
   const results = searchResponse?.results || [];
 
-  // 触发搜索（当 debouncedQuery 变化时自动搜索）
-  useEffect(() => {
-    if (debouncedQuery.trim()) {
-      search();
-    }
-  }, [debouncedQuery]);
-
-  // 手动触发搜索
+  // 手动触发搜索（点击按钮或按回车）
   const handleSearch = useCallback(() => {
     if (!query.trim()) {
       showToast(t("rag.search.queryRequired"), "error");
@@ -222,6 +254,57 @@ export const RAGSearch: React.FC = () => {
         >
           {loading ? t("common.loading") : t("common.search")}
         </button>
+      </div>
+
+      {/* 项目过滤器 */}
+      <div className="cocursor-rag-project-filter">
+        <div className="cocursor-rag-project-filter-header">
+          <span className="cocursor-rag-project-filter-label">
+            {t("rag.search.filterByProject")}:
+          </span>
+          {selectedProjects.length > 0 && (
+            <button
+              className="cocursor-rag-project-filter-clear"
+              onClick={handleClearProjectFilter}
+            >
+              {t("rag.search.clearFilter")}
+            </button>
+          )}
+        </div>
+        <div className="cocursor-rag-project-filter-list">
+          {loadingProjects ? (
+            <span className="cocursor-rag-project-filter-loading">
+              {t("common.loading")}...
+            </span>
+          ) : availableProjects.length === 0 ? (
+            <span className="cocursor-rag-project-filter-empty">
+              {t("rag.search.noProjectsIndexed")}
+            </span>
+          ) : (
+            availableProjects.map((project) => (
+              <button
+                key={project.project_id}
+                className={`cocursor-rag-project-filter-item ${
+                  selectedProjects.includes(project.project_id) ? "selected" : ""
+                }`}
+                onClick={() => handleProjectToggle(project.project_id)}
+                title={`${project.project_name} (${project.chunk_count} ${t("rag.search.chunks")})`}
+              >
+                <span className="cocursor-rag-project-filter-name">
+                  {project.project_name.replace(/^Users-[^-]+-code-/, "")}
+                </span>
+                <span className="cocursor-rag-project-filter-count">
+                  {project.chunk_count}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        {selectedProjects.length > 0 && (
+          <div className="cocursor-rag-project-filter-selected">
+            {t("rag.search.selectedProjects")}: {selectedProjects.length}
+          </div>
+        )}
       </div>
 
       {/* 错误提示 */}

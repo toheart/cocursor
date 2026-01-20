@@ -24,18 +24,47 @@
   --vscode-terminal-ansiGreen: #89d185;
   --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --vscode-list-hoverBackground: #2a2d2e;
-  --vscode-list-activeSelectionBackground: #094771;
-  --vscode-list-activeSelectionBorder: #f38518;
-  --vscode-badge-background: #4d4d4d;
-  --vscode-badge-foreground: #ffffff;
-  --vscode-dropdown-background: #3c3c3c;
-  --vscode-dropdown-foreground: #f0f0f0;
-  --vscode-dropdown-border: #454545;
   --vscode-progressBar-background: #3c3c3c;
-  --vscode-inputValidation-errorBackground: #5a1d1d;
 }
 
-/* RAG 搜索容器 */
+/* ========== 动画定义 ========== */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes cocursor-rag-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== RAG 搜索 ========== */
+
 .cocursor-rag-search {
   padding: 16px 20px;
   max-width: 1200px;
@@ -58,7 +87,6 @@
   color: var(--vscode-foreground);
 }
 
-/* RAG 搜索框 */
 .cocursor-rag-search-box {
   margin-bottom: 16px;
   display: flex;
@@ -76,7 +104,6 @@
   border-radius: 4px;
   transition: all 0.2s ease;
   outline: none;
-  font-family: inherit;
 }
 
 .cocursor-rag-search-input::placeholder {
@@ -109,7 +136,110 @@
   cursor: not-allowed;
 }
 
-/* RAG 搜索结果 */
+/* ========== 项目过滤器 ========== */
+
+.cocursor-rag-project-filter {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-rag-project-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-project-filter-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+}
+
+.cocursor-rag-project-filter-clear {
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.cocursor-rag-project-filter-clear:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-rag-project-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cocursor-rag-project-filter-loading,
+.cocursor-rag-project-filter-empty {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.cocursor-rag-project-filter-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-project-filter-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-rag-project-filter-item.selected {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+.cocursor-rag-project-filter-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cocursor-rag-project-filter-count {
+  font-size: 10px;
+  padding: 1px 5px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.cocursor-rag-project-filter-item.selected .cocursor-rag-project-filter-count {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.cocursor-rag-project-filter-selected {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ========== RAG 搜索结果 ========== */
+
 .cocursor-rag-results {
   margin-top: 16px;
 }
@@ -165,10 +295,6 @@
   color: var(--vscode-textLink-foreground);
   font-size: 14px;
   flex-shrink: 0;
-}
-
-.cocursor-rag-result-item:hover .cocursor-rag-result-project {
-  color: var(--vscode-textLink-foreground);
 }
 
 .cocursor-rag-result-meta {
@@ -243,268 +369,6 @@
   padding: 8px 0;
 }
 
-.cocursor-rag-result-expanded-list {
-  font-size: 12px;
-  margin-bottom: 4px;
-  color: var(--vscode-foreground);
-  padding: 4px 0;
-}
-
-/* RAG 配置容器 */
-.cocursor-rag-config {
-  padding: 20px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.cocursor-rag-config-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-rag-config-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-config-section {
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-config-section-title {
-  margin-bottom: 12px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.cocursor-rag-config-field {
-  margin-bottom: 12px;
-}
-
-.cocursor-rag-config-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-config-input {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  border: 1px solid var(--vscode-input-border);
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.cocursor-rag-config-input:focus {
-  border-color: var(--vscode-focusBorder);
-}
-
-.cocursor-rag-config-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-config-checkbox input {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.cocursor-rag-config-checkbox label {
-  font-size: 14px;
-  color: var(--vscode-foreground);
-  cursor: pointer;
-}
-
-.cocursor-rag-config-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.cocursor-rag-config-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-config-button-primary {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-config-button-primary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-config-button-secondary {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-}
-
-.cocursor-rag-config-button-secondary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-config-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* RAG 统计信息 */
-.cocursor-rag-stats {
-  margin-top: 16px;
-  padding: 12px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-}
-
-.cocursor-rag-stats-title {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.cocursor-rag-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.cocursor-rag-stats-item {
-  padding: 10px;
-  background-color: var(--vscode-sideBar-background);
-  border-radius: 4px;
-  border: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-rag-stats-label {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  margin-bottom: 4px;
-}
-
-.cocursor-rag-stats-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-}
-
-/* 空状态 */
-.cocursor-rag-empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 13px;
-  background-color: var(--vscode-sideBar-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-}
-
-.cocursor-rag-empty::before {
-  content: "🔍";
-  display: block;
-  font-size: 32px;
-  margin-bottom: 12px;
-  opacity: 0.5;
-}
-
-/* 通用按钮样式 */
-.cocursor-rag-config-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cocursor-rag-config-button.primary {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-config-button.primary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  transform: translateY(-1px);
-}
-
-.cocursor-rag-config-button.primary:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.cocursor-rag-config-button.secondary {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-}
-
-.cocursor-rag-config-button.secondary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-  border-color: var(--vscode-button-hoverBackground);
-  transform: translateY(-1px);
-}
-
-.cocursor-rag-config-button.secondary:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.cocursor-rag-config-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* 错误提示样式 */
-.cocursor-error {
-  padding: 12px 16px;
-  background-color: rgba(244, 135, 113, 0.1);
-  border: 1px solid var(--vscode-errorForeground);
-  border-radius: 6px;
-  color: var(--vscode-errorForeground);
-  font-size: 14px;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cocursor-error::before {
-  content: "⚠️";
-  font-size: 16px;
-}
-
-/* RAG 搜索结果摘要样式 */
-.cocursor-rag-result-summary {
-  margin-bottom: 12px;
-}
-
 .cocursor-rag-result-summary-topic {
   font-weight: 600;
   margin-bottom: 4px;
@@ -517,22 +381,6 @@
   margin-bottom: 8px;
   color: var(--vscode-foreground);
   line-height: 1.5;
-}
-
-.cocursor-rag-result-key-points {
-  font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-  margin-bottom: 8px;
-}
-
-.cocursor-rag-result-key-points ul {
-  margin: 4px 0 0 20px;
-  padding: 0;
-}
-
-.cocursor-rag-result-key-points li {
-  margin-bottom: 4px;
-  line-height: 1.4;
 }
 
 .cocursor-rag-result-tags {
@@ -550,14 +398,7 @@
   border: 1px solid rgba(55, 148, 255, 0.2);
 }
 
-.cocursor-rag-result-message {
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: var(--vscode-foreground);
-  line-height: 1.5;
-}
-
-/* 新增：增强状态和代码标记 */
+/* 增强状态和代码标记 */
 .cocursor-rag-enriched-badge,
 .cocursor-rag-code-badge {
   margin-left: 6px;
@@ -577,7 +418,7 @@
   color: var(--vscode-textPreformat-foreground, #9c27b0);
 }
 
-/* 工具标签 */
+/* 工具和文件标签 */
 .cocursor-rag-result-tools,
 .cocursor-rag-result-files {
   margin-top: 8px;
@@ -602,7 +443,6 @@
   border-radius: 4px;
   font-size: 11px;
   color: var(--vscode-charts-orange, #ff9800);
-  font-family: var(--vscode-editor-font-family);
 }
 
 .cocursor-rag-file-tag {
@@ -610,1126 +450,601 @@
   color: var(--vscode-textLink-foreground, #2196f3);
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .cocursor-rag-search-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .cocursor-rag-search-box {
-    flex-direction: column;
-  }
-
-  .cocursor-rag-config-actions {
-    flex-direction: column;
-  }
-
-  .cocursor-rag-stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ========== RAG 向导模式样式 ========== */
-
-.cocursor-rag-wizard-progress {
-  margin-bottom: 24px;
-}
-
-.cocursor-rag-steps-indicator {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.cocursor-rag-step-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
+/* 空状态 */
+.cocursor-rag-empty {
+  text-align: center;
+  padding: 40px 20px;
   color: var(--vscode-descriptionForeground);
-}
-
-.cocursor-rag-step-indicator.completed {
-  color: var(--vscode-terminal-ansiGreen);
-}
-
-.cocursor-rag-step-indicator.current {
-  color: var(--vscode-textLink-foreground);
-  font-weight: 600;
-}
-
-.cocursor-rag-step-indicator.pending {
-  color: var(--vscode-disabledForeground);
-}
-
-.cocursor-rag-progress-bar {
-  width: 100%;
-  height: 3px;
-  background-color: var(--vscode-sideBar-background);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-progress-fill {
-  height: 100%;
-  background-color: var(--vscode-textLink-foreground);
-  transition: width 0.3s ease-in-out;
-}
-
-/* 步骤样式 */
-.cocursor-rag-step-1,
-.cocursor-rag-step-2,
-.cocursor-rag-step-3,
-.cocursor-rag-step-4 {
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.cocursor-rag-step-header {
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-step-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 6px 0;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-step-description {
   font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-  margin: 0;
-}
-
-/* 模板选择器 */
-.cocursor-rag-template-selector {
-  margin-bottom: 24px;
-}
-
-.cocursor-rag-template-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-template-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.cocursor-rag-template-button {
-  padding: 8px 16px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-template-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-template-button.active {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border-color: var(--vscode-button-background);
-}
-
-/* 密码输入框 */
-.cocursor-rag-password-input {
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-password-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-password-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.cocursor-rag-password-field {
-  flex: 1;
-  padding-right: 100px;
-}
-
-.cocursor-rag-password-actions {
-  position: absolute;
-  right: 8px;
-  display: flex;
-  gap: 4px;
-}
-
-.cocursor-rag-password-action {
-  background: transparent;
-  border: none;
-  color: var(--vscode-descriptionForeground);
-  cursor: pointer;
-  padding: 4px;
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-password-action:hover {
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-password-error {
-  font-size: 12px;
-  color: var(--vscode-errorForeground);
-  margin-top: 4px;
-}
-
-/* 表单字段 */
-.cocursor-rag-form {
-  margin-bottom: 24px;
-}
-
-.cocursor-rag-form-field {
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-form-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-form-input {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 14px;
-  border: 1px solid var(--vscode-input-border);
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.cocursor-rag-form-input:focus {
-  border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
-}
-
-.cocursor-rag-form-input.error {
-  border-color: var(--vscode-errorForeground);
-}
-
-.cocursor-rag-form-error {
-  font-size: 12px;
-  color: var(--vscode-errorForeground);
-  margin-top: 4px;
-}
-
-/* 测试连接 */
-.cocursor-rag-test-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.cocursor-rag-test-button {
-  align-self: flex-start;
-  padding: 10px 20px;
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-test-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-test-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cocursor-rag-test-result {
-  padding: 12px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cocursor-rag-test-result.success {
-  background-color: rgba(16, 124, 16, 0.1);
-  color: var(--vscode-terminal-ansiGreen);
-  border: 1px solid var(--vscode-terminal-ansiGreen);
-}
-
-.cocursor-rag-test-result.error {
-  background-color: rgba(209, 52, 56, 0.1);
-  color: var(--vscode-errorForeground);
-  border: 1px solid var(--vscode-errorForeground);
-}
-
-/* 向导导航 */
-.cocursor-rag-wizard-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-rag-wizard-nav {
-  display: flex;
-  gap: 8px;
-}
-
-.cocursor-rag-wizard-nav-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-wizard-nav-button.secondary {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-}
-
-.cocursor-rag-wizard-nav-button.primary {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-wizard-nav-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-wizard-nav-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 快速编辑模式 */
-.cocursor-rag-quick-edit {
-  padding: 16px;
-}
-
-.cocursor-rag-quick-edit-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-quick-edit-card {
-  padding: 12px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-quick-edit-card:hover {
-  border-color: var(--vscode-focusBorder);
-  background-color: var(--vscode-list-hoverBackground);
-}
-
-.cocursor-rag-quick-edit-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.cocursor-rag-quick-edit-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cocursor-rag-quick-edit-card-status {
-  padding: 3px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.cocursor-rag-quick-edit-card-status.running {
-  background-color: rgba(0, 122, 204, 0.1);
-  color: var(--vscode-textLink-foreground);
-}
-
-.cocursor-rag-quick-edit-card-status.success {
-  background-color: rgba(16, 124, 16, 0.1);
-  color: var(--vscode-terminal-ansiGreen);
-}
-
-.cocursor-rag-quick-edit-card-status.error {
-  background-color: rgba(209, 52, 56, 0.1);
-  color: var(--vscode-errorForeground);
-}
-
-.cocursor-rag-quick-edit-card-content {
-  font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-  line-height: 1.5;
-}
-
-.cocursor-rag-quick-edit-card-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.cocursor-rag-quick-edit-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-rag-quick-edit-card-item {
-  margin-bottom: 6px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.cocursor-rag-quick-edit-card-item strong {
-  margin-right: 6px;
-}
-
-.cocursor-rag-quick-edit-action-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-quick-edit-action-button.primary {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-quick-edit-action-button.primary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-quick-edit-action-button.secondary {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-}
-
-.cocursor-rag-quick-edit-action-button.secondary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-quick-edit-action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cocursor-rag-quick-edit-switch {
-  padding: 6px 12px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-quick-edit-switch:hover {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-quick-edit-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-quick-edit-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.cocursor-rag-config-mode-switch {
-  padding: 6px 12px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-config-mode-switch:hover {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-config-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-config-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.cocursor-rag-config-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-rag-config-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-config-button.primary {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-config-button.primary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-config-button.secondary {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-}
-
-.cocursor-rag-config-button.secondary:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-config-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cocursor-rag-quick-edit-card-action {
-  padding: 4px 10px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-quick-edit-card-action:hover {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-/* Qdrant 状态卡片样式 */
-.cocursor-rag-qdrant-status-card {
-  padding: 12px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  margin-bottom: 12px;
-}
-
-.cocursor-rag-qdrant-status-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.cocursor-rag-qdrant-status-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cocursor-rag-qdrant-status-icon {
-  font-size: 20px;
-}
-
-.cocursor-rag-qdrant-status-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-}
-
-.cocursor-rag-qdrant-version {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  margin-top: 4px;
-}
-
-.cocursor-rag-qdrant-detail {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  margin-top: 6px;
-}
-
-.cocursor-rag-qdrant-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.cocursor-rag-qdrant-action-button {
-  padding: 4px 10px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-qdrant-action-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-qdrant-download-button {
-  padding: 8px 16px;
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  margin-bottom: 12px;
-}
-
-.cocursor-rag-qdrant-download-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-qdrant-download-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cocursor-rag-qdrant-help {
-  padding: 12px;
   background-color: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 4px;
-  margin-top: 12px;
 }
 
-.cocursor-rag-qdrant-help-item {
-  margin-bottom: 6px;
-}
-
-.cocursor-rag-qdrant-help-list {
-  margin: 6px 0 0 16px;
-  padding: 0;
-  list-style-type: disc;
-}
-
-.cocursor-rag-qdrant-help-list li {
-  margin-bottom: 3px;
-  font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-}
-
-/* 扫描配置样式 */
-.cocursor-rag-scan-form {
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-recommended-button {
-  padding: 8px 16px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-border);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+.cocursor-rag-empty::before {
+  content: "🔍";
+  display: block;
+  font-size: 32px;
   margin-bottom: 12px;
-}
-
-.cocursor-rag-recommended-button:hover {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--vscode-foreground);
-  cursor: pointer;
-}
-
-.cocursor-rag-form-helper {
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
-  margin-top: 3px;
-}
-
-.cocursor-rag-form-select {
-  width: 100%;
-  padding: 6px 8px;
-  font-size: 13px;
-  border: 1px solid var(--vscode-input-border);
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.cocursor-rag-form-select:focus {
-  border-color: var(--vscode-focusBorder);
-}
-
-.cocursor-rag-slider {
-  width: 100%;
-  margin: 6px 0;
-}
-
-.cocursor-rag-advanced-section {
-  margin-top: 16px;
-}
-
-.cocursor-rag-advanced-toggle {
-  padding: 6px 10px;
-  background-color: transparent;
-  border: 1px solid var(--vscode-button-border);
-  color: var(--vscode-foreground);
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s ease;
-  margin-bottom: 8px;
-}
-
-.cocursor-rag-advanced-toggle:hover {
-  background-color: var(--vscode-button-secondaryBackground);
-}
-
-.cocursor-rag-advanced-content {
-  padding: 12px;
-  background-color: var(--vscode-sideBar-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* 配置摘要样式 */
-.cocursor-rag-summary {
-  margin-bottom: 16px;
-}
-
-.cocursor-rag-summary-section {
-  padding: 12px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  margin-bottom: 12px;
-}
-
-.cocursor-rag-summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.cocursor-rag-summary-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-  margin: 0;
-}
-
-.cocursor-rag-summary-badge {
-  padding: 3px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.cocursor-rag-summary-badge.status-running {
-  background-color: rgba(0, 122, 204, 0.1);
-  color: var(--vscode-textLink-foreground);
-}
-
-.cocursor-rag-summary-badge.status-installed {
-  background-color: rgba(16, 124, 16, 0.1);
-  color: var(--vscode-terminal-ansiGreen);
-}
-
-.cocursor-rag-summary-content {
-  font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-}
-
-.cocursor-rag-summary-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.cocursor-rag-summary-item strong {
-  margin-right: 6px;
-}
-
-.cocursor-rag-summary-warning {
-  padding: 10px 12px;
-  background-color: rgba(209, 52, 56, 0.1);
-  border: 1px solid var(--vscode-errorForeground);
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  color: var(--vscode-errorForeground);
-}
-
-.cocursor-rag-warning-icon {
-  font-size: 14px;
-}
-
-.cocursor-rag-summary-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
-.cocursor-rag-save-button {
-  padding: 8px 16px;
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.cocursor-rag-save-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-}
-
-.cocursor-rag-save-button:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
 }
 
-.cocursor-rag-save-button-primary {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+/* ========================================== */
+/* ========== 新版卡片式布局样式 ========== */
+/* ========================================== */
+
+/* 主容器 */
+.rag-config {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
-/* ========== 新增样式：下载进度和状态 ========== */
-
-/* Qdrant 下载区域 */
-.cocursor-rag-qdrant-download-section {
-  margin-top: 16px;
-}
-
-.cocursor-rag-qdrant-download-progress {
+/* 加载状态 */
+.rag-loading {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  background-color: rgba(0, 122, 204, 0.1);
-  border: 1px solid var(--vscode-focusBorder);
-  border-radius: 4px;
-  font-size: 13px;
-  color: var(--vscode-textLink-foreground);
-}
-
-.cocursor-rag-qdrant-download-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  background-color: rgba(209, 52, 56, 0.1);
-  border: 1px solid var(--vscode-errorForeground);
-  border-radius: 4px;
-  font-size: 13px;
-  color: var(--vscode-errorForeground);
-}
-
-.cocursor-rag-retry-button {
-  padding: 4px 12px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.cocursor-rag-retry-button:hover {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-.cocursor-rag-qdrant-version-info {
-  margin-top: 8px;
-  font-size: 12px;
+  padding: 40px;
   color: var(--vscode-descriptionForeground);
 }
 
-.cocursor-rag-refresh-status-button {
-  margin-top: 12px;
-  padding: 6px 12px;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.cocursor-rag-refresh-status-button:hover {
-  background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
-}
-
-/* 加载动画 */
-.cocursor-rag-spinner {
+.rag-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--vscode-focusBorder);
-  border-top-color: transparent;
+  border: 2px solid var(--vscode-panel-border);
+  border-top-color: var(--vscode-focusBorder);
   border-radius: 50%;
   animation: cocursor-rag-spin 0.8s linear infinite;
 }
 
-@keyframes cocursor-rag-spin {
-  to {
-    transform: rotate(360deg);
-  }
+/* 头部 */
+.rag-header {
+  margin-bottom: 20px;
 }
 
-/* ========== 配置预览样式 ========== */
-.cocursor-rag-config-preview {
-  margin-top: 16px;
-  padding: 12px;
-  background-color: var(--vscode-sideBar-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-}
-
-.cocursor-rag-config-preview h4 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
+.rag-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 18px;
   font-weight: 600;
   color: var(--vscode-foreground);
 }
 
-.cocursor-rag-config-preview ul {
-  margin: 0;
-  padding-left: 20px;
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-}
-
-.cocursor-rag-config-preview li {
-  margin-bottom: 4px;
-}
-
-/* ========== 配置检查列表样式 ========== */
-.cocursor-rag-config-checks {
-  margin-bottom: 16px;
-  padding: 12px;
-  background-color: var(--vscode-sideBar-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-}
-
-.cocursor-rag-config-checks h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
+.rag-beta-badge {
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: #fff;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--vscode-foreground);
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.cocursor-rag-check-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* 状态栏 */
+.rag-status-bar {
+  display: flex;
+  gap: 20px;
+  padding: 12px 16px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 
-.cocursor-rag-check-item {
+.rag-status-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--vscode-panel-border);
   font-size: 13px;
+  color: var(--vscode-foreground);
 }
 
-.cocursor-rag-check-item:last-child {
-  border-bottom: none;
-}
-
-.cocursor-rag-check-icon {
-  font-size: 14px;
+.rag-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
-.cocursor-rag-check-label {
-  font-weight: 500;
-  color: var(--vscode-foreground);
-  min-width: 120px;
+/* 卡片区域 */
+.rag-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.cocursor-rag-check-message {
-  color: var(--vscode-descriptionForeground);
-  flex: 1;
+/* 通用卡片样式 */
+.rag-card {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
 }
 
-.cocursor-rag-check-item.ok .cocursor-rag-check-message {
-  color: var(--vscode-terminal-ansiGreen);
+.rag-card:hover {
+  border-color: var(--vscode-focusBorder);
 }
 
-.cocursor-rag-check-item.warning .cocursor-rag-check-message {
-  color: #f9a825;
+.rag-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
-.cocursor-rag-check-item.error .cocursor-rag-check-message {
-  color: var(--vscode-errorForeground);
-}
-
-/* ========== 错误和信息提示样式 ========== */
-.cocursor-rag-summary-error {
-  padding: 10px 12px;
-  background-color: rgba(209, 52, 56, 0.15);
-  border: 1px solid var(--vscode-errorForeground);
-  border-radius: 3px;
+.rag-card-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  color: var(--vscode-errorForeground);
-}
-
-.cocursor-rag-error-icon {
+  gap: 10px;
   font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
 }
 
-.cocursor-rag-summary-info {
-  margin-top: 16px;
-  padding: 12px;
-  background-color: rgba(0, 122, 204, 0.1);
-  border: 1px solid var(--vscode-focusBorder);
+.rag-card-version {
+  padding: 2px 8px;
+  background: var(--vscode-badge-background, rgba(255,255,255,0.1));
+  color: var(--vscode-badge-foreground, var(--vscode-descriptionForeground));
+  font-size: 11px;
+  font-weight: 500;
   border-radius: 4px;
 }
 
-.cocursor-rag-summary-info h4 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--vscode-textLink-foreground);
+.rag-card-status {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
 }
 
-.cocursor-rag-summary-info ol {
-  margin: 0;
-  padding-left: 20px;
-  font-size: 12px;
+/* 刷新按钮 */
+.rag-refresh-btn {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.rag-refresh-btn:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1));
   color: var(--vscode-foreground);
 }
 
-.cocursor-rag-summary-info li {
-  margin-bottom: 4px;
-}
-
-/* 禁用状态的保存按钮 */
-.cocursor-rag-save-button.disabled {
+.rag-refresh-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background-color: var(--vscode-disabledForeground);
+}
+
+/* 旋转动画 */
+.rag-spin {
+  display: inline-block;
+  animation: rag-spin 1s linear infinite;
+}
+
+@keyframes rag-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.rag-card-content {
+  padding: 16px;
+}
+
+.rag-card-summary {
+  padding: 12px 16px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.rag-summary-url {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+/* 卡片操作按钮 */
+.rag-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* 按钮样式 */
+.rag-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: var(--vscode-foreground);
+}
+
+.rag-btn:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.rag-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rag-btn-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+.rag-btn-primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.rag-btn-secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border-color: var(--vscode-button-secondaryBackground);
+}
+
+.rag-btn-danger {
+  color: var(--vscode-errorForeground);
+  border-color: transparent;
+}
+
+.rag-btn-danger:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.rag-btn-link {
+  background: transparent;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+.rag-btn-link:hover {
+  text-decoration: underline;
+}
+
+.rag-btn-save {
+  padding: 10px 24px;
+  font-size: 14px;
+}
+
+/* 进度条 */
+.rag-progress-bar,
+.rag-download-progress .rag-progress-bar {
+  height: 6px;
+  background: var(--vscode-progressBar-background);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rag-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--vscode-button-background) 0%, var(--vscode-focusBorder) 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.rag-progress-text {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.rag-download-progress {
+  margin-bottom: 12px;
+}
+
+/* 模板选择器 */
+.rag-template-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rag-template-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rag-template-btn:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.rag-template-btn.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+/* 表单字段 */
+.rag-form-field {
+  margin-bottom: 14px;
+}
+
+.rag-form-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.rag-form-field input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--vscode-input-foreground);
+  outline: none;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.rag-form-field input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.rag-form-field input::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+}
+
+/* 测试结果 */
+.rag-test-result {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.rag-test-result.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.rag-test-result.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--vscode-errorForeground);
+}
+
+/* 索引卡片 */
+.rag-index-stats {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.rag-stat-number {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  line-height: 1;
+}
+
+.rag-stat-label {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.rag-stat-time {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.rag-index-progress {
+  margin: 16px 0;
+}
+
+.rag-index-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(255, 152, 0, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #ff9800;
+  margin-bottom: 12px;
+}
+
+/* 错误提示 */
+.rag-error-hint {
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--vscode-errorForeground);
+  margin-bottom: 12px;
+}
+
+/* 上传区域 */
+.rag-upload-section {
+  margin-top: 16px;
+}
+
+.rag-upload-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border: 2px dashed var(--vscode-panel-border);
+  border-radius: 8px;
+  background: var(--vscode-sideBar-background);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rag-upload-dropzone:hover {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.rag-upload-dropzone.drag-over {
+  border-color: var(--vscode-focusBorder);
+  background: rgba(0, 122, 204, 0.1);
+}
+
+.rag-upload-dropzone.uploading {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.rag-upload-icon {
+  font-size: 32px;
+}
+
+.rag-upload-dropzone span {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+}
+
+.rag-upload-dropzone small {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* LLM 卡片 */
+.rag-llm-card .rag-card-header-clickable {
+  cursor: pointer;
+}
+
+.rag-llm-card .rag-card-header-clickable:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.rag-card-optional {
+  padding: 2px 6px;
+  background: var(--vscode-badge-background, rgba(255,255,255,0.1));
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.rag-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rag-expand-icon {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.rag-card-description {
+  padding: 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 16px;
+}
+
+.rag-card-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.rag-config-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rag-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.rag-summary-row:last-of-type {
+  border-bottom: none;
+}
+
+.rag-summary-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.rag-summary-value {
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rag-btn-danger-link {
+  color: var(--vscode-errorForeground) !important;
+}
+
+/* 底部 */
+.rag-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .rag-config {
+    padding: 16px;
+  }
+  
+  .rag-status-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .rag-template-selector {
+    flex-wrap: wrap;
+  }
+  
+  .rag-card-actions {
+    flex-direction: column;
+  }
+  
+  .rag-btn {
+    width: 100%;
+    text-align: center;
+  }
 }

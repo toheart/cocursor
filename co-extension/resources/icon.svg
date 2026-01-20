@@ -1,72 +1,66 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <!-- 主渐变：从深靛蓝到青绿 -->
-    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#06B6D4;stop-opacity:1" />
+    <!-- 主渐变：紫色到青色 -->
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#06B6D4"/>
     </linearGradient>
-
-    <!-- 节点光晕渐变 -->
-    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:0.25" />
-      <stop offset="70%" style="stop-color:#06B6D4;stop-opacity:0.08" />
-      <stop offset="100%" style="stop-color:#06B6D4;stop-opacity:0" />
-    </radialGradient>
-
-    <!-- 次要节点光晕 -->
-    <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" style="stop-color:#818CF8;stop-opacity:0.2" />
-      <stop offset="100%" style="stop-color:#818CF8;stop-opacity:0" />
-    </radialGradient>
-
-    <!-- 连接线渐变 -->
-    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:0.5" />
-      <stop offset="100%" style="stop-color:#06B6D4;stop-opacity:0.25" />
+    
+    <!-- 第二渐变：青色到绿色 -->
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06B6D4"/>
+      <stop offset="100%" style="stop-color:#10B981"/>
     </linearGradient>
   </defs>
-
-  <!-- 背景光晕 - 中心 -->
-  <circle cx="12" cy="12" r="7" fill="url(#centerGlow)" />
-
-  <!-- 连接线 - 使用曲线路径 -->
-  <g stroke="url(#lineGradient)" stroke-width="1.2" fill="none" stroke-linecap="round">
-    <!-- 中心到左上 -->
-    <path d="M12 12 Q 9 10 6.5 8.5" opacity="0.5" />
-    <!-- 中心到右上 -->
-    <path d="M12 12 Q 15 10 17.5 8.5" opacity="0.5" />
-    <!-- 中心到左下 -->
-    <path d="M12 12 Q 9 14 6.5 15.5" opacity="0.5" />
-    <!-- 中心到右下 -->
-    <path d="M12 12 Q 15 14 17.5 15.5" opacity="0.5" />
-
-    <!-- 节点间横向连接 -->
-    <path d="M6.5 8.5 Q 12 8 17.5 8.5" opacity="0.2" stroke-width="0.8" />
-    <path d="M6.5 15.5 Q 12 16 17.5 15.5" opacity="0.2" stroke-width="0.8" />
-
-    <!-- 节点间纵向连接 -->
-    <path d="M6.5 8.5 Q 6 12 6.5 15.5" opacity="0.2" stroke-width="0.8" />
-    <path d="M17.5 8.5 Q 18 12 17.5 15.5" opacity="0.2" stroke-width="0.8" />
+  
+  <!-- 左侧代码括号 < -->
+  <path d="M38 34 L18 64 L38 94" 
+    fill="none" 
+    stroke="url(#grad1)" 
+    stroke-width="10" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"/>
+  
+  <!-- 右侧代码括号 > -->
+  <path d="M90 34 L110 64 L90 94" 
+    fill="none" 
+    stroke="url(#grad2)" 
+    stroke-width="10" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"/>
+  
+  <!-- 中间两个人形图标表示协作 -->
+  <!-- 左边的人 -->
+  <g transform="translate(52, 64)">
+    <!-- 头 -->
+    <circle cx="0" cy="-12" r="8" fill="url(#grad1)"/>
+    <!-- 身体 -->
+    <path d="M0 -4 L0 12 M-8 4 L0 0 L8 4 M-6 20 L0 12 L6 20" 
+      fill="none" 
+      stroke="url(#grad1)" 
+      stroke-width="5" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"/>
   </g>
-
-  <!-- 次要节点光晕 -->
-  <circle cx="6.5" cy="8.5" r="3" fill="url(#nodeGlow)" />
-  <circle cx="17.5" cy="8.5" r="3" fill="url(#nodeGlow)" />
-  <circle cx="6.5" cy="15.5" r="3" fill="url(#nodeGlow)" />
-  <circle cx="17.5" cy="15.5" r="3" fill="url(#nodeGlow)" />
-
-  <!-- 次要节点 -->
-  <circle cx="6.5" cy="8.5" r="1.8" fill="url(#mainGradient)" opacity="0.85" />
-  <circle cx="17.5" cy="8.5" r="1.8" fill="url(#mainGradient)" opacity="0.85" />
-  <circle cx="6.5" cy="15.5" r="1.8" fill="url(#mainGradient)" opacity="0.85" />
-  <circle cx="17.5" cy="15.5" r="1.8" fill="url(#mainGradient)" opacity="0.85" />
-
-  <!-- 中心节点外圈 -->
-  <circle cx="12" cy="12" r="4.5" stroke="url(#mainGradient)" stroke-width="0.5" fill="none" opacity="0.4" />
-
-  <!-- 中心节点 -->
-  <circle cx="12" cy="12" r="2.8" fill="url(#mainGradient)" />
-
-  <!-- 中心节点高光 -->
-  <circle cx="11.2" cy="11.2" r="0.8" fill="white" opacity="0.25" />
+  
+  <!-- 右边的人 -->
+  <g transform="translate(76, 64)">
+    <!-- 头 -->
+    <circle cx="0" cy="-12" r="8" fill="url(#grad2)"/>
+    <!-- 身体 -->
+    <path d="M0 -4 L0 12 M-8 4 L0 0 L8 4 M-6 20 L0 12 L6 20" 
+      fill="none" 
+      stroke="url(#grad2)" 
+      stroke-width="5" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"/>
+  </g>
+  
+  <!-- 连接弧线表示协作 -->
+  <path d="M56 42 Q64 36 72 42" 
+    fill="none" 
+    stroke="#A78BFA" 
+    stroke-width="3" 
+    stroke-linecap="round"
+    opacity="0.8"/>
 </svg>

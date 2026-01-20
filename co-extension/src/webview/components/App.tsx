@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Session, SessionHealth } from "../types";
 import { apiService, getVscodeApi } from "../services/api";
-import { useApi, useMounted, useInterval } from "../hooks";
+import { useApi, useMounted, useVisibilityInterval } from "../hooks";
 import { shouldWarnAboutEntropy, formatShortDate } from "../utils";
 import { Button, Loading, EmptyState, ErrorState, SessionHealthCard } from "./shared";
 
@@ -99,8 +99,8 @@ export const App: React.FC = () => {
     setPreviousEntropy(sessionHealth?.entropy || null);
   }, [sessionHealth, previousEntropy, sendEntropyWarning]);
 
-  // 定时刷新会话健康状态
-  useInterval(() => {
+  // 定时刷新会话健康状态（页面可见时才轮询）
+  useVisibilityInterval(() => {
     if (isMounted.current) {
       loadSessionHealth();
     }

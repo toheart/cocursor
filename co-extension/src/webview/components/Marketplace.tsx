@@ -36,6 +36,10 @@ interface PluginInstallResponse {
   message?: string;
   env_vars?: string[];
   error?: string;
+  // 冲突相关
+  conflict?: boolean;
+  conflict_type?: "other_plugin" | "manual_install" | "unknown";
+  skill_name?: string;
 }
 
 // ========== 主组件 ==========
@@ -127,14 +131,53 @@ export const Marketplace: React.FC = () => {
   }, [pluginsResponse]);
 
   // ========== 事件处理 ==========
-  const handleInstall = useCallback(async (pluginId: string) => {
+  
+  // 执行安装（支持强制覆盖）
+  const doInstall = useCallback(async (pluginId: string, force: boolean = false) => {
     const workspacePath = (window as any).__WORKSPACE_PATH__ || "";
     
+    const response = await apiService.installPlugin(
+      pluginId, 
+      workspacePath,
+      force
+    ) as PluginInstallResponse;
+
+    return response;
+  }, []);
+
+  const handleInstall = useCallback(async (pluginId: string) => {
     try {
-      const response = await apiService.installPlugin(
-        pluginId, 
-        workspacePath
-      ) as PluginInstallResponse;
+      const response = await doInstall(pluginId, false);
+
+      // 处理冲突情况
+      if (response.conflict) {
+        if (response.conflict_type === "manual_install") {
+          // 手动安装的冲突，通过 VSCode API 询问用户是否覆盖
+          const confirmOverwrite = await apiService.showConfirmDialog(
+            t("marketplace.conflictManualInstall", { skillName: response.skill_name }),
+            t("common.confirm"),
+            t("common.cancel")
+          );
+          
+          if (confirmOverwrite) {
+            // 用户确认覆盖，强制安装
+            const forceResponse = await doInstall(pluginId, true);
+            if (forceResponse.error) {
+              console.error("Failed to install plugin:", forceResponse.error);
+              showToast(`${t("marketplace.installFailed")}: ${forceResponse.error}`, "error");
+              return;
+            }
+            showToast(t("marketplace.installSuccess"), "success");
+            await loadPlugins();
+          }
+          // 用户取消，不做任何操作
+          return;
+        } else {
+          // 其他类型的冲突（被其他插件占用等），显示错误
+          showToast(`${t("marketplace.installFailed")}: ${response.message || t("marketplace.conflictOtherPlugin")}`, "error");
+          return;
+        }
+      }
 
       if (response.error) {
         console.error("Failed to install plugin:", response.error);
@@ -148,7 +191,7 @@ export const Marketplace: React.FC = () => {
       console.error("Failed to install plugin:", error);
       showToast(t("marketplace.installFailedRetry"), "error");
     }
-  }, [showToast, loadPlugins]);
+  }, [showToast, loadPlugins, doInstall, t]);
 
   const handleUninstall = useCallback(async (pluginId: string) => {
     const workspacePath = (window as any).__WORKSPACE_PATH__ || "";
@@ -647,18 +690,19 @@ interface PluginComponentsProps {
 }
 
 const PluginComponents: React.FC<PluginComponentsProps> = ({ plugin }) => {
+  const { t } = useTranslation();
   return (
     <div className="cocursor-marketplace-plugin-components">
-      <span className="cocursor-marketplace-plugin-component skill" title="Skill">
+      <span className="cocursor-marketplace-plugin-component skill" title={t("marketplace.componentTitles.skill")}>
         {getComponentIcon("Skill")}
       </span>
       {plugin.mcp && (
-        <span className="cocursor-marketplace-plugin-component mcp" title="MCP">
+        <span className="cocursor-marketplace-plugin-component mcp" title={t("marketplace.componentTitles.mcp")}>
           {getComponentIcon("MCP")}
         </span>
       )}
       {plugin.command && (
-        <span className="cocursor-marketplace-plugin-component command" title="Command">
+        <span className="cocursor-marketplace-plugin-component command" title={t("marketplace.componentTitles.command")}>
           {getComponentIcon("Command")}
         </span>
       )}

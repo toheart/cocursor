@@ -1,11 +1,11 @@
 /**
- * 发布技能组件
+ * 发布技能组件 - 支持元数据填写
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
-import { SkillValidationResult } from "../../types";
+import { SkillValidationResult, SkillMetadata, SkillMetadataPrefill } from "../../types";
 
 interface SkillPublishProps {
   teamId: string;
@@ -13,18 +13,56 @@ interface SkillPublishProps {
   onSuccess: () => void;
 }
 
+// 分类选项
+const CATEGORY_OPTIONS = [
+  { value: "productivity", labelKey: "marketplace.categoryProductivity" },
+  { value: "creative", labelKey: "marketplace.categoryCreative" },
+  { value: "design", labelKey: "marketplace.categoryDesign" },
+  { value: "tools", labelKey: "marketplace.categoryTools" },
+  { value: "other", labelKey: "marketplace.categoryOther" },
+];
+
 export const SkillPublish: React.FC<SkillPublishProps> = ({
   teamId,
   onClose,
   onSuccess,
 }) => {
   const { t } = useTranslation();
-  const [step, setStep] = useState<"select" | "validate" | "publish">("select");
+  const [step, setStep] = useState<"select" | "metadata" | "confirm">("select");
   const [selectedPath, setSelectedPath] = useState("");
-  const [pluginId, setPluginId] = useState("");
   const [validation, setValidation] = useState<SkillValidationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 元数据表单状态
+  const [metadata, setMetadata] = useState<SkillMetadata>({
+    plugin_id: "",
+    name: "",
+    name_zh_cn: "",
+    description: "",
+    description_zh_cn: "",
+    version: "1.0.0",
+    category: "other",
+    author: "",
+  });
+
+  // 从验证结果中预填充元数据
+  useEffect(() => {
+    if (validation?.prefill) {
+      const prefill = validation.prefill;
+      setMetadata(prev => ({
+        ...prev,
+        plugin_id: selectedPath.split("/").pop()?.replace(/[^a-zA-Z0-9-_]/g, "-") || "my-skill",
+        name: prefill.name || prev.name,
+        name_zh_cn: prefill.name_zh_cn || prev.name_zh_cn,
+        description: prefill.description || prev.description,
+        description_zh_cn: prefill.description_zh_cn || prev.description_zh_cn,
+        version: prefill.version || prev.version,
+        category: prefill.category || prev.category,
+        author: prefill.author || prev.author,
+      }));
+    }
+  }, [validation, selectedPath]);
 
   const handleSelectDirectory = useCallback(async () => {
     try {
@@ -56,10 +94,7 @@ export const SkillPublish: React.FC<SkillPublishProps> = ({
       }
 
       setValidation(result);
-      // 从目录名或技能名生成默认插件 ID
-      const defaultId = selectedPath.split("/").pop()?.replace(/[^a-zA-Z0-9-_]/g, "-") || "my-skill";
-      setPluginId(defaultId);
-      setStep("validate");
+      setStep("metadata");
     } catch (err: any) {
       setError(err.message || t("team.validationFailed"));
     } finally {
@@ -67,24 +102,55 @@ export const SkillPublish: React.FC<SkillPublishProps> = ({
     }
   }, [selectedPath, t]);
 
-  const handlePublish = useCallback(async () => {
-    if (!validation || !pluginId.trim()) {
+  const handleMetadataChange = useCallback((field: keyof SkillMetadata, value: string) => {
+    setMetadata(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const validateMetadata = useCallback((): boolean => {
+    if (!metadata.plugin_id.trim()) {
       setError(t("team.pluginIdRequired"));
-      return;
+      return false;
     }
+    if (!metadata.name.trim()) {
+      setError(t("team.nameRequired"));
+      return false;
+    }
+    if (!metadata.description.trim()) {
+      setError(t("team.descriptionRequired"));
+      return false;
+    }
+    if (!metadata.version.trim()) {
+      setError(t("team.versionRequired"));
+      return false;
+    }
+    if (!metadata.author.trim()) {
+      setError(t("team.authorRequired"));
+      return false;
+    }
+    return true;
+  }, [metadata, t]);
+
+  const handleNext = useCallback(() => {
+    if (!validateMetadata()) return;
+    setError(null);
+    setStep("confirm");
+  }, [validateMetadata]);
+
+  const handlePublish = useCallback(async () => {
+    if (!validation || !validateMetadata()) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      await apiService.publishTeamSkill(teamId, pluginId.trim(), selectedPath);
+      await apiService.publishTeamSkillWithMetadata(teamId, selectedPath, metadata);
       onSuccess();
     } catch (err: any) {
       setError(err.message || t("team.publishFailed"));
     } finally {
       setLoading(false);
     }
-  }, [validation, pluginId, teamId, selectedPath, onSuccess, t]);
+  }, [validation, metadata, teamId, selectedPath, onSuccess, validateMetadata, t]);
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -103,19 +169,19 @@ export const SkillPublish: React.FC<SkillPublishProps> = ({
         <div className="cocursor-modal-body">
           {/* 步骤指示器 */}
           <div className="cocursor-skill-publish-steps">
-            <div className={`cocursor-skill-publish-step ${step === "select" ? "active" : step !== "select" ? "completed" : ""}`}>
+            <div className={`cocursor-skill-publish-step ${step === "select" ? "active" : "completed"}`}>
               <span className="cocursor-skill-publish-step-number">1</span>
               <span className="cocursor-skill-publish-step-label">{t("team.selectDirectory")}</span>
             </div>
             <div className="cocursor-skill-publish-step-connector"></div>
-            <div className={`cocursor-skill-publish-step ${step === "validate" ? "active" : step === "publish" ? "completed" : ""}`}>
+            <div className={`cocursor-skill-publish-step ${step === "metadata" ? "active" : step === "confirm" ? "completed" : ""}`}>
               <span className="cocursor-skill-publish-step-number">2</span>
-              <span className="cocursor-skill-publish-step-label">{t("team.validateSkill")}</span>
+              <span className="cocursor-skill-publish-step-label">{t("team.fillMetadata")}</span>
             </div>
             <div className="cocursor-skill-publish-step-connector"></div>
-            <div className={`cocursor-skill-publish-step ${step === "publish" ? "active" : ""}`}>
+            <div className={`cocursor-skill-publish-step ${step === "confirm" ? "active" : ""}`}>
               <span className="cocursor-skill-publish-step-number">3</span>
-              <span className="cocursor-skill-publish-step-label">{t("team.publish")}</span>
+              <span className="cocursor-skill-publish-step-label">{t("team.confirmPublish")}</span>
             </div>
           </div>
 
@@ -123,7 +189,7 @@ export const SkillPublish: React.FC<SkillPublishProps> = ({
             <div className="cocursor-form-error">{error}</div>
           )}
 
-          {/* 选择目录 */}
+          {/* 步骤 1: 选择目录 */}
           {step === "select" && (
             <div className="cocursor-skill-publish-select">
               <p className="cocursor-modal-desc">{t("team.selectDirectoryDesc")}</p>
@@ -177,34 +243,114 @@ export const SkillPublish: React.FC<SkillPublishProps> = ({
             </div>
           )}
 
-          {/* 验证结果 */}
-          {step === "validate" && validation && (
-            <div className="cocursor-skill-publish-validate">
-              <div className="cocursor-skill-publish-preview">
-                <div className="cocursor-skill-publish-preview-header">
-                  <div className="cocursor-skill-publish-preview-icon">📦</div>
-                  <div className="cocursor-skill-publish-preview-info">
-                    <h3>{validation.name}</h3>
-                    <p>v{validation.version}</p>
-                  </div>
+          {/* 步骤 2: 填写元数据 */}
+          {step === "metadata" && (
+            <div className="cocursor-skill-publish-metadata">
+              <p className="cocursor-modal-desc">{t("team.fillMetadataDesc")}</p>
+
+              {/* 来源提示 */}
+              {validation?.source_type && (
+                <div className="cocursor-skill-publish-source-hint">
+                  {validation.source_type === "plugin" 
+                    ? t("team.sourceFromPlugin")
+                    : t("team.sourceFromSkillMD")}
                 </div>
-                <p className="cocursor-skill-publish-preview-desc">{validation.description}</p>
-                <div className="cocursor-skill-publish-preview-meta">
-                  <span>{t("team.fileCount")}: {validation.files?.length || 0}</span>
-                  <span>{t("team.totalSize")}: {formatSize(validation.total_size)}</span>
+              )}
+
+              <div className="cocursor-form-row">
+                <div className="cocursor-form-group">
+                  <label className="cocursor-form-label">{t("team.pluginId")} *</label>
+                  <input
+                    type="text"
+                    className="cocursor-form-input"
+                    value={metadata.plugin_id}
+                    onChange={e => handleMetadataChange("plugin_id", e.target.value)}
+                    placeholder={t("team.pluginIdPlaceholder")}
+                  />
+                  <p className="cocursor-form-help">{t("team.pluginIdHelp")}</p>
+                </div>
+                <div className="cocursor-form-group">
+                  <label className="cocursor-form-label">{t("team.version")} *</label>
+                  <input
+                    type="text"
+                    className="cocursor-form-input"
+                    value={metadata.version}
+                    onChange={e => handleMetadataChange("version", e.target.value)}
+                    placeholder="1.0.0"
+                  />
+                </div>
+              </div>
+
+              <div className="cocursor-form-row">
+                <div className="cocursor-form-group">
+                  <label className="cocursor-form-label">{t("team.nameEn")} *</label>
+                  <input
+                    type="text"
+                    className="cocursor-form-input"
+                    value={metadata.name}
+                    onChange={e => handleMetadataChange("name", e.target.value)}
+                    placeholder={t("team.nameEnPlaceholder")}
+                  />
+                </div>
+                <div className="cocursor-form-group">
+                  <label className="cocursor-form-label">{t("team.nameZh")}</label>
+                  <input
+                    type="text"
+                    className="cocursor-form-input"
+                    value={metadata.name_zh_cn}
+                    onChange={e => handleMetadataChange("name_zh_cn", e.target.value)}
+                    placeholder={t("team.nameZhPlaceholder")}
+                  />
                 </div>
               </div>
 
               <div className="cocursor-form-group">
-                <label className="cocursor-form-label">{t("team.pluginId")}</label>
-                <input
-                  type="text"
-                  className="cocursor-form-input"
-                  value={pluginId}
-                  onChange={e => setPluginId(e.target.value)}
-                  placeholder={t("team.pluginIdPlaceholder")}
+                <label className="cocursor-form-label">{t("team.descriptionEn")} *</label>
+                <textarea
+                  className="cocursor-form-input cocursor-form-textarea"
+                  value={metadata.description}
+                  onChange={e => handleMetadataChange("description", e.target.value)}
+                  placeholder={t("team.descriptionEnPlaceholder")}
+                  rows={2}
                 />
-                <p className="cocursor-form-help">{t("team.pluginIdHelp")}</p>
+              </div>
+
+              <div className="cocursor-form-group">
+                <label className="cocursor-form-label">{t("team.descriptionZh")}</label>
+                <textarea
+                  className="cocursor-form-input cocursor-form-textarea"
+                  value={metadata.description_zh_cn}
+                  onChange={e => handleMetadataChange("description_zh_cn", e.target.value)}
+                  placeholder={t("team.descriptionZhPlaceholder")}
+                  rows={2}
+                />
+              </div>
+
+              <div className="cocursor-form-row">
+                <div className="cocursor-form-group">
+                  <label className="cocursor-form-label">{t("team.category")} *</label>
+                  <select
+                    className="cocursor-form-input"
+                    value={metadata.category}
+                    onChange={e => handleMetadataChange("category", e.target.value)}
+                  >
+                    {CATEGORY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {t(opt.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="cocursor-form-group">
+                  <label className="cocursor-form-label">{t("team.author")} *</label>
+                  <input
+                    type="text"
+                    className="cocursor-form-input"
+                    value={metadata.author}
+                    onChange={e => handleMetadataChange("author", e.target.value)}
+                    placeholder={t("team.authorPlaceholder")}
+                  />
+                </div>
               </div>
 
               <div className="cocursor-modal-footer">
@@ -218,8 +364,57 @@ export const SkillPublish: React.FC<SkillPublishProps> = ({
                 <button
                   type="button"
                   className="cocursor-btn primary"
+                  onClick={handleNext}
+                >
+                  {t("team.next")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 步骤 3: 确认发布 */}
+          {step === "confirm" && validation && (
+            <div className="cocursor-skill-publish-confirm">
+              <div className="cocursor-skill-publish-preview">
+                <div className="cocursor-skill-publish-preview-header">
+                  <div className="cocursor-skill-publish-preview-icon">📦</div>
+                  <div className="cocursor-skill-publish-preview-info">
+                    <h3>{metadata.name}</h3>
+                    {metadata.name_zh_cn && <p className="subtitle">{metadata.name_zh_cn}</p>}
+                    <p>v{metadata.version}</p>
+                  </div>
+                </div>
+                <p className="cocursor-skill-publish-preview-desc">{metadata.description}</p>
+                {metadata.description_zh_cn && (
+                  <p className="cocursor-skill-publish-preview-desc secondary">{metadata.description_zh_cn}</p>
+                )}
+                <div className="cocursor-skill-publish-preview-meta">
+                  <span>{t("team.author")}: {metadata.author}</span>
+                  <span>{t("marketplace.category")}: {t(`marketplace.category${metadata.category.charAt(0).toUpperCase() + metadata.category.slice(1)}`)}</span>
+                </div>
+                <div className="cocursor-skill-publish-preview-meta">
+                  <span>{t("team.fileCount")}: {validation.files?.length || 0}</span>
+                  <span>{t("team.totalSize")}: {formatSize(validation.total_size)}</span>
+                </div>
+              </div>
+
+              <div className="cocursor-skill-publish-confirm-note">
+                <p>{t("team.publishConfirmNote")}</p>
+              </div>
+
+              <div className="cocursor-modal-footer">
+                <button
+                  type="button"
+                  className="cocursor-btn secondary"
+                  onClick={() => setStep("metadata")}
+                >
+                  {t("common.back")}
+                </button>
+                <button
+                  type="button"
+                  className="cocursor-btn primary"
                   onClick={handlePublish}
-                  disabled={loading || !pluginId.trim()}
+                  disabled={loading}
                 >
                   {loading ? t("team.publishing") : t("team.publish")}
                 </button>

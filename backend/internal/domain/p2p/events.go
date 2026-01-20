@@ -34,6 +34,11 @@ const (
 	// 同步事件
 	EventSyncRequest  EventType = "sync_request"  // 请求同步
 	EventSyncResponse EventType = "sync_response" // 同步响应
+
+	// 协作相关事件
+	EventCodeShared          EventType = "code_shared"           // 代码片段分享
+	EventMemberStatusChanged EventType = "member_status_changed" // 成员工作状态变更
+	EventDailySummaryShared  EventType = "daily_summary_shared"  // 日报分享
 )
 
 // Event WebSocket 事件
@@ -148,4 +153,39 @@ type SyncResponsePayload struct {
 	Deleted  []string                `json:"deleted"`   // 已删除的技能 ID
 	SyncTime time.Time               `json:"sync_time"`
 	HasMore  bool                    `json:"has_more"`
+}
+
+// CodeSharedPayload 代码片段分享事件数据
+type CodeSharedPayload struct {
+	ID         string    `json:"id"`          // 片段唯一标识
+	SenderID   string    `json:"sender_id"`   // 发送者 ID
+	SenderName string    `json:"sender_name"` // 发送者名称
+	FileName   string    `json:"file_name"`   // 文件名
+	FilePath   string    `json:"file_path"`   // 相对路径
+	Language   string    `json:"language"`    // 编程语言
+	StartLine  int       `json:"start_line"`  // 起始行号
+	EndLine    int       `json:"end_line"`    // 结束行号
+	Code       string    `json:"code"`        // 代码内容
+	Message    string    `json:"message"`     // 附加消息（可选）
+	CreatedAt  time.Time `json:"created_at"`  // 创建时间
+}
+
+// MemberWorkStatusPayload 成员工作状态变更事件数据
+type MemberWorkStatusPayload struct {
+	MemberID      string    `json:"member_id"`       // 成员 ID
+	MemberName    string    `json:"member_name"`     // 成员名称
+	ProjectName   string    `json:"project_name"`    // 当前项目名
+	CurrentFile   string    `json:"current_file"`    // 当前文件（相对路径）
+	LastActiveAt  time.Time `json:"last_active_at"`  // 最后活跃时间
+	StatusVisible bool      `json:"status_visible"`  // 是否公开状态
+}
+
+// DailySummarySharedPayload 日报分享事件数据
+type DailySummarySharedPayload struct {
+	MemberID      string    `json:"member_id"`      // 成员 ID
+	MemberName    string    `json:"member_name"`    // 成员名称
+	Date          string    `json:"date"`           // 日期 YYYY-MM-DD
+	TotalSessions int       `json:"total_sessions"` // 会话总数
+	ProjectCount  int       `json:"project_count"`  // 项目数量
+	SharedAt      time.Time `json:"shared_at"`      // 分享时间
 }

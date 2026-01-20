@@ -5,11 +5,13 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
-import { Team, TeamMember, TeamSkillEntry } from "../../types";
+import { Team, TeamMember, TeamSkillEntry, CodeSnippet } from "../../types";
 import { useApi, useToast, useTeamWebSocket } from "../../hooks";
-import { TeamEvent } from "../../services/teamWebSocket";
+import { TeamEvent, CodeSharedEvent, MemberStatusChangedEvent, DailySummarySharedEvent } from "../../services/teamWebSocket";
 import { SkillPublish } from "./SkillPublish";
 import { ToastContainer } from "../shared/ToastContainer";
+import { CodeShareList } from "./CodeShareNotification";
+import { DailyReportTab } from "./DailyReportTab";
 
 interface MemberListProps {
   team: Team;
@@ -20,8 +22,10 @@ interface MemberListProps {
 export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh }) => {
   const { t } = useTranslation();
   const { showToast, toasts } = useToast();
-  const [activeTab, setActiveTab] = useState<"members" | "skills">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "skills" | "reports">("members");
   const [showPublish, setShowPublish] = useState(false);
+  const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>([]);
+  const [memberStatuses, setMemberStatuses] = useState<Record<string, { project: string; file: string }>>({});
 
   // 获取成员列表
   const fetchMembers = useCallback(async () => {
@@ -63,6 +67,52 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
         onBack();
         onRefresh();
         break;
+      case "code_shared": {
+        // 代码分享事件
+        const codeEvent = event as CodeSharedEvent;
+        const snippet: CodeSnippet = {
+          id: codeEvent.payload.id,
+          team_id: event.team_id,
+          sender_id: codeEvent.payload.sender_id,
+          sender_name: codeEvent.payload.sender_name,
+          file_name: codeEvent.payload.file_name,
+          file_path: codeEvent.payload.file_path,
+          language: codeEvent.payload.language,
+          start_line: codeEvent.payload.start_line,
+          end_line: codeEvent.payload.end_line,
+          code: codeEvent.payload.code,
+          message: codeEvent.payload.message,
+          created_at: codeEvent.payload.created_at,
+        };
+        setCodeSnippets(prev => [snippet, ...prev].slice(0, 50)); // 最多保留 50 条
+        showToast(`${snippet.sender_name} ${t("team.sharedCode")} (${snippet.file_name})`, "success");
+        break;
+      }
+      case "member_status_changed": {
+        // 成员状态变更事件
+        const statusEvent = event as MemberStatusChangedEvent;
+        if (statusEvent.payload.status_visible) {
+          setMemberStatuses(prev => ({
+            ...prev,
+            [statusEvent.payload.member_id]: {
+              project: statusEvent.payload.project_name,
+              file: statusEvent.payload.current_file,
+            },
+          }));
+        } else {
+          setMemberStatuses(prev => {
+            const { [statusEvent.payload.member_id]: _, ...rest } = prev;
+            return rest;
+          });
+        }
+        break;
+      }
+      case "daily_summary_shared": {
+        // 日报分享事件
+        const summaryEvent = event as DailySummarySharedEvent;
+        showToast(`${summaryEvent.payload.member_name} ${t("team.sharedDailySummary")}`, "success");
+        break;
+      }
     }
   }, [refetchMembers, refetchSkills, showToast, t, onBack, onRefresh]);
 
@@ -94,6 +144,24 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
       showToast(err.message || t("team.downloadFailed"), "error");
     }
   }, [team.id, showToast, refetchSkills, t]);
+
+  const handleInstall = useCallback(async (skill: TeamSkillEntry) => {
+    try {
+      await apiService.installTeamSkill(team.id, skill.plugin_id, skill.version);
+      showToast(t("team.installSuccess"), "success");
+    } catch (err: any) {
+      showToast(err.message || t("team.installFailed"), "error");
+    }
+  }, [team.id, showToast, t]);
+
+  const handleUninstall = useCallback(async (skill: TeamSkillEntry) => {
+    try {
+      await apiService.uninstallTeamSkill(team.id, skill.plugin_id);
+      showToast(t("team.uninstallSuccess"), "success");
+    } catch (err: any) {
+      showToast(err.message || t("team.uninstallFailed"), "error");
+    }
+  }, [team.id, showToast, t]);
 
   const onlineCount = useMemo(() => members?.filter(m => m.is_online).length || 0, [members]);
 
@@ -130,6 +198,15 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
         </div>
       </div>
 
+      {/* 代码分享通知 */}
+      {codeSnippets.length > 0 && (
+        <CodeShareList
+          snippets={codeSnippets}
+          onDismiss={(id) => setCodeSnippets(prev => prev.filter(s => s.id !== id))}
+          onClear={() => setCodeSnippets([])}
+        />
+      )}
+
       {/* 选项卡 */}
       <div className="cocursor-team-detail-tabs">
         <button
@@ -145,6 +222,13 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
         >
           <span className="cocursor-team-detail-tab-icon">📦</span>
           {t("team.skills")} ({skills?.length || 0})
+        </button>
+        <button
+          className={`cocursor-team-detail-tab ${activeTab === "reports" ? "active" : ""}`}
+          onClick={() => setActiveTab("reports")}
+        >
+          <span className="cocursor-team-detail-tab-icon">📝</span>
+          {t("team.dailyReports")}
         </button>
       </div>
 
@@ -169,7 +253,11 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
           ) : (
             <div className="cocursor-team-member-list">
               {members?.map(member => (
-                <MemberCard key={member.id} member={member} />
+                <MemberCard 
+                  key={member.id} 
+                  member={member} 
+                  workStatus={memberStatuses[member.id]}
+                />
               ))}
             </div>
           )}
@@ -209,11 +297,18 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
                   key={skill.plugin_id} 
                   skill={skill} 
                   onDownload={() => handleDownload(skill)}
+                  onInstall={() => handleInstall(skill)}
+                  onUninstall={() => handleUninstall(skill)}
                 />
               ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* 日报列表 */}
+      {activeTab === "reports" && (
+        <DailyReportTab teamId={team.id} onRefresh={onRefresh} />
       )}
 
       {/* 发布技能弹窗 */}
@@ -231,9 +326,10 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
 // 成员卡片
 interface MemberCardProps {
   member: TeamMember;
+  workStatus?: { project: string; file: string };
 }
 
-const MemberCard: React.FC<MemberCardProps> = ({ member }) => {
+const MemberCard: React.FC<MemberCardProps> = ({ member, workStatus }) => {
   const { t } = useTranslation();
 
   return (
@@ -254,6 +350,16 @@ const MemberCard: React.FC<MemberCardProps> = ({ member }) => {
             {member.is_online ? t("team.online") : t("team.offline")}
           </span>
         </div>
+        {/* 工作状态 */}
+        {member.is_online && workStatus && (
+          <div className="cocursor-team-member-work-status">
+            <span className="cocursor-team-member-work-icon">💻</span>
+            <span className="cocursor-team-member-work-project">{workStatus.project}</span>
+            {workStatus.file && (
+              <span className="cocursor-team-member-work-file">• {workStatus.file}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -263,11 +369,15 @@ const MemberCard: React.FC<MemberCardProps> = ({ member }) => {
 interface SkillCardProps {
   skill: TeamSkillEntry;
   onDownload: () => void;
+  onInstall: () => void;
+  onUninstall: () => void;
 }
 
-const SkillCard: React.FC<SkillCardProps> = ({ skill, onDownload }) => {
+const SkillCard: React.FC<SkillCardProps> = ({ skill, onDownload, onInstall, onUninstall }) => {
   const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
 
   const handleDownload = useCallback(async () => {
     setDownloading(true);
@@ -277,6 +387,24 @@ const SkillCard: React.FC<SkillCardProps> = ({ skill, onDownload }) => {
       setDownloading(false);
     }
   }, [onDownload]);
+
+  const handleInstall = useCallback(async () => {
+    setInstalling(true);
+    try {
+      await onInstall();
+    } finally {
+      setInstalling(false);
+    }
+  }, [onInstall]);
+
+  const handleUninstall = useCallback(async () => {
+    setUninstalling(true);
+    try {
+      await onUninstall();
+    } finally {
+      setUninstalling(false);
+    }
+  }, [onUninstall]);
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -296,23 +424,50 @@ const SkillCard: React.FC<SkillCardProps> = ({ skill, onDownload }) => {
             <span className="cocursor-team-skill-size">{formatSize(skill.total_size)}</span>
           </div>
         </div>
-        <button
-          className="cocursor-btn primary"
-          onClick={handleDownload}
-          disabled={downloading}
-        >
-          {downloading ? (
-            <>
+        <div className="cocursor-team-skill-actions">
+          <button
+            className="cocursor-btn secondary"
+            onClick={handleDownload}
+            disabled={downloading || installing || uninstalling}
+            title={t("team.download")}
+          >
+            {downloading ? (
               <span className="cocursor-btn-spinner"></span>
-              {t("team.downloading")}
-            </>
-          ) : (
-            <>
+            ) : (
               <span className="cocursor-btn-icon">⬇️</span>
-              {t("team.download")}
-            </>
-          )}
-        </button>
+            )}
+          </button>
+          <button
+            className="cocursor-btn primary"
+            onClick={handleInstall}
+            disabled={downloading || installing || uninstalling}
+            title={t("team.install")}
+          >
+            {installing ? (
+              <>
+                <span className="cocursor-btn-spinner"></span>
+                {t("team.installing")}
+              </>
+            ) : (
+              t("team.install")
+            )}
+          </button>
+          <button
+            className="cocursor-btn danger"
+            onClick={handleUninstall}
+            disabled={downloading || installing || uninstalling}
+            title={t("team.uninstall")}
+          >
+            {uninstalling ? (
+              <>
+                <span className="cocursor-btn-spinner"></span>
+                {t("team.uninstalling")}
+              </>
+            ) : (
+              t("team.uninstall")
+            )}
+          </button>
+        </div>
       </div>
       <p className="cocursor-team-skill-description">{skill.description}</p>
     </div>

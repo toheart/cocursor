@@ -14,44 +14,16 @@ on:
 
 env:
   NODE_VERSION: '20'
+  GO_VERSION: '1.24'
   EXTENSION_NAME: 'cocursor'
 
 jobs:
-  build:
-    name: Build Extension
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target_arch: x64
-            goos: linux
-            goarch: amd64
-            binary_suffix: linux-amd64
-            artifact_name: cocursor-linux-x64
-            vsce_target: linux-x64
-          - os: windows-latest
-            target_arch: x64
-            goos: windows
-            goarch: amd64
-            binary_suffix: windows-amd64.exe
-            artifact_name: cocursor-win32-x64
-            vsce_target: win32-x64
-          - os: macos-latest
-            target_arch: x64
-            goos: darwin
-            goarch: amd64
-            binary_suffix: darwin-amd64
-            artifact_name: cocursor-darwin-x64
-            vsce_target: darwin-x64
-          - os: macos-latest
-            target_arch: arm64
-            goos: darwin
-            goarch: arm64
-            binary_suffix: darwin-arm64
-            artifact_name: cocursor-darwin-arm64
-            vsce_target: darwin-arm64
+  # ============================================================================
+  # 阶段1: 测试（只运行一次）
+  # ============================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -60,7 +32,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -89,64 +61,111 @@ jobs:
         working-directory: co-extension
         run: npm ci
 
-      - name: Run lint
-        working-directory: co-extension
-        run: npm run lint
+      # 使用根目录 Makefile 运行测试
+      - name: Run CI tests
+        run: make ci-test
 
       - name: Compile TypeScript
         working-directory: co-extension
         run: npm run compile
 
-      - name: Run tests (backend)
-        working-directory: backend
-        run: go test -v -race -cover ./...
+  # ============================================================================
+  # 阶段2: 多平台构建（依赖测试通过）
+  # ============================================================================
+  build:
+    name: Build Extension
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            binary_suffix: linux-amd64
+            artifact_name: cocursor-linux-x64
+            vsce_target: linux-x64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            binary_suffix: windows-amd64.exe
+            artifact_name: cocursor-win32-x64
+            vsce_target: win32-x64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            binary_suffix: darwin-amd64
+            artifact_name: cocursor-darwin-x64
+            vsce_target: darwin-x64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            binary_suffix: darwin-arm64
+            artifact_name: cocursor-darwin-arm64
+            vsce_target: darwin-arm64
 
-      - name: Build extension (Unix-like)
-        if: runner.os != 'Windows'
-        working-directory: co-extension
-        run: make build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build extension (Windows)
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: co-extension/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('co-extension/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Windows 安装 Make 以统一构建方式
+      - name: Install Make (Windows)
         if: runner.os == 'Windows'
+        run: choco install make -y
+
+      - name: Install dependencies
         working-directory: co-extension
-        shell: pwsh
-        run: |
-          # 确保目录存在
-          if (-not (Test-Path "dist")) {
-            New-Item -ItemType Directory -Path "dist" -Force | Out-Null
-          }
-          if (-not (Test-Path "dist/webview")) {
-            New-Item -ItemType Directory -Path "dist/webview" -Force | Out-Null
-          }
+        run: npm ci
 
-          # 构建 Extension
-          npx esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/extension.js --external:vscode --sourcemap --minify
+      # 统一使用 Makefile 构建前端
+      - name: Build extension
+        run: make build-frontend
 
-          # 构建 Webview
-          npx esbuild src/webview/index.tsx --bundle --platform=browser --target=es2020 --format=iife --outfile=dist/webview/index.js --jsx=automatic --sourcemap --minify --define:process.env.NODE_ENV='"production"' --global-name=cocursor
-
-          Copy-Item "src/webview/index.css" "dist/webview/index.css" -Force -ErrorAction SilentlyContinue
-
-      - name: Generate Wire code (Unix-like)
-        if: runner.os != 'Windows'
-        working-directory: backend
+      # 统一使用 Makefile 生成 Wire 代码
+      - name: Generate Wire code
         run: make wire
-
-      - name: Generate Wire code (Windows)
-        if: runner.os == 'Windows'
-        working-directory: backend
-        run: |
-          cd internal/wire && go run github.com/google/wire/cmd/wire
 
       - name: Create bin directory
         run: mkdir -p co-extension/bin
         shell: bash
 
+      # 构建后端 daemon（带版本信息）
       - name: Build backend daemon (Unix-like)
         if: runner.os != 'Windows'
         working-directory: backend
         run: |
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
+            -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" \
+            -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
           chmod +x ../co-extension/bin/cocursor-${{ matrix.binary_suffix }}
 
       - name: Build backend daemon (Windows)
@@ -176,6 +195,9 @@ jobs:
           path: ${{ matrix.artifact_name }}.vsix
           retention-days: 30
 
+  # ============================================================================
+  # 阶段3: 创建 Release
+  # ============================================================================
   release:
     name: Create Release
     needs: build
@@ -207,75 +229,64 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # ============================================================================
+  # 阶段4: 发布到 Marketplace（并行发布）
+  # ============================================================================
   publish-marketplace:
-    name: Publish to VS Code Marketplace
+    name: Publish to Marketplace
     needs: release
     runs-on: ubuntu-latest
     if: github.event.inputs.publish_to_marketplace == 'true' || (startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push')
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_name: cocursor-win32-x64
+            platform: Windows-x64
+          - artifact_name: cocursor-linux-x64
+            platform: Linux-x64
+          - artifact_name: cocursor-darwin-x64
+            platform: macOS-x64
+          - artifact_name: cocursor-darwin-arm64
+            platform: macOS-ARM64
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all platform artifacts
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: ${{ matrix.artifact_name }}-vsix
+          path: artifact
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
-      - name: Publish Windows (x64)
-        id: publish-windows
-        working-directory: artifacts/cocursor-win32-x64-vsix
-        continue-on-error: true
+      - name: Publish to Marketplace
+        working-directory: artifact
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
+          echo "Publishing ${{ matrix.platform }}..."
           vsce publish -p $VSCE_PAT --packagePath *.vsix
+          echo "✅ ${{ matrix.platform }} published successfully!"
 
-      - name: Publish Linux (x64)
-        id: publish-linux
-        working-directory: artifacts/cocursor-linux-x64-vsix
-        continue-on-error: true
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix
+  # ============================================================================
+  # 阶段5: 发布结果汇总
+  # ============================================================================
+  publish-summary:
+    name: Publish Summary
+    needs: publish-marketplace
+    runs-on: ubuntu-latest
+    if: always() && (github.event.inputs.publish_to_marketplace == 'true' || (startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'))
 
-      - name: Publish macOS (x64)
-        id: publish-macos-x64
-        working-directory: artifacts/cocursor-darwin-x64-vsix
-        continue-on-error: true
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix
-
-      - name: Publish macOS (ARM64)
-        id: publish-macos-arm64
-        working-directory: artifacts/cocursor-darwin-arm64-vsix
-        continue-on-error: true
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          vsce publish -p $VSCE_PAT --packagePath *.vsix
-
+    steps:
       - name: Check publish results
         run: |
-          FAILED_PLATFORMS=""
-          [ "${{ steps.publish-windows.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS Windows-x64"
-          [ "${{ steps.publish-linux.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS Linux-x64"
-          [ "${{ steps.publish-macos-x64.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS macOS-x64"
-          [ "${{ steps.publish-macos-arm64.outcome }}" != "success" ] && FAILED_PLATFORMS="$FAILED_PLATFORMS macOS-ARM64"
-
-          if [ -n "$FAILED_PLATFORMS" ]; then
-            echo "⚠️ WARNING: Publishing failed for platforms:$FAILED_PLATFORMS"
-            echo "Please check the logs above and manually publish the failed platforms if needed."
-            exit 1
-          else
-            echo "✅ All platforms published successfully!"
-          fi
-
+          echo "=== Marketplace 发布结果汇总 ==="
+          echo "请查看各平台的发布 job 状态"
+          echo ""
+          echo "如有发布失败，请检查以下内容："
+          echo "1. VSCE_PAT secret 是否正确配置"
+          echo "2. 版本号是否已存在于 Marketplace"
+          echo "3. package.json 中的 publisher 是否正确"

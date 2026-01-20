@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	appMarketplace "github.com/cocursor/backend/internal/application/marketplace"
+	infraMarketplace "github.com/cocursor/backend/internal/infrastructure/marketplace"
 	"github.com/cocursor/backend/internal/interfaces/http/response"
 	"github.com/gin-gonic/gin"
 )
@@ -136,6 +138,15 @@ func (h *MarketplaceHandler) GetInstalledPlugins(c *gin.Context) {
 // InstallPluginRequest 安装插件请求
 type InstallPluginRequest struct {
 	WorkspacePath string `json:"workspace_path" binding:"required"`
+	Force         bool   `json:"force"` // 强制覆盖（当检测到手动安装的同名 skill 时）
+}
+
+// ConflictResponse 冲突响应
+type ConflictResponse struct {
+	SkillName    string `json:"skill_name"`
+	PluginID     string `json:"plugin_id"`
+	Message      string `json:"message"`
+	ConflictType string `json:"conflict_type"`
 }
 
 // InstallPlugin 安装插件
@@ -148,6 +159,7 @@ type InstallPluginRequest struct {
 // @Success 200 {object} response.Response{data=appMarketplace.InstallPluginResult}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.Response{data=ConflictResponse} "冲突：已存在同名技能"
 // @Failure 500 {object} response.ErrorResponse
 // @Router /marketplace/plugins/{id}/install [post]
 func (h *MarketplaceHandler) InstallPlugin(c *gin.Context) {
@@ -159,8 +171,24 @@ func (h *MarketplaceHandler) InstallPlugin(c *gin.Context) {
 		return
 	}
 
-	result, err := h.pluginService.InstallPlugin(id, req.WorkspacePath)
+	result, err := h.pluginService.InstallPlugin(id, req.WorkspacePath, req.Force)
 	if err != nil {
+		// 检查是否是冲突错误
+		var conflictErr *infraMarketplace.SkillConflictError
+		if errors.As(err, &conflictErr) {
+			// 返回 409 Conflict 和冲突详情
+			c.JSON(http.StatusConflict, gin.H{
+				"code":    409001,
+				"message": conflictErr.Message,
+				"data": ConflictResponse{
+					SkillName:    conflictErr.SkillName,
+					PluginID:     conflictErr.PluginID,
+					Message:      conflictErr.Message,
+					ConflictType: string(conflictErr.ConflictType),
+				},
+			})
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, 500001, "Failed to install plugin: "+err.Error())
 		return
 	}

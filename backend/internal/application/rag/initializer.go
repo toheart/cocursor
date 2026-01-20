@@ -151,12 +151,16 @@ func (i *RAGInitializer) InitializeServices() (*ChunkService, *SearchService, *S
 		i.chunkRepo,
 	)
 
-	// 创建扫描调度器
+	// 创建扫描调度器（仅 BatchSize 和 Concurrency）
 	scanConfig := &ScanConfig{
-		Enabled:     config.ScanConfig.Enabled,
-		Interval:    ParseScanInterval(config.ScanConfig.Interval),
-		BatchSize:   config.ScanConfig.BatchSize,
-		Concurrency: config.ScanConfig.Concurrency,
+		BatchSize:   config.IndexConfig.BatchSize,
+		Concurrency: config.IndexConfig.Concurrency,
+	}
+	if scanConfig.BatchSize <= 0 {
+		scanConfig.BatchSize = 10
+	}
+	if scanConfig.Concurrency <= 0 {
+		scanConfig.Concurrency = 3
 	}
 
 	scanScheduler := NewScanScheduler(
@@ -234,6 +238,28 @@ func (i *RAGInitializer) StopQdrant() error {
 		return i.qdrantManager.Stop()
 	}
 	return nil
+}
+
+// Reset 重置初始化状态，用于配置更新后重新初始化
+// 调用此方法后，下次调用 InitializeServices 会使用新配置创建服务
+func (i *RAGInitializer) Reset() {
+	// 停止增强服务 Worker
+	if i.enrichmentService != nil {
+		i.enrichmentService.StopWorkers()
+	}
+
+	// 清理服务实例引用
+	i.chunkService = nil
+	i.searchService = nil
+	i.enrichmentService = nil
+	i.embeddingClient = nil
+	i.llmClient = nil
+	// 注意：不清理 qdrantManager，因为 Qdrant 服务可能还在运行
+
+	// 重置初始化标志
+	i.initialized = false
+
+	i.logger.Info("RAG initializer reset, will reinitialize with new config on next call")
 }
 
 // StopEnrichmentWorkers 停止增强服务 Worker

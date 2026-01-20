@@ -5,15 +5,17 @@ import (
 
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/marketplace"
+	"github.com/cocursor/backend/internal/infrastructure/storage"
 )
 
 // TeamComponents 包含团队功能所需的所有组件
 type TeamComponents struct {
-	TeamService     *TeamService
-	SyncService     *SyncService
-	SkillPublisher  *marketplace.TeamSkillPublisher
-	SkillDownloader *marketplace.TeamSkillDownloader
-	SkillLoader     *marketplace.TeamSkillLoader
+	TeamService          *TeamService
+	SyncService          *SyncService
+	CollaborationService *CollaborationService
+	SkillPublisher       *marketplace.TeamSkillPublisher
+	SkillDownloader      *marketplace.TeamSkillDownloader
+	SkillLoader          *marketplace.TeamSkillLoader
 }
 
 // TeamFactory 团队服务工厂
@@ -31,7 +33,8 @@ func NewTeamFactory() *TeamFactory {
 // Initialize 初始化所有团队相关组件
 // port: P2P 服务端口（默认 19960）
 // version: 应用版本号
-func (f *TeamFactory) Initialize(port int, version string) (*TeamComponents, error) {
+// dailySummaryRepo: 日报仓储（用于分享本地日报）
+func (f *TeamFactory) Initialize(port int, version string, dailySummaryRepo storage.DailySummaryRepository) (*TeamComponents, error) {
 	f.logger.Info("initializing team components",
 		"port", port,
 		"version", version,
@@ -54,13 +57,17 @@ func (f *TeamFactory) Initialize(port int, version string) (*TeamComponents, err
 	// 这里创建一个简化版本，实际使用时需要从 TeamService 获取存储引用
 	syncService := NewSyncService(nil, nil)
 
+	// 创建协作服务
+	collaborationService := NewCollaborationService(teamService, dailySummaryRepo)
+
 	f.logger.Info("team components initialized successfully")
 
 	return &TeamComponents{
-		TeamService:     teamService,
-		SyncService:     syncService,
-		SkillPublisher:  skillPublisher,
-		SkillDownloader: skillDownloader,
-		SkillLoader:     skillLoader,
+		TeamService:          teamService,
+		SyncService:          syncService,
+		CollaborationService: collaborationService,
+		SkillPublisher:       skillPublisher,
+		SkillDownloader:      skillDownloader,
+		SkillLoader:          skillLoader,
 	}, nil
 }

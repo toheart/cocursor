@@ -324,6 +324,43 @@ export interface TeamMember {
   is_leader: boolean;
   is_online: boolean;
   joined_at: string;
+  work_status?: MemberWorkStatus;
+}
+
+// 成员工作状态
+export interface MemberWorkStatus {
+  project_name: string;
+  current_file: string;
+  last_active_at: string;
+  status_visible: boolean;
+}
+
+// 代码片段
+export interface CodeSnippet {
+  id: string;
+  team_id: string;
+  sender_id: string;
+  sender_name: string;
+  file_name: string;
+  file_path: string;
+  language: string;
+  start_line: number;
+  end_line: number;
+  code: string;
+  message?: string;
+  created_at: string;
+}
+
+// 团队日报
+export interface TeamDailySummary {
+  member_id: string;
+  member_name: string;
+  date: string;
+  summary?: string;
+  language?: string;
+  shared_at: string;
+  total_sessions: number;
+  project_count: number;
 }
 
 export interface Identity {
@@ -370,15 +407,44 @@ export interface TeamSkillEntry {
   checksum: string;
 }
 
+// 技能元数据预填充
+export interface SkillMetadataPrefill {
+  name: string;
+  name_zh_cn?: string;
+  description: string;
+  description_zh_cn?: string;
+  version: string;
+  author: string;
+  category: string;
+}
+
+// 技能验证结果
 export interface SkillValidationResult {
   valid: boolean;
   error?: string;
-  name: string;
-  description: string;
-  version: string;
+  source_type: "plugin" | "skill"; // 来源类型
+  prefill: SkillMetadataPrefill;   // 预填充数据
+  missing_fields?: string[];       // 缺失的必填字段
   files: string[];
   total_size: number;
   skill_path: string;
+
+  // 向后兼容字段
+  name: string;
+  description: string;
+  version: string;
+}
+
+// 用户提交的技能元数据
+export interface SkillMetadata {
+  plugin_id: string;
+  name: string;
+  name_zh_cn?: string;
+  description: string;
+  description_zh_cn?: string;
+  version: string;
+  category: string;
+  author: string;
 }
 
 // ========== VSCode 相关 ==========

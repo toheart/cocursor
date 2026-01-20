@@ -6,18 +6,28 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/cocursor/backend/internal/infrastructure/marketplace"
+	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/cocursor/backend/internal/interfaces/http/response"
 )
 
 // P2PHandler P2P 通用处理器（所有成员暴露）
 type P2PHandler struct {
-	skillPublisher *marketplace.TeamSkillPublisher
+	skillPublisher  *marketplace.TeamSkillPublisher
+	summaryRepo     storage.DailySummaryRepository
 }
 
 // NewP2PHandler 创建 P2P 处理器
 func NewP2PHandler(skillPublisher *marketplace.TeamSkillPublisher) *P2PHandler {
 	return &P2PHandler{
 		skillPublisher: skillPublisher,
+	}
+}
+
+// NewP2PHandlerWithSummary 创建带日报功能的 P2P 处理器
+func NewP2PHandlerWithSummary(skillPublisher *marketplace.TeamSkillPublisher, summaryRepo storage.DailySummaryRepository) *P2PHandler {
+	return &P2PHandler{
+		skillPublisher: skillPublisher,
+		summaryRepo:    summaryRepo,
 	}
 }
 
@@ -75,4 +85,45 @@ func (h *P2PHandler) DownloadSkill(c *gin.Context) {
 	c.Header("Content-Type", "application/gzip")
 	c.Header("Content-Disposition", "attachment; filename="+skillID+".tar.gz")
 	c.Data(http.StatusOK, "application/gzip", archive)
+}
+
+// GetDailySummary 获取本地日报（供其他成员 P2P 获取）
+// @Summary 获取本地日报
+// @Tags P2P
+// @Produce json
+// @Param date query string true "日期 YYYY-MM-DD"
+// @Success 200 {object} response.Response
+// @Failure 404 {object} response.ErrorResponse
+// @Router /p2p/daily-summary [get]
+func (h *P2PHandler) GetDailySummary(c *gin.Context) {
+	date := c.Query("date")
+	if date == "" {
+		response.Error(c, http.StatusBadRequest, 700010, "Date is required")
+		return
+	}
+
+	if h.summaryRepo == nil {
+		response.Error(c, http.StatusNotFound, 700011, "Daily summary not available")
+		return
+	}
+
+	summary, err := h.summaryRepo.FindByDate(date)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 700012, "Failed to get daily summary: "+err.Error())
+		return
+	}
+
+	if summary == nil {
+		response.Error(c, http.StatusNotFound, 700013, "Daily summary not found for date: "+date)
+		return
+	}
+
+	// 转换为团队日报格式
+	response.Success(c, gin.H{
+		"date":           date,
+		"summary":        summary.Summary,
+		"language":       summary.Language,
+		"total_sessions": summary.TotalSessions,
+		"project_count":  len(summary.Projects),
+	})
 }

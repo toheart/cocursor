@@ -49,7 +49,7 @@ func TestSkillInstaller_InstallSkill(t *testing.T) {
 		SkillName: "test-skill",
 	}
 
-	if err := installer.InstallSkill("simple-skill", skill, ""); err != nil {
+	if err := installer.InstallSkill("simple-skill", skill, "", false); err != nil {
 		t.Fatalf("安装 Skill 失败: %v", err)
 	}
 
@@ -114,7 +114,7 @@ func TestSkillInstaller_UninstallSkill(t *testing.T) {
 		SkillName: "test-skill",
 	}
 
-	if err := installer.InstallSkill("simple-skill", skill, ""); err != nil {
+	if err := installer.InstallSkill("simple-skill", skill, "", false); err != nil {
 		t.Fatalf("安装 Skill 失败: %v", err)
 	}
 
@@ -222,7 +222,7 @@ func TestSkillInstaller_CheckSkillConflict_SamePlugin(t *testing.T) {
 		SkillName: "test-skill",
 	}
 
-	if err := installer.InstallSkill("simple-skill", skill, ""); err != nil {
+	if err := installer.InstallSkill("simple-skill", skill, "", false); err != nil {
 		t.Fatalf("安装 Skill 失败: %v", err)
 	}
 
@@ -267,7 +267,7 @@ func TestSkillInstaller_CheckSkillConflict_DifferentPlugin(t *testing.T) {
 		SkillName: "test-skill",
 	}
 
-	if err := installer.InstallSkill("simple-skill", skill, ""); err != nil {
+	if err := installer.InstallSkill("simple-skill", skill, "", false); err != nil {
 		t.Fatalf("安装 Skill 失败: %v", err)
 	}
 
@@ -321,7 +321,7 @@ func TestSkillInstaller_InstallSkill_WithSubdirectories(t *testing.T) {
 		SkillName: "test-skill",
 	}
 
-	if err := installer.InstallSkill("simple-skill", skill, ""); err != nil {
+	if err := installer.InstallSkill("simple-skill", skill, "", false); err != nil {
 		t.Fatalf("安装 Skill 失败: %v", err)
 	}
 

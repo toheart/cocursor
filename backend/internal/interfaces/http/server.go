@@ -7,8 +7,10 @@ import (
 
 	"log/slog"
 
+	appMarketplace "github.com/cocursor/backend/internal/application/marketplace"
 	appTeam "github.com/cocursor/backend/internal/application/team"
 	"github.com/cocursor/backend/internal/infrastructure/log"
+	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
 	"github.com/gin-gonic/gin"
@@ -20,11 +22,13 @@ import (
 
 // HTTPServer HTTP 服务器
 type HTTPServer struct {
-	router         *gin.Engine
-	httpPort       string
-	server         *http.Server
-	logger         *slog.Logger
-	teamComponents *appTeam.TeamComponents
+	router           *gin.Engine
+	httpPort         string
+	server           *http.Server
+	logger           *slog.Logger
+	teamComponents   *appTeam.TeamComponents
+	pluginService    *appMarketplace.PluginService
+	dailySummaryRepo storage.DailySummaryRepository
 }
 
 // NewServer 创建 HTTP 服务器
@@ -39,6 +43,8 @@ func NewServer(
 	ragHandler *handler.RAGHandler,
 	dailySummaryHandler *handler.DailySummaryHandler,
 	mcpServer *mcp.MCPServer,
+	pluginService *appMarketplace.PluginService,
+	dailySummaryRepo storage.DailySummaryRepository,
 ) *HTTPServer {
 	router := gin.Default()
 
@@ -107,6 +113,8 @@ func NewServer(
 
 				rag.POST("/index", ragHandler.Index)
 				rag.GET("/stats", ragHandler.Stats)
+				// 获取已索引的项目列表
+				rag.GET("/projects", ragHandler.GetIndexedProjects)
 				// 新的索引统计（使用 KnowledgeChunk）
 				rag.GET("/index/stats", ragHandler.GetIndexStats)
 				rag.GET("/config", ragHandler.GetConfig)
@@ -114,8 +122,10 @@ func NewServer(
 				rag.POST("/config/test", ragHandler.TestConfig)
 				rag.POST("/config/llm/test", ragHandler.TestLLMConnection)
 				rag.POST("/index/full", ragHandler.TriggerFullIndex)
+				rag.GET("/index/progress", ragHandler.GetIndexProgress)
 				rag.DELETE("/data", ragHandler.ClearAllData)
 				rag.POST("/qdrant/download", ragHandler.DownloadQdrant)
+				rag.POST("/qdrant/upload", ragHandler.UploadQdrant)
 				rag.POST("/qdrant/start", ragHandler.StartQdrant)
 				rag.POST("/qdrant/stop", ragHandler.StopQdrant)
 				rag.GET("/qdrant/status", ragHandler.GetQdrantStatus)
@@ -141,9 +151,11 @@ func NewServer(
 	}
 
 	server := &HTTPServer{
-		router:   router,
-		httpPort: ":19960",
-		logger:   logger,
+		router:           router,
+		httpPort:         ":19960",
+		logger:           logger,
+		pluginService:    pluginService,
+		dailySummaryRepo: dailySummaryRepo,
 	}
 
 	// 尝试初始化团队服务（可选功能，失败不影响主服务）
@@ -185,7 +197,7 @@ func (s *HTTPServer) Stop() error {
 func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 	// 尝试初始化团队组件
 	factory := appTeam.NewTeamFactory()
-	components, err := factory.Initialize(19960, "1.0.0")
+	components, err := factory.Initialize(19960, "1.0.0", s.dailySummaryRepo)
 	if err != nil {
 		s.logger.Warn("team service initialization failed, team features disabled",
 			"error", err,
@@ -199,6 +211,7 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 	// 创建团队处理器
 	teamHandler := handler.NewTeamHandler(
 		components.TeamService,
+		s.pluginService,
 		components.SkillPublisher,
 		components.SkillDownloader,
 	)
@@ -226,7 +239,21 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		team.POST("/skills/validate", teamHandler.ValidateSkill)
 		team.GET("/:id/skills", teamHandler.GetSkillIndex)
 		team.POST("/:id/skills/publish", teamHandler.PublishSkill)
+		team.POST("/:id/skills/publish-with-metadata", teamHandler.PublishSkillWithMetadata)
 		team.POST("/:id/skills/download", teamHandler.DownloadSkill)
+		team.POST("/:id/skills/:plugin_id/install", teamHandler.InstallTeamSkill)
+		team.POST("/:id/skills/:plugin_id/uninstall", teamHandler.UninstallTeamSkill)
+
+		// 协作功能
+		collaborationHandler := handler.NewTeamCollaborationHandler(
+			components.TeamService,
+			components.CollaborationService,
+		)
+		team.POST("/:id/share-code", collaborationHandler.ShareCode)
+		team.POST("/:id/status", collaborationHandler.UpdateWorkStatus)
+		team.POST("/:id/daily-summaries/share", collaborationHandler.ShareDailySummary)
+		team.GET("/:id/daily-summaries", collaborationHandler.GetDailySummaries)
+		team.GET("/:id/daily-summaries/:member_id", collaborationHandler.GetDailySummaryDetail)
 	}
 
 	// 注册 P2P 路由（所有成员都暴露）
@@ -236,6 +263,7 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		p2p.GET("/health", p2pHandler.Health)
 		p2p.GET("/skills/:id/meta", p2pHandler.GetSkillMeta)
 		p2p.GET("/skills/:id/download", p2pHandler.DownloadSkill)
+		p2p.GET("/daily-summary", p2pHandler.GetDailySummary)
 	}
 }
 

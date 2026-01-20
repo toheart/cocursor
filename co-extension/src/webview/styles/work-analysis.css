@@ -659,3 +659,184 @@
   color: var(--vscode-textLink-foreground);
 }
 
+/* ============================
+   工作日报弹窗样式 - 美化版
+   ============================ */
+.cocursor-work-daily-report-modal {
+  background-color: var(--vscode-editor-background);
+  border-radius: 16px;
+  max-width: 720px;
+  width: 92%;
+  max-height: 85vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-work-daily-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--vscode-sideBar-background), var(--vscode-editor-background));
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-work-daily-report-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cocursor-work-daily-report-icon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.cocursor-work-daily-report-title h2 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  letter-spacing: -0.3px;
+}
+
+.cocursor-work-daily-report-subtitle {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-foreground);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.cocursor-modal-close-btn:hover {
+  background: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-focusBorder);
+}
+
+/* 加载状态 */
+.cocursor-work-daily-report-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: 16px;
+}
+
+.cocursor-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--vscode-panel-border);
+  border-top-color: var(--vscode-button-background);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.cocursor-work-daily-report-loading span {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 空状态 */
+.cocursor-work-daily-report-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: 12px;
+  text-align: center;
+}
+
+.cocursor-empty-icon {
+  font-size: 48px;
+  opacity: 0.4;
+}
+
+.cocursor-work-daily-report-empty span {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 统计信息卡片 */
+.cocursor-work-daily-report-stats {
+  display: flex;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-work-daily-report-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: var(--vscode-editor-background);
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.cocursor-work-daily-report-stat:hover {
+  transform: scale(1.02);
+}
+
+.cocursor-work-daily-report-stat-icon {
+  font-size: 28px;
+}
+
+.cocursor-work-daily-report-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  line-height: 1;
+  background: linear-gradient(135deg, 
+    var(--vscode-textLink-foreground) 0%,
+    var(--vscode-button-background) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cocursor-work-daily-report-stat-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 内容区域 */
+.cocursor-work-daily-report-modal .cocursor-daily-report-markdown-container {
+  margin: 24px;
+  max-height: calc(85vh - 280px);
+  overflow-y: auto;
+}
+
+/* 底部按钮 */
+.cocursor-work-daily-report-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+}
+

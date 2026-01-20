@@ -57,13 +57,11 @@ type RAGConfig struct {
 		DataPath   string `json:"data_path"`   // 数据存储路径
 	} `json:"qdrant"`
 
-	// 扫描配置
-	ScanConfig struct {
-		Enabled     bool   `json:"enabled"`     // 是否启用自动扫描
-		Interval    string `json:"interval"`    // 扫描间隔：30m/1h/2h/6h/24h/manual
-		BatchSize   int    `json:"batch_size"`  // 批量大小
-		Concurrency int    `json:"concurrency"` // 并发数
-	} `json:"scan_config"`
+	// 索引配置（仅用于全量索引）
+	IndexConfig struct {
+		BatchSize   int `json:"batch_size"`  // 批量大小（默认 10）
+		Concurrency int `json:"concurrency"` // 并发数（默认 3）
+	} `json:"index_config"`
 
 	// 元数据
 	LastFullScan        int64 `json:"last_full_scan"`        // 最后全量扫描时间
@@ -155,14 +153,10 @@ func (c *ConfigManager) WriteConfig(config *RAGConfig) error {
 // getDefaultConfig 获取默认配置
 func (c *ConfigManager) getDefaultConfig() *RAGConfig {
 	return &RAGConfig{
-		ScanConfig: struct {
-			Enabled     bool   `json:"enabled"`
-			Interval    string `json:"interval"`
-			BatchSize   int    `json:"batch_size"`
-			Concurrency int    `json:"concurrency"`
+		IndexConfig: struct {
+			BatchSize   int `json:"batch_size"`
+			Concurrency int `json:"concurrency"`
 		}{
-			Enabled:     false,
-			Interval:    "1h",
 			BatchSize:   10,
 			Concurrency: 3,
 		},

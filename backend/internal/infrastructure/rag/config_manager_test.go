@@ -60,11 +60,11 @@ func TestConfigManager_ReadNonExistent(t *testing.T) {
 	}
 
 	// 验证返回的是默认配置
-	if config.ScanConfig.Interval != "1h" {
-		t.Errorf("Expected default interval 1h, got %s", config.ScanConfig.Interval)
+	if config.IndexConfig.BatchSize != 10 {
+		t.Errorf("Expected default batch size 10, got %d", config.IndexConfig.BatchSize)
 	}
-	if config.ScanConfig.BatchSize != 10 {
-		t.Errorf("Expected default batch size 10, got %d", config.ScanConfig.BatchSize)
+	if config.IndexConfig.Concurrency != 3 {
+		t.Errorf("Expected default concurrency 3, got %d", config.IndexConfig.Concurrency)
 	}
 }
 
@@ -72,16 +72,10 @@ func TestConfigManager_DefaultConfig(t *testing.T) {
 	manager := &ConfigManager{}
 	config := manager.getDefaultConfig()
 
-	if config.ScanConfig.Enabled != false {
-		t.Errorf("Expected Enabled=false, got %v", config.ScanConfig.Enabled)
+	if config.IndexConfig.BatchSize != 10 {
+		t.Errorf("Expected BatchSize=10, got %d", config.IndexConfig.BatchSize)
 	}
-	if config.ScanConfig.Interval != "1h" {
-		t.Errorf("Expected Interval=1h, got %s", config.ScanConfig.Interval)
-	}
-	if config.ScanConfig.BatchSize != 10 {
-		t.Errorf("Expected BatchSize=10, got %d", config.ScanConfig.BatchSize)
-	}
-	if config.ScanConfig.Concurrency != 3 {
-		t.Errorf("Expected Concurrency=3, got %d", config.ScanConfig.Concurrency)
+	if config.IndexConfig.Concurrency != 3 {
+		t.Errorf("Expected Concurrency=3, got %d", config.IndexConfig.Concurrency)
 	}
 }

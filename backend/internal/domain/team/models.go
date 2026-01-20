@@ -23,12 +23,118 @@ type Team struct {
 
 // TeamMember 团队成员
 type TeamMember struct {
-	ID       string    `json:"id"`        // 成员 ID
-	Name     string    `json:"name"`      // 成员名称
-	Endpoint string    `json:"endpoint"`  // 成员端点 (IP:Port)
-	IsLeader bool      `json:"is_leader"` // 是否是 Leader
-	IsOnline bool      `json:"is_online"` // 是否在线
-	JoinedAt time.Time `json:"joined_at"` // 加入时间
+	ID         string            `json:"id"`                    // 成员 ID
+	Name       string            `json:"name"`                  // 成员名称
+	Endpoint   string            `json:"endpoint"`              // 成员端点 (IP:Port)
+	IsLeader   bool              `json:"is_leader"`             // 是否是 Leader
+	IsOnline   bool              `json:"is_online"`             // 是否在线
+	JoinedAt   time.Time         `json:"joined_at"`             // 加入时间
+	WorkStatus *MemberWorkStatus `json:"work_status,omitempty"` // 工作状态
+}
+
+// MemberWorkStatus 成员工作状态
+type MemberWorkStatus struct {
+	ProjectName   string    `json:"project_name"`   // 当前项目名
+	CurrentFile   string    `json:"current_file"`   // 当前文件（相对路径）
+	LastActiveAt  time.Time `json:"last_active_at"` // 最后活跃时间
+	StatusVisible bool      `json:"status_visible"` // 是否公开状态
+}
+
+// CodeSnippet 代码片段
+type CodeSnippet struct {
+	ID         string    `json:"id"`          // 唯一标识
+	TeamID     string    `json:"team_id"`     // 团队 ID
+	SenderID   string    `json:"sender_id"`   // 发送者 ID
+	SenderName string    `json:"sender_name"` // 发送者名称
+	FileName   string    `json:"file_name"`   // 文件名
+	FilePath   string    `json:"file_path"`   // 相对路径
+	Language   string    `json:"language"`    // 编程语言
+	StartLine  int       `json:"start_line"`  // 起始行号
+	EndLine    int       `json:"end_line"`    // 结束行号
+	Code       string    `json:"code"`        // 代码内容
+	Message    string    `json:"message"`     // 附加消息（可选）
+	CreatedAt  time.Time `json:"created_at"`  // 创建时间
+}
+
+// MaxCodeSnippetSize 代码片段最大大小（10KB）
+const MaxCodeSnippetSize = 10 * 1024
+
+// Validate 验证代码片段
+func (s *CodeSnippet) Validate() error {
+	if s.Code == "" {
+		return fmt.Errorf("code content is required")
+	}
+	if len(s.Code) > MaxCodeSnippetSize {
+		return fmt.Errorf("code snippet exceeds maximum size of %d bytes", MaxCodeSnippetSize)
+	}
+	if s.FileName == "" {
+		return fmt.Errorf("file name is required")
+	}
+	return nil
+}
+
+// Truncate 截断代码片段到最大大小
+func (s *CodeSnippet) Truncate() bool {
+	if len(s.Code) > MaxCodeSnippetSize {
+		s.Code = s.Code[:MaxCodeSnippetSize]
+		return true
+	}
+	return false
+}
+
+// TeamDailySummary 团队日报
+type TeamDailySummary struct {
+	MemberID      string    `json:"member_id"`      // 成员 ID
+	MemberName    string    `json:"member_name"`    // 成员名称
+	Date          string    `json:"date"`           // 日期 YYYY-MM-DD
+	Summary       string    `json:"summary"`        // Markdown 内容
+	Language      string    `json:"language"`       // 语言 zh/en
+	SharedAt      time.Time `json:"shared_at"`      // 分享时间
+	TotalSessions int       `json:"total_sessions"` // 会话总数
+	ProjectCount  int       `json:"project_count"`  // 项目数量
+}
+
+// TeamDailySummaryIndex 团队日报索引（Leader 维护）
+type TeamDailySummaryIndex struct {
+	TeamID    string             `json:"team_id"`    // 团队 ID
+	UpdatedAt time.Time          `json:"updated_at"` // 更新时间
+	Summaries []TeamDailySummary `json:"summaries"`  // 日报列表（不含完整 Summary 内容）
+}
+
+// FindSummary 查找日报
+func (idx *TeamDailySummaryIndex) FindSummary(date, memberID string) *TeamDailySummary {
+	for i := range idx.Summaries {
+		if idx.Summaries[i].Date == date && idx.Summaries[i].MemberID == memberID {
+			return &idx.Summaries[i]
+		}
+	}
+	return nil
+}
+
+// AddOrUpdateSummary 添加或更新日报
+func (idx *TeamDailySummaryIndex) AddOrUpdateSummary(entry TeamDailySummary) {
+	// 索引中不存储完整的 Summary 内容
+	entry.Summary = ""
+	for i := range idx.Summaries {
+		if idx.Summaries[i].Date == entry.Date && idx.Summaries[i].MemberID == entry.MemberID {
+			idx.Summaries[i] = entry
+			idx.UpdatedAt = time.Now()
+			return
+		}
+	}
+	idx.Summaries = append(idx.Summaries, entry)
+	idx.UpdatedAt = time.Now()
+}
+
+// GetSummariesByDate 按日期获取日报列表
+func (idx *TeamDailySummaryIndex) GetSummariesByDate(date string) []TeamDailySummary {
+	var result []TeamDailySummary
+	for _, s := range idx.Summaries {
+		if s.Date == date {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 // Identity 本机身份
@@ -89,18 +195,67 @@ type NetworkConfig struct {
 
 // TeamSkillEntry 团队技能目录条目
 type TeamSkillEntry struct {
-	PluginID       string    `json:"plugin_id"`       // 插件 ID
-	Name           string    `json:"name"`            // 技能名称
-	Description    string    `json:"description"`     // 技能描述
-	Version        string    `json:"version"`         // 版本号
-	Scope          string    `json:"scope"`           // 范围：global | project
-	AuthorID       string    `json:"author_id"`       // 作者成员 ID
-	AuthorName     string    `json:"author_name"`     // 作者名称
-	AuthorEndpoint string    `json:"author_endpoint"` // 作者端点（用于下载）
-	PublishedAt    time.Time `json:"published_at"`    // 发布时间
-	FileCount      int       `json:"file_count"`      // 文件数量
-	TotalSize      int64     `json:"total_size"`      // 总大小（字节）
-	Checksum       string    `json:"checksum"`        // 校验和
+	PluginID       string    `json:"plugin_id"`                  // 插件 ID
+	Name           string    `json:"name"`                       // 技能名称（英文）
+	NameZhCN       string    `json:"name_zh_cn,omitempty"`       // 技能名称（中文）
+	Description    string    `json:"description"`                // 技能描述（英文）
+	DescZhCN       string    `json:"description_zh_cn,omitempty"` // 技能描述（中文）
+	Version        string    `json:"version"`                    // 版本号
+	Category       string    `json:"category,omitempty"`         // 分类（productivity/creative/design/tools/other）
+	Scope          string    `json:"scope"`                      // 范围：global | project
+	AuthorID       string    `json:"author_id"`                  // 作者成员 ID
+	AuthorName     string    `json:"author_name"`                // 作者名称
+	AuthorEndpoint string    `json:"author_endpoint"`            // 作者端点（用于下载）
+	PublishedAt    time.Time `json:"published_at"`               // 发布时间
+	FileCount      int       `json:"file_count"`                 // 文件数量
+	TotalSize      int64     `json:"total_size"`                 // 总大小（字节）
+	Checksum       string    `json:"checksum"`                   // 校验和
+}
+
+// SkillMetadata 用户提交的技能元数据（发布时使用）
+type SkillMetadata struct {
+	PluginID    string `json:"plugin_id"`                   // 技能 ID（必填）
+	Name        string `json:"name"`                        // 英文名称（必填）
+	NameZhCN    string `json:"name_zh_cn,omitempty"`        // 中文名称（可选）
+	Description string `json:"description"`                 // 英文描述（必填）
+	DescZhCN    string `json:"description_zh_cn,omitempty"` // 中文描述（可选）
+	Version     string `json:"version"`                     // 版本号（必填）
+	Category    string `json:"category"`                    // 分类（必填）
+	Author      string `json:"author"`                      // 作者（必填）
+}
+
+// Validate 验证技能元数据
+func (m *SkillMetadata) Validate() error {
+	if m.PluginID == "" {
+		return fmt.Errorf("plugin_id is required")
+	}
+	if m.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+	if m.Description == "" {
+		return fmt.Errorf("description is required")
+	}
+	if m.Version == "" {
+		return fmt.Errorf("version is required")
+	}
+	if m.Category == "" {
+		return fmt.Errorf("category is required")
+	}
+	if m.Author == "" {
+		return fmt.Errorf("author is required")
+	}
+	// 验证分类有效性
+	validCategories := map[string]bool{
+		"productivity": true,
+		"creative":     true,
+		"design":       true,
+		"tools":        true,
+		"other":        true,
+	}
+	if !validCategories[m.Category] {
+		return fmt.Errorf("invalid category: %s", m.Category)
+	}
+	return nil
 }
 
 // TeamSkillIndex 团队技能目录

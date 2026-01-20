@@ -612,6 +612,30 @@
   line-height: 1.5;
 }
 
+.cocursor-team-skill-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cocursor-team-skill-actions .cocursor-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.cocursor-team-skill-actions .cocursor-btn.secondary {
+  padding: 6px 8px;
+}
+
+.cocursor-team-skill-actions .cocursor-btn.danger {
+  background-color: var(--vscode-errorForeground);
+  border-color: var(--vscode-errorForeground);
+}
+
+.cocursor-team-skill-actions .cocursor-btn.danger:hover {
+  opacity: 0.9;
+}
+
 /* ========== 加入团队弹窗 ========== */
 
 .cocursor-team-join-tabs {
@@ -897,4 +921,604 @@
   .cocursor-skill-publish-step-label {
     display: none;
   }
+}
+
+/* ========== 团队日报 Tab ========== */
+
+.cocursor-team-daily-report {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.cocursor-team-daily-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.cocursor-team-daily-report-date-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-team-daily-report-date-picker label {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-team-daily-report-date-picker input[type="date"] {
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  color: var(--vscode-input-foreground);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cocursor-team-daily-report-date-picker input[type="date"]:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-team-daily-report-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-team-daily-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 200px;
+}
+
+/* 日报卡片 - 美化版 */
+.cocursor-team-daily-report-card {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.cocursor-team-daily-report-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, 
+    var(--vscode-button-background) 0%, 
+    var(--vscode-textLink-foreground) 50%,
+    var(--vscode-button-background) 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.cocursor-team-daily-report-card:hover {
+  border-color: var(--vscode-focusBorder);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.cocursor-team-daily-report-card:hover::before {
+  opacity: 1;
+}
+
+.cocursor-team-daily-report-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cocursor-team-daily-report-card-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-textLink-foreground));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--vscode-button-foreground);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  letter-spacing: 0.5px;
+}
+
+.cocursor-team-daily-report-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cocursor-team-daily-report-card-name {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  letter-spacing: -0.2px;
+}
+
+.cocursor-team-daily-report-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-team-daily-report-card-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.cocursor-stat-icon {
+  font-size: 11px;
+}
+
+.cocursor-team-daily-report-card-time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 8px;
+}
+
+.cocursor-time-icon {
+  font-size: 12px;
+}
+
+/* 内容预览区域 */
+.cocursor-team-daily-report-card-preview {
+  padding: 14px 16px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 10px;
+  border-left: 3px solid var(--vscode-button-background);
+}
+
+.cocursor-team-daily-report-card-highlights {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-team-daily-report-card-highlights li {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+  position: relative;
+  padding-left: 18px;
+}
+
+.cocursor-team-daily-report-card-highlights li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--vscode-button-background);
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.cocursor-team-daily-report-card-excerpt {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+}
+
+/* 卡片底部 */
+.cocursor-team-daily-report-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-btn-text:hover {
+  background: rgba(var(--vscode-button-background), 0.1);
+  color: var(--vscode-textLink-activeForeground);
+}
+
+.cocursor-btn-text:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cocursor-btn-arrow {
+  transition: transform 0.2s ease;
+}
+
+.cocursor-btn-text:hover .cocursor-btn-arrow {
+  transform: translateX(3px);
+}
+
+.cocursor-team-daily-report-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 空状态 */
+.cocursor-team-empty-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 8px;
+}
+
+.cocursor-team-empty-section .cocursor-team-empty-icon {
+  font-size: 48px;
+  opacity: 0.4;
+}
+
+.cocursor-team-empty-section span {
+  font-size: 14px;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-team-empty-section p {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}
+
+/* 日报详情弹窗 - 美化版 */
+.cocursor-daily-report-modal {
+  max-width: 780px;
+  width: 92%;
+  max-height: 85vh;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.cocursor-daily-report-modal .cocursor-modal-header {
+  padding: 20px 24px;
+  background: linear-gradient(135deg, var(--vscode-sideBar-background), var(--vscode-editor-background));
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-daily-report-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cocursor-daily-report-modal-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-textLink-foreground));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--vscode-button-foreground);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.cocursor-daily-report-modal-info h2 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-daily-report-modal-date {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-daily-report-modal .cocursor-modal-body {
+  padding: 24px;
+  max-height: calc(85vh - 120px);
+  overflow-y: auto;
+}
+
+.cocursor-daily-report-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 统计信息卡片 */
+.cocursor-daily-report-stats {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 12px;
+}
+
+.cocursor-daily-report-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  background: var(--vscode-editor-background);
+  border-radius: 10px;
+  transition: transform 0.2s ease;
+}
+
+.cocursor-daily-report-stat:hover {
+  transform: scale(1.02);
+}
+
+.cocursor-daily-report-stat-icon {
+  font-size: 24px;
+}
+
+.cocursor-daily-report-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  line-height: 1;
+}
+
+.cocursor-daily-report-stat-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Markdown 渲染容器 */
+.cocursor-daily-report-markdown-container {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 12px;
+  padding: 24px;
+  line-height: 1.7;
+}
+
+/* Markdown 标题样式 */
+.cocursor-md-h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--vscode-button-background);
+}
+
+.cocursor-md-h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 24px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-md-h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 20px 0 10px 0;
+}
+
+.cocursor-md-h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 16px 0 8px 0;
+}
+
+/* Markdown 段落 */
+.cocursor-md-p {
+  margin: 0 0 12px 0;
+  color: var(--vscode-foreground);
+  font-size: 14px;
+}
+
+/* Markdown 列表 */
+.cocursor-md-ul,
+.cocursor-md-ol {
+  margin: 0 0 16px 0;
+  padding-left: 24px;
+}
+
+.cocursor-md-li {
+  margin: 8px 0;
+  color: var(--vscode-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.cocursor-md-ul > .cocursor-md-li::marker {
+  color: var(--vscode-button-background);
+}
+
+.cocursor-md-ol > .cocursor-md-li::marker {
+  color: var(--vscode-button-background);
+  font-weight: 600;
+}
+
+/* Markdown 代码 */
+.cocursor-md-code-inline {
+  background: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-textPreformat-foreground);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--vscode-editor-font-family, "SF Mono", Monaco, Consolas, monospace);
+  font-size: 13px;
+}
+
+.cocursor-md-pre {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-md-code-block {
+  font-family: var(--vscode-editor-font-family, "SF Mono", Monaco, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+}
+
+/* Markdown 引用 */
+.cocursor-md-blockquote {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--vscode-button-background);
+  background: var(--vscode-sideBar-background);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-md-blockquote .cocursor-md-p {
+  margin: 0;
+  color: inherit;
+}
+
+/* Markdown 链接 */
+.cocursor-md-link {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.cocursor-md-link:hover {
+  border-bottom-color: var(--vscode-textLink-foreground);
+}
+
+/* Markdown 强调 */
+.cocursor-md-strong {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-md-em {
+  font-style: italic;
+}
+
+/* Markdown 分割线 */
+.cocursor-md-hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--vscode-panel-border), transparent);
+  margin: 24px 0;
+}
+
+/* Markdown 表格 */
+.cocursor-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.cocursor-md-thead {
+  background: var(--vscode-sideBar-background);
+}
+
+.cocursor-md-th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  border-bottom: 2px solid var(--vscode-panel-border);
+}
+
+.cocursor-md-td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-foreground);
+}
+
+.cocursor-md-tr:hover .cocursor-md-td {
+  background: var(--vscode-sideBar-background);
+}
+
+.cocursor-daily-report-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-daily-report-markdown {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.cocursor-daily-report-markdown pre {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--vscode-foreground);
+}
+
+/* 按钮样式补充 */
+.cocursor-btn-icon {
+  margin-right: 4px;
+}
+
+.cocursor-btn-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
 }
