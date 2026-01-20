@@ -41,6 +41,9 @@ func TestGetWorkspaceIDByPath(t *testing.T) {
 
 // TestGetGlobalStoragePath 测试获取全局存储路径
 func TestGetGlobalStoragePath(t *testing.T) {
+	// TODO: 此测试需要本地 Cursor 环境，跳过 CI
+	t.Skip("Skipping: requires local Cursor installation")
+
 	resolver := NewPathResolver()
 
 	path, err := resolver.GetGlobalStoragePath()
@@ -57,6 +60,9 @@ func TestGetGlobalStoragePath(t *testing.T) {
 
 // TestGetWorkspaceStorageDir 测试获取工作区存储目录
 func TestGetWorkspaceStorageDir(t *testing.T) {
+	// TODO: 此测试需要本地 Cursor 环境，跳过 CI
+	t.Skip("Skipping: requires local Cursor installation")
+
 	resolver := NewPathResolver()
 
 	dir, err := resolver.GetWorkspaceStorageDir()
