@@ -132,7 +132,7 @@ install:
 # ============================================================================
 
 # CI 测试阶段：运行测试和 lint
-ci-test:
+ci-test: wire
 	@echo "=== CI 测试阶段 ==="
 	$(MAKE) -C backend test
 	$(MAKE) -C co-extension lint

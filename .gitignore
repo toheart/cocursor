@@ -46,3 +46,4 @@ backend/.qdrant-initialized
 tmp
 backend/server
 co-extension/nul
+docs/cocursor-intro-article.md
