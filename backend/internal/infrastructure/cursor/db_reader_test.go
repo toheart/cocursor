@@ -7,6 +7,9 @@ import (
 // TestReadValueFromTable 测试从数据库读取值
 // 验收标准：能成功读取 cursorAuth/cachedEmail 对应的 BLOB 数据（Email）
 func TestReadValueFromTable(t *testing.T) {
+	// TODO: 此测试需要本地 Cursor 数据库，跳过 CI
+	t.Skip("Skipping: requires local Cursor database")
+
 	// 创建路径解析器和数据库读取器
 	pathResolver := NewPathResolver()
 	dbReader := NewDBReader()
@@ -35,6 +38,9 @@ func TestReadValueFromTable(t *testing.T) {
 
 // TestReadDailyStats 测试读取每日统计数据
 func TestReadDailyStats(t *testing.T) {
+	// TODO: 此测试需要本地 Cursor 数据库，跳过 CI
+	t.Skip("Skipping: requires local Cursor database")
+
 	pathResolver := NewPathResolver()
 	dbReader := NewDBReader()
 
