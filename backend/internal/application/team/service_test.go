@@ -51,10 +51,10 @@ func TestTeamService_Identity(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "NewName", updated.Name)
 
-	// EnsureIdentity - 已存在
+	// EnsureIdentity - 已存在时会更新名称
 	ensured, err := service.EnsureIdentity("AnotherName")
 	require.NoError(t, err)
-	assert.Equal(t, "NewName", ensured.Name) // 不应改变
+	assert.Equal(t, "AnotherName", ensured.Name) // 应该更新为新名称
 }
 
 func TestTeamService_NetworkInterfaces(t *testing.T) {

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import axios from "axios";
+import FormData from "form-data";
 import { WebviewMessage, ExtensionMessage } from "./types/message";
 
 export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team";
@@ -1276,9 +1277,7 @@ export class WebviewPanel {
       // 将 base64 转换为 Buffer
       const fileBuffer = Buffer.from(payload.fileBase64, "base64");
       
-      // 创建 FormData（使用 form-data 包或手动构建 multipart）
-      // 由于 axios 支持直接发送 Buffer，我们使用 FormData 的方式
-      const FormData = require("form-data");
+      // 创建 FormData（使用 form-data 包）
       const form = new FormData();
       form.append("file", fileBuffer, {
         filename: payload.filename,

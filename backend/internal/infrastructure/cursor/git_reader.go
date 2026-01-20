@@ -93,10 +93,13 @@ func (r *GitReader) ReadGitBranch(projectPath string) (string, error) {
 // normalizeGitURL 规范化 Git URL
 // 统一协议、大小写、移除 .git 后缀
 func (r *GitReader) normalizeGitURL(url string) string {
-	// 1. 移除 .git 后缀
-	normalized := strings.TrimSuffix(url, ".git")
+	// 1. 先转小写（确保后续比较是大小写不敏感的）
+	normalized := strings.ToLower(url)
 
-	// 2. 统一协议：git@github.com: -> https://github.com/
+	// 2. 移除 .git 后缀（现在是小写了）
+	normalized = strings.TrimSuffix(normalized, ".git")
+
+	// 3. 统一协议：git@github.com: -> https://github.com/
 	// 注意：先处理 ssh:// 格式，再处理 git@ 格式
 	if strings.HasPrefix(normalized, "ssh://git@") {
 		normalized = strings.Replace(normalized, "ssh://git@github.com/", "https://github.com/", 1)
@@ -105,9 +108,6 @@ func (r *GitReader) normalizeGitURL(url string) string {
 		normalized = strings.Replace(normalized, "git@github.com:", "https://github.com/", 1)
 		normalized = strings.Replace(normalized, "git@gitlab.com:", "https://gitlab.com/", 1)
 	}
-
-	// 3. 转小写
-	normalized = strings.ToLower(normalized)
 
 	return normalized
 }
