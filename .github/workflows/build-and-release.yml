@@ -267,9 +267,16 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
+          # 检查 PAT 是否存在
+          if [ -z "$VSCE_PAT" ]; then
+            echo "❌ Error: VSCE_PAT secret is not set or empty!"
+            echo "Please check: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
+          echo "✓ VSCE_PAT is configured (length: ${#VSCE_PAT})"
           echo "Publishing ${{ matrix.platform }}..."
-          vsce publish -p $VSCE_PAT --packagePath *.vsix
-          echo "✅ ${{ matrix.platform }} published successfully!"
+          vsce publish -p "$VSCE_PAT" --packagePath *.vsix
+na          echo "✅ ${{ matrix.platform }} published successfully!"
 
   # ============================================================================
   # 阶段5: 发布结果汇总

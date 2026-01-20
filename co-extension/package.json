@@ -3,7 +3,6 @@
   "displayName": "CoCursor",
   "description": "帮助团队成员共享 AI 聊天记录，提升 Cursor 团队协作效率",
   "version": "0.1.0",
-  "publisher": "cocursor",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
