@@ -143,6 +143,27 @@ Usage notes:
 <location>global</location>
 </skill>
 
+<skill>
+<name>daily-summary</name>
+<description>Automatically summarize Cursor chat records to generate daily work reports. Supports querying sessions by date, reading text-only dialogues, identifying work types, extracting tech debt, and saving summaries to database. Can optionally integrate git commit analysis for comprehensive work tracking. Use this skill when users request work summaries, daily reports, or need to review daily work content.</description>
+<path>/Users/xibaobao/.claude/skills/daily-summary/SKILL.md</path>
+<location>global</location>
+</skill>
+
+<skill>
+<name>go-react-stack</name>
+<description>Create a new Go+React full-stack project with DDD architecture, OpenSpec specifications, and React best practices. Includes complete project scaffolding with backend (Go with Gin), frontend (React with TypeScript), OpenSpec structure, and example code following project conventions. Use this skill when users request creating a new full-stack project, scaffolding a Go+React application, or setting up a project with OpenSpec specifications.</description>
+<path>/Users/xibaobao/.claude/skills/go-react-stack/SKILL.md</path>
+<location>global</location>
+</skill>
+
+<skill>
+<name>openspec</name>
+<description>Specification-driven development workflow tool that helps teams and AI assistants reach consensus on requirements before coding. Provides complete OpenSpec workflow support through cocursor MCP tools. Use this skill when working with OpenSpec workflows, creating change proposals, implementing approved changes, or archiving completed work.</description>
+<path>/Users/xibaobao/.claude/skills/openspec/SKILL.md</path>
+<location>global</location>
+</skill>
+
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>

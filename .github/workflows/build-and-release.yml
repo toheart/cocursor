@@ -276,7 +276,7 @@ jobs:
           fi
           echo "✓ VSCE_PAT is configured (length: ${#VSCE_PAT})"
           echo "Publishing ${PLATFORM}..."
-          vsce publish -p "$VSCE_PAT" --packagePath *.vsix
+          vsce publish -p "${VSCE_PAT}" --packagePath *.vsix
           echo "✅ ${PLATFORM} published successfully!"
 
   # ============================================================================
