@@ -83,7 +83,7 @@ ifeq ($(OS),Windows_NT)
 		--minify=false \
 		--define:process.env.NODE_ENV='"development"' \
 		--global-name=cocursor
-	@powershell -NoProfile -Command "Copy-Item '$(WEBVIEW_CSS)' '$(DIST_DIR)/webview/index.css' -Force"
+	@powershell -NoProfile -Command "if (Test-Path '$(WEBVIEW_CSS)') { Copy-Item '$(WEBVIEW_CSS)' '$(DIST_DIR)/webview/index.css' -Force }"
 else
 	$(ESBUILD) $(WEBVIEW_ENTRY) \
 		--bundle \
@@ -138,7 +138,7 @@ ifeq ($(OS),Windows_NT)
 		--minify \
 		--define:process.env.NODE_ENV='"production"' \
 		--global-name=cocursor
-	@powershell -NoProfile -Command "Copy-Item '$(WEBVIEW_CSS)' '$(DIST_DIR)/webview/index.css' -Force"
+	@powershell -NoProfile -Command "if (Test-Path '$(WEBVIEW_CSS)') { Copy-Item '$(WEBVIEW_CSS)' '$(DIST_DIR)/webview/index.css' -Force }"
 else
 	$(ESBUILD) $(WEBVIEW_ENTRY) \
 		--bundle \
