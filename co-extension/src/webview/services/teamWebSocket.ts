@@ -119,7 +119,7 @@ class TeamWebSocketManager {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 3000;
   private pingInterval = 30000;
-  private pingTimers: Map<string, NodeJS.Timer> = new Map();
+  private pingTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
 
   /**
    * 连接到团队 WebSocket

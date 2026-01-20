@@ -197,7 +197,7 @@ export const RAGSearch: React.FC = () => {
   const parseSummary = useCallback((summaryStr: unknown) => {
     if (!summaryStr || typeof summaryStr !== 'string') return null;
     try {
-      return JSON.parse(summaryStr) as SearchResult['summary'];
+      return JSON.parse(summaryStr) as LegacySearchResult['summary'];
     } catch (error) {
       console.error("Failed to parse summary:", error);
       return null;

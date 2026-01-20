@@ -47,3 +47,4 @@ tmp
 backend/server
 co-extension/nul
 docs/cocursor-intro-article.md
+docs/cocursor-design-philosophy.md

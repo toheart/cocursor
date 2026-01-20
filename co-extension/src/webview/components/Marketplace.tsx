@@ -29,6 +29,7 @@ interface GetPluginsParams {
   installed?: boolean;
   source?: string;
   team_id?: string;
+  lang?: string;
 }
 
 interface PluginInstallResponse {

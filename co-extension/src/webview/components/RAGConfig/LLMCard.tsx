@@ -128,7 +128,7 @@ export const LLMCard: React.FC<LLMCardProps> = ({
     setTestResult(null);
 
     try {
-      const response = (await apiService.testLLMConfig({
+      const response = (await apiService.testLLMConnection({
         url: config.url,
         api_key: config.apiKey,
         model: config.model,

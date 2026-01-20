@@ -315,10 +315,11 @@ async function shareSelectedCode(): Promise<void> {
     if (teams.length === 1) {
       teamId = teams[0].id;
     } else {
-      const selected = await vscode.window.showQuickPick(
-        teams.map((t: { id: string; name: string }) => ({ label: t.name, id: t.id })),
-        { placeHolder: "选择要分享到的团队" }
-      );
+      interface TeamQuickPickItem extends vscode.QuickPickItem {
+        id: string;
+      }
+      const teamOptions: TeamQuickPickItem[] = teams.map((t: { id: string; name: string }) => ({ label: t.name, id: t.id }));
+      const selected = await vscode.window.showQuickPick(teamOptions, { placeHolder: "选择要分享到的团队" });
       if (!selected) {
         return;
       }

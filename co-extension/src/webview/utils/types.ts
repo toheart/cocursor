@@ -161,7 +161,7 @@ export interface ProjectOption {
 declare global {
   interface Window {
     __WORKSPACE_PATH__?: string;
-    __VIEW_TYPE__?: "workAnalysis" | "recentSessions" | "marketplace";
+    __VIEW_TYPE__?: "workAnalysis" | "recentSessions" | "marketplace" | "team";
     __INITIAL_ROUTE__?: string;
   }
 }

@@ -76,7 +76,7 @@ export const WorkflowDetail: React.FC = () => {
 
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString({
+    return date.toLocaleString(undefined, {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
