@@ -1,0 +1,11 @@
+{
+  "id": "internal-comms",
+  "name": "内部通信",
+  "description": "帮助编写各种内部通信的资源，使用我公司喜欢的格式。适用于被要求编写某种内部通信（状态报告、领导层更新、3P 更新、公司新闻简报、FAQ、事件报告、项目更新等）。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "生产力",
+  "skill": {
+    "skill_name": "internal-comms"
+  }
+}

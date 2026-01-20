@@ -395,6 +395,7 @@
       "urlRequired": "Please enter a valid URL",
       "invalidUrl": "Invalid URL format",
       "apiKeyRequired": "Please enter API Key",
+      "apiKeyConfigured": "API Key is configured (re-enter to modify)",
       "modelRequired": "Please enter model name",
       "copy": "Copy",
       "clear": "Clear",

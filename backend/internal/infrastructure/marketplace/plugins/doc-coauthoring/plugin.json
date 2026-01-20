@@ -1,0 +1,11 @@
+{
+  "id": "doc-coauthoring",
+  "name": "文档协作",
+  "description": "指导用户通过结构化工作流进行文档协作编写。适用于需要编写文档、提案、技术规范、决策文档或类似结构化内容的场景。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "生产力",
+  "skill": {
+    "skill_name": "doc-coauthoring"
+  }
+}

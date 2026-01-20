@@ -99,12 +99,12 @@ export const RAGConfig: React.FC = () => {
           mode: hasConfig ? 'quick-edit' : 'wizard',
           embedding: {
             url: response.embedding_api?.url || '',
-            apiKey: '', // API Key 不返回，需要用户重新输入
+            apiKey: response.embedding_api?.has_api_key ? '••••••' : '', // 如果已配置，显示占位符
             model: response.embedding_api?.model || '',
           },
           llm: {
             url: response.llm_chat_api?.url || '',
-            apiKey: '',
+            apiKey: response.llm_chat_api?.has_api_key ? '••••••' : '', // 如果已配置，显示占位符
             model: response.llm_chat_api?.model || '',
           },
           qdrant: {
@@ -238,12 +238,14 @@ export const RAGConfig: React.FC = () => {
         embedding_api: {
           url: embedding.url,
           model: embedding.model,
-          api_key: embedding.apiKey,
+          // 如果 API Key 是占位符，说明没有修改，不发送到后端
+          ...(embedding.apiKey !== '••••••' && { api_key: embedding.apiKey }),
         },
         llm_chat_api: {
           url: llm.url,
           model: llm.model,
-          api_key: llm.apiKey,
+          // 如果 API Key 是占位符，说明没有修改，不发送到后端
+          ...(llm.apiKey !== '••••••' && { api_key: llm.apiKey }),
         },
         scan_config: {
           enabled: scan.enabled,

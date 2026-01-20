@@ -1,0 +1,11 @@
+{
+  "id": "xlsx",
+  "name": "Excel 处理",
+  "description": "综合的电子表格创建、编辑和分析工具，支持公式、格式化、数据分析和可视化。适用于以编程方式处理电子表格、分析数据或创建计算文件。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "生产力",
+  "skill": {
+    "skill_name": "xlsx"
+  }
+}

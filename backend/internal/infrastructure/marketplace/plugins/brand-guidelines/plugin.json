@@ -1,0 +1,11 @@
+{
+  "id": "brand-guidelines",
+  "name": "品牌指南",
+  "description": "应用 Anthropic 官方品牌颜色和排版到任何需要品牌视觉效果的工件中。适用于需要品牌颜色、风格指南、视觉格式或公司设计标准的场景。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "设计",
+  "skill": {
+    "skill_name": "brand-guidelines"
+  }
+}

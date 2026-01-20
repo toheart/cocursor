@@ -1,0 +1,11 @@
+{
+  "id": "docx",
+  "name": "Word 文档处理",
+  "description": "全面的 Word 文档创建、编辑和分析能力，支持修订跟踪、评论和格式保留。适用于与专业文档（.docx 文件）工作：创建新文档、修改或编辑内容、处理修订跟踪、添加评论或其他文档任务。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "生产力",
+  "skill": {
+    "skill_name": "docx"
+  }
+}

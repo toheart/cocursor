@@ -1,5 +1,40 @@
 /* ========== RAG 样式 ========== */
 
+/* 确保 VS Code 变量有默认值 */
+:root {
+  --vscode-foreground: #e0e0e0;
+  --vscode-background: #1e1e1e;
+  --vscode-editor-background: #1e1e1e;
+  --vscode-input-background: #3c3c3c;
+  --vscode-input-foreground: #e0e0e0;
+  --vscode-input-border: #3c3c3c;
+  --vscode-button-background: #0e639c;
+  --vscode-button-foreground: #ffffff;
+  --vscode-button-secondaryBackground: #3a3d41;
+  --vscode-button-secondaryForeground: #cccccc;
+  --vscode-button-border: #3c3c3c;
+  --vscode-button-hoverBackground: #1177bb;
+  --vscode-focusBorder: #007acc;
+  --vscode-panel-border: #454545;
+  --vscode-sideBar-background: #252526;
+  --vscode-textLink-foreground: #3794ff;
+  --vscode-descriptionForeground: #969696;
+  --vscode-disabledForeground: #7e7e7e;
+  --vscode-errorForeground: #f48771;
+  --vscode-terminal-ansiGreen: #89d185;
+  --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --vscode-list-hoverBackground: #2a2d2e;
+  --vscode-list-activeSelectionBackground: #094771;
+  --vscode-list-activeSelectionBorder: #f38518;
+  --vscode-badge-background: #4d4d4d;
+  --vscode-badge-foreground: #ffffff;
+  --vscode-dropdown-background: #3c3c3c;
+  --vscode-dropdown-foreground: #f0f0f0;
+  --vscode-dropdown-border: #454545;
+  --vscode-progressBar-background: #3c3c3c;
+  --vscode-inputValidation-errorBackground: #5a1d1d;
+}
+
 /* RAG 搜索容器 */
 .cocursor-rag-search {
   padding: 20px;
@@ -12,40 +47,49 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-search-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: var(--vscode-foreground);
 }
 
 /* RAG 搜索框 */
 .cocursor-rag-search-box {
   margin-bottom: 24px;
   display: flex;
-  gap: 8px;
+  gap: 12px;
+  align-items: stretch;
 }
 
 .cocursor-rag-search-input {
   flex: 1;
-  padding: 10px 16px;
-  font-size: 16px;
+  padding: 12px 16px;
+  font-size: 14px;
   border: 1px solid var(--vscode-input-border);
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border-radius: 6px;
   transition: all 0.2s ease;
   outline: none;
+  font-family: inherit;
+}
+
+.cocursor-rag-search-input::placeholder {
+  color: var(--vscode-descriptionForeground);
 }
 
 .cocursor-rag-search-input:focus {
   border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
 }
 
 .cocursor-rag-search-button {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
@@ -54,10 +98,16 @@
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .cocursor-rag-search-button:hover:not(:disabled) {
   background-color: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+}
+
+.cocursor-rag-search-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .cocursor-rag-search-button:disabled {
@@ -72,8 +122,12 @@
 
 .cocursor-rag-results-header {
   margin-bottom: 16px;
-  color: var(--vscode-descriptionForeground);
+  padding: 12px 16px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  color: var(--vscode-foreground);
   font-size: 14px;
+  font-weight: 500;
 }
 
 .cocursor-rag-results-list {
@@ -83,9 +137,9 @@
 }
 
 .cocursor-rag-result-item {
-  padding: 16px;
+  padding: 20px;
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: var(--vscode-editor-background);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -93,18 +147,31 @@
 
 .cocursor-rag-result-item:hover {
   border-color: var(--vscode-focusBorder);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
 }
 
 .cocursor-rag-result-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.cocursor-rag-result-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .cocursor-rag-result-project {
   font-weight: 600;
   color: var(--vscode-textLink-foreground);
+  font-size: 15px;
+  flex-shrink: 0;
 }
 
 .cocursor-rag-result-meta {
@@ -113,11 +180,16 @@
   align-items: center;
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
 }
 
 .cocursor-rag-result-score {
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-terminal-ansiGreen);
+  font-weight: 600;
+  padding: 2px 8px;
+  background-color: rgba(137, 209, 133, 0.1);
+  border-radius: 4px;
 }
 
 .cocursor-rag-result-content {
@@ -127,7 +199,7 @@
 }
 
 .cocursor-rag-result-turn {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-result-turn-label {
@@ -136,8 +208,8 @@
 }
 
 .cocursor-rag-result-expand-button {
-  margin-top: 8px;
-  padding: 4px 8px;
+  margin-top: 12px;
+  padding: 6px 12px;
   font-size: 12px;
   background-color: transparent;
   border: 1px solid var(--vscode-button-border);
@@ -154,36 +226,54 @@
 
 .cocursor-rag-result-expanded {
   margin-top: 12px;
-  padding-left: 16px;
-  border-left: 2px solid var(--vscode-panel-border);
+  padding: 12px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  border-left: 3px solid var(--vscode-focusBorder);
 }
 
 .cocursor-rag-result-expanded-title {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
   margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.cocursor-rag-result-expanded-content {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+  padding: 8px 0;
 }
 
 .cocursor-rag-result-expanded-list {
   font-size: 12px;
   margin-bottom: 4px;
+  color: var(--vscode-foreground);
+  padding: 4px 0;
 }
 
 /* RAG 配置容器 */
 .cocursor-rag-config {
-  padding: 20px;
-  max-width: 800px;
+  padding: 24px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
 .cocursor-rag-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-config-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
+  color: var(--vscode-foreground);
 }
 
 .cocursor-rag-config-section {
@@ -328,9 +418,147 @@
 /* 空状态 */
 .cocursor-rag-empty {
   text-align: center;
-  padding: 40px;
+  padding: 60px 40px;
   color: var(--vscode-descriptionForeground);
   font-size: 14px;
+  background-color: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+}
+
+.cocursor-rag-empty::before {
+  content: "🔍";
+  display: block;
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* 通用按钮样式 */
+.cocursor-rag-config-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cocursor-rag-config-button.primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-config-button.primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+}
+
+.cocursor-rag-config-button.primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.cocursor-rag-config-button.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+}
+
+.cocursor-rag-config-button.secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+}
+
+.cocursor-rag-config-button.secondary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.cocursor-rag-config-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* 错误提示样式 */
+.cocursor-error {
+  padding: 12px 16px;
+  background-color: rgba(244, 135, 113, 0.1);
+  border: 1px solid var(--vscode-errorForeground);
+  border-radius: 6px;
+  color: var(--vscode-errorForeground);
+  font-size: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-error::before {
+  content: "⚠️";
+  font-size: 16px;
+}
+
+/* RAG 搜索结果摘要样式 */
+.cocursor-rag-result-summary {
+  margin-bottom: 12px;
+}
+
+.cocursor-rag-result-summary-topic {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--vscode-foreground);
+  font-size: 15px;
+}
+
+.cocursor-rag-result-summary-text {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+}
+
+.cocursor-rag-result-key-points {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+.cocursor-rag-result-key-points ul {
+  margin: 4px 0 0 20px;
+  padding: 0;
+}
+
+.cocursor-rag-result-key-points li {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.cocursor-rag-result-tags {
+  margin-top: 8px;
+}
+
+.cocursor-rag-result-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 2px;
+  background-color: rgba(55, 148, 255, 0.1);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--vscode-textLink-foreground);
+  border: 1px solid rgba(55, 148, 255, 0.2);
+}
+
+.cocursor-rag-result-message {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
 }
 
 /* 响应式设计 */

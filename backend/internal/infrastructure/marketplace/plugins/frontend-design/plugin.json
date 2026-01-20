@@ -1,0 +1,11 @@
+{
+  "id": "frontend-design",
+  "name": "前端设计",
+  "description": "创建独特、生产级的前端界面，具有高质量设计。适用于构建 Web 组件、页面、工件、海报或应用程序（如网站、着陆页、仪表板、React 组件、HTML/CSS 布局，或美化任何 Web UI）。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "设计",
+  "skill": {
+    "skill_name": "frontend-design"
+  }
+}

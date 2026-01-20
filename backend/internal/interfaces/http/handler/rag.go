@@ -161,12 +161,17 @@ func (h *RAGHandler) GetConfig(c *gin.Context) {
 		return
 	}
 
-	// 隐藏 API Key
+	// 隐藏 API Key，但返回已配置状态
 	response := gin.H{
 		"embedding_api": gin.H{
-			"url":   config.EmbeddingAPI.URL,
-			"model": config.EmbeddingAPI.Model,
-			// API Key 不返回
+			"url":         config.EmbeddingAPI.URL,
+			"model":       config.EmbeddingAPI.Model,
+			"has_api_key": config.EmbeddingAPI.APIKey != "",
+		},
+		"llm_chat_api": gin.H{
+			"url":         config.LLMChatAPI.URL,
+			"model":       config.LLMChatAPI.Model,
+			"has_api_key": config.LLMChatAPI.APIKey != "",
 		},
 		"qdrant": gin.H{
 			"version":     config.Qdrant.Version,

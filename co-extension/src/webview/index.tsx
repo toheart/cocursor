@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { Router } from "./Router";
 
 // 导入所有样式模块
+// 注意：加载顺序很重要，后面的样式会覆盖前面的
 import "./styles/base.css";
+import "./styles/futuristic.css"; // 加载未来科技感样式（需要优先级控制）
 import "./styles/animations.css";
 import "./styles/navbar.css";
 import "./styles/components.css";
@@ -12,8 +14,7 @@ import "./styles/work-analysis.css";
 import "./styles/markdown.css";
 import "./styles/marketplace.css";
 import "./styles/workflow.css";
-import "./styles/rag.css";
-import "./styles/futuristic.css";
+import "./styles/rag.css"; // RAG 样式最后加载，确保覆盖其他样式
 
 // 初始化 i18n
 import "./i18n/config";

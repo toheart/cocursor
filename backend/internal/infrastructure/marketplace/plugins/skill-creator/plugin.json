@@ -1,0 +1,11 @@
+{
+  "id": "skill-creator",
+  "name": "技能创建器",
+  "description": "创建有效技能的指南。适用于用户想要创建新技能（或更新现有技能）来扩展 Claude 的能力，包含专业知识、工作流或工具集成。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "开发工具",
+  "skill": {
+    "skill_name": "skill-creator"
+  }
+}

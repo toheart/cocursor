@@ -8,6 +8,12 @@ body {
   background-color: var(--vscode-editor-background);
 }
 
+/* 确保 futuristic.css 不会覆盖 VSCode 主题变量 */
+body:not(.futuristic-theme) {
+  background-color: var(--vscode-editor-background) !important;
+  color: var(--vscode-foreground) !important;
+}
+
 /* 代码高亮样式覆盖（适配 VS Code 主题） */
 .cocursor-code-block {
   background-color: var(--vscode-textCodeBlock-background) !important;

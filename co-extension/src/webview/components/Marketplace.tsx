@@ -188,20 +188,12 @@ export const Marketplace: React.FC = () => {
       <ToastContainer toasts={toasts} />
 
       {error && (
-        <div className="cocursor-error" style={{ margin: "20px", padding: "16px" }}>
+        <div className="cocursor-marketplace-error-alert">
           <strong>{t("marketplace.loadFailed")}</strong>
           {typeof error === 'string' ? error : String(error)}
-          <button 
-            onClick={() => loadPlugins()} 
-            style={{ 
-              marginLeft: "12px", 
-              padding: "6px 12px",
-              background: "var(--vscode-button-background)",
-              color: "var(--vscode-button-foreground)",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
+          <button
+            onClick={() => loadPlugins()}
+            className="cocursor-marketplace-retry-button"
           >
             {t("common.retry")}
           </button>
@@ -256,20 +248,19 @@ const MarketplaceHeader: React.FC<MarketplaceHeaderProps> = ({
           />
         </div>
         
-        <div className="cocursor-marketplace-categories">
-          {CATEGORIES.map((category, index) => (
+      <div className="cocursor-marketplace-categories">
+        {CATEGORIES.map((category) => (
             <button
               key={category}
               className={`cocursor-marketplace-category ${
                 selectedCategory === category ? "active" : ""
               }`}
               onClick={() => onCategoryChange(category)}
-              style={{ animationDelay: `${index * 50}ms` }}
             >
               {category === "all" ? t("marketplace.categories.all") : t(`marketplace.categories.${category}`)}
             </button>
-          ))}
-        </div>
+        ))}
+      </div>
       </div>
     </>
   );

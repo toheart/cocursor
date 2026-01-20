@@ -1,0 +1,11 @@
+{
+  "id": "webapp-testing",
+  "name": "Web 应用测试",
+  "description": "使用 Playwright 与和测试本地 Web 应用程序的工具包。支持验证前端功能、调试 UI 行为、捕获浏览器截图和查看浏览器日志。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "开发工具",
+  "skill": {
+    "skill_name": "webapp-testing"
+  }
+}

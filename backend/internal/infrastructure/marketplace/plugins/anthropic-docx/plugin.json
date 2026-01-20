@@ -1,0 +1,13 @@
+{
+  "id": "anthropic-docx",
+  "name": "Word 文档处理",
+  "description": "全面的 Word 文档创建、编辑和分析能力，支持修订跟踪、评论和格式保留",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "Productivity",
+  "homepage": "https://github.com/anthropics/skills/tree/main/skills/docx",
+  "license": "Source-available",
+  "skill": {
+    "skill_name": "docx"
+  }
+}

@@ -62,13 +62,20 @@
 }
 
 /* ========== 基础样式 ========== */
-body {
+/* 只在使用 futuristic 主题时应用 */
+body.futuristic-theme {
   margin: 0;
   padding: 0;
   font-family: var(--cocursor-font-body);
   color: var(--cocursor-neon-cyan);
   background: var(--cocursor-bg-primary);
   overflow-x: hidden;
+}
+
+/* RAG 页面使用 VS Code 主题，不应用 futuristic 样式 */
+body:not(.futuristic-theme) {
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
 }
 
 /* ========== 玻璃态效果 ========== */

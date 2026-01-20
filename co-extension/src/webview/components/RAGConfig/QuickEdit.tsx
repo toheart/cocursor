@@ -3,9 +3,10 @@
  * 单页卡片式编辑界面
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../hooks";
+import { apiService } from "../../services/api";
 import { QdrantStatus } from "./types";
 
 interface RAGStats {
@@ -57,19 +58,30 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
   onSwitchToWizard,
   onSave,
   stats,
-  onEditEmbedding,
-  onTestConnection,
-  onStartQdrant,
-  onStopQdrant,
-  onRestartQdrant,
-  onEditScan,
-  onScanNow,
-  onTriggerFullIndex,
-  onClearAllData,
-  onResetConfig,
 }) => {
   const { t } = useTranslation();
   const { showToast } = useToast();
+
+  // Qdrant 状态管理
+  const [qdrantStatus, setQdrantStatus] = useState<QdrantStatus>(qdrant.status);
+
+  // 定期刷新 Qdrant 状态
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      apiService.getQdrantStatus().then((response) => {
+        if (response && typeof response === 'object' && 'data' in response) {
+          const data = response.data as any;
+          if (data.is_running !== undefined) {
+            setQdrantStatus(data.is_running ? 'running' : (qdrant.version ? 'installed' : 'not-installed'));
+          }
+        }
+      }).catch(err => {
+        console.error('Failed to fetch Qdrant status:', err);
+      });
+    }, 5000); // 每5秒刷新一次
+
+    return () => clearInterval(refreshInterval);
+  }, [qdrant.version]);
 
   // 获取服务提供商
   const getProvider = () => {
@@ -97,7 +109,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
 
   // 获取 Qdrant 状态类
   const getQdrantStatusClass = () => {
-    switch (qdrant.status) {
+    switch (qdrantStatus) {
       case 'running':
         return 'running';
       case 'installed':
@@ -108,6 +120,53 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
         return 'error';
       default:
         return 'unknown';
+    }
+  };
+
+  // Qdrant 操作
+  const handleStartQdrant = async () => {
+    try {
+      await apiService.startQdrant();
+      showToast(t("rag.config.actions.start") + "成功", "success");
+      // 立即刷新状态
+      setTimeout(() => {
+        apiService.getQdrantStatus();
+      }, 1000);
+    } catch (error) {
+      showToast(t("rag.config.actions.start") + "失败: " + (error instanceof Error ? error.message : String(error)), "error");
+    }
+  };
+
+  const handleStopQdrant = async () => {
+    try {
+      await apiService.stopQdrant();
+      showToast(t("rag.config.stop") + "成功", "success");
+      // 立即刷新状态
+      setTimeout(() => {
+        apiService.getQdrantStatus();
+      }, 1000);
+    } catch (error) {
+      showToast(t("rag.config.stop") + "失败: " + (error instanceof Error ? error.message : String(error)), "error");
+    }
+  };
+
+  const handleTriggerFullIndex = async () => {
+    try {
+      await apiService.triggerFullIndex();
+      showToast("已触发全量索引", "success");
+    } catch (error) {
+      showToast("触发全量索引失败: " + (error instanceof Error ? error.message : String(error)), "error");
+    }
+  };
+
+  const handleClearAllData = async () => {
+    if (window.confirm("此操作将删除所有已索引的数据,包括对话总结和向量。此操作不可撤销,确定要继续吗?")) {
+      try {
+        await apiService.clearAllData();
+        showToast("已清空所有数据", "success");
+      } catch (error) {
+        showToast("清空数据失败: " + (error instanceof Error ? error.message : String(error)), "error");
+      }
     }
   };
 
@@ -155,28 +214,9 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
             <button
               type="button"
               className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onEditEmbedding) {
-                  onEditEmbedding();
-                } else {
-                  showToast(t("rag.config.quickEdit.edit") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
+              onClick={onSwitchToWizard}
             >
               {t("rag.config.quickEdit.edit")}
-            </button>
-            <button
-              type="button"
-              className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onTestConnection) {
-                  onTestConnection();
-                } else {
-                  showToast(t("rag.config.quickEdit.test") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
-            >
-              {t("rag.config.quickEdit.test")}
             </button>
           </div>
         </div>
@@ -188,11 +228,11 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               🗄️ {t("rag.config.summary.qdrant")}
             </h3>
             <span className={`cocursor-rag-quick-edit-card-status ${getQdrantStatusClass()}`}>
-              {qdrant.status === 'running'
+              {qdrantStatus === 'running'
                 ? t("rag.config.qdrantRunning")
-                : qdrant.status === 'installed'
+                : qdrantStatus === 'installed'
                 ? t("rag.config.qdrantInstalled")
-                : qdrant.status === 'stopped'
+                : qdrantStatus === 'stopped'
                 ? t("rag.config.qdrantStopped")
                 : t("rag.config.qdrantNotInstalled")}
             </span>
@@ -212,13 +252,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               <button
                 type="button"
                 className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onStartQdrant) {
-                  onStartQdrant();
-                } else {
-                  showToast(t("rag.config.actions.start") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
+                onClick={handleStartQdrant}
               >
                 {t("rag.config.start")}
               </button>
@@ -227,13 +261,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               <button
                 type="button"
                 className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onStopQdrant) {
-                  onStopQdrant();
-                } else {
-                  showToast(t("rag.config.actions.stop") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
+                onClick={handleStopQdrant}
               >
                 {t("rag.config.stop")}
               </button>
@@ -241,13 +269,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
             <button
               type="button"
               className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onRestartQdrant) {
-                  onRestartQdrant();
-                } else {
-                  showToast(t("rag.config.actions.restart") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
+              onClick={onSwitchToWizard}
             >
               {t("rag.config.restart")}
             </button>
@@ -282,28 +304,9 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
             <button
               type="button"
               className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onEditScan) {
-                  onEditScan();
-                } else {
-                  showToast(t("rag.config.quickEdit.edit") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
+              onClick={onSwitchToWizard}
             >
               {t("rag.config.quickEdit.edit")}
-            </button>
-            <button
-              type="button"
-              className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                if (onScanNow) {
-                  onScanNow();
-                } else {
-                  showToast(t("rag.config.quickEdit.scanNow") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-                }
-              }}
-            >
-              {t("rag.config.quickEdit.scanNow")}
             </button>
           </div>
         </div>
@@ -333,9 +336,7 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
               <button
                 type="button"
                 className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                showToast(t("rag.config.llm.title") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-              }}
+                onClick={onSwitchToWizard}
               >
                 {t("rag.config.quickEdit.edit")}
               </button>
@@ -380,11 +381,9 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
             <button
               type="button"
               className="cocursor-rag-quick-edit-card-action"
-              onClick={() => {
-                showToast(t("rag.config.indexStatus") + t("rag.config.actions.indexStatusDetail"), "success");
-              }}
+              onClick={handleTriggerFullIndex}
             >
-              {t("rag.config.summary.status")}
+              {t("rag.config.actions.fullIndex")}
             </button>
           </div>
         </div>
@@ -395,45 +394,16 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
         <button
           type="button"
           className="cocursor-rag-quick-edit-action-button secondary"
-          onClick={() => {
-            if (onTriggerFullIndex) {
-              onTriggerFullIndex();
-            } else {
-              showToast(t("rag.config.actions.fullIndex") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-            }
-          }}
+          onClick={handleTriggerFullIndex}
         >
           🔄 {t("rag.config.actions.fullIndex")}
         </button>
         <button
           type="button"
           className="cocursor-rag-quick-edit-action-button secondary"
-          onClick={() => {
-            if (onClearAllData) {
-              if (window.confirm("此操作将删除所有已索引的数据,包括对话总结和向量。此操作不可撤销,确定要继续吗?")) {
-                onClearAllData();
-              }
-            } else {
-              showToast(t("rag.config.actions.clearData") + t("rag.config.quickEdit.featureNotImplemented"), "success");
-            }
-          }}
+          onClick={handleClearAllData}
         >
           🗑️ {t("rag.config.actions.clearData")}
-        </button>
-        <button
-          type="button"
-          className="cocursor-rag-quick-edit-action-button secondary"
-          onClick={() => {
-            if (onResetConfig) {
-              onResetConfig();
-            } else {
-              if (window.confirm(t("rag.config.quickEdit.resetConfig") + "?")) {
-                showToast(t("rag.config.quickEdit.resetConfig") + " 功能待实现", "success");
-              }
-            }
-          }}
-        >
-          {t("rag.config.quickEdit.resetConfig")}
         </button>
         <button
           type="button"

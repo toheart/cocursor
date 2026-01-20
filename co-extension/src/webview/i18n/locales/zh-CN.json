@@ -396,6 +396,7 @@
       "urlRequired": "请输入有效的 URL",
       "invalidUrl": "URL 格式不正确",
       "apiKeyRequired": "请输入 API Key",
+      "apiKeyConfigured": "API Key 已配置（修改时请重新输入）",
       "modelRequired": "请输入模型名称",
       "copy": "复制",
       "clear": "清除",

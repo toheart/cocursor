@@ -170,6 +170,31 @@ class ApiService {
   async downloadQdrant(version?: string): Promise<unknown> {
     return this.postMessage("downloadQdrant", { version });
   }
+
+  // 获取 Qdrant 状态
+  async getQdrantStatus(): Promise<unknown> {
+    return this.postMessage("fetchQdrantStatus");
+  }
+
+  // 启动 Qdrant
+  async startQdrant(): Promise<unknown> {
+    return this.postMessage("startQdrant");
+  }
+
+  // 停止 Qdrant
+  async stopQdrant(): Promise<unknown> {
+    return this.postMessage("stopQdrant");
+  }
+
+  // 触发全量索引
+  async triggerFullIndex(): Promise<unknown> {
+    return this.postMessage("triggerFullIndex");
+  }
+
+  // 清空所有数据
+  async clearAllData(): Promise<unknown> {
+    return this.postMessage("clearAllData");
+  }
 }
 
 // 会话健康状态类型

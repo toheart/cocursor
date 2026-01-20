@@ -1,0 +1,11 @@
+{
+  "id": "theme-factory",
+  "name": "主题工厂",
+  "description": "使用主题为工件添加样式的工具包。这些工件可以是幻灯片、文档、报告、HTML 着陆页等。有 10 个预设主题，可以应用于任何创建的工件，也可以即时生成新主题。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "设计",
+  "skill": {
+    "skill_name": "theme-factory"
+  }
+}

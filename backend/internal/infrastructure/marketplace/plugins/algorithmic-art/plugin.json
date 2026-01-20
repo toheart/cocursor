@@ -1,0 +1,11 @@
+{
+  "id": "algorithmic-art",
+  "name": "算法艺术",
+  "description": "使用 p5.js 创建算法艺术，具有种子随机性和交互式参数探索。适用于用户请求使用代码、生成艺术、算法艺术、流场或粒子系统创建艺术。创建原创算法艺术而不是复制现有艺术家的作品，以避免版权侵犯。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "创意",
+  "skill": {
+    "skill_name": "algorithmic-art"
+  }
+}

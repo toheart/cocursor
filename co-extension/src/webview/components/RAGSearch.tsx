@@ -148,7 +148,7 @@ export const RAGSearch: React.FC = () => {
       <div className="cocursor-rag-search-header">
         <h2>{t("rag.search.title")}</h2>
         <button
-          className="cocursor-btn cocursor-btn-secondary"
+          className="cocursor-rag-config-button secondary"
           onClick={() => {
             const vscode = getVscodeApi();
             vscode.postMessage({
@@ -211,7 +211,7 @@ export const RAGSearch: React.FC = () => {
                       <strong className="cocursor-rag-result-project">
                         {result.project_name || result.project_id}
                       </strong>
-                      <span className="cocursor-rag-result-meta" style={{ marginLeft: "8px" }}>
+                      <span className="cocursor-rag-result-meta">
                         {formatTime(result.timestamp)}
                       </span>
                     </div>
@@ -227,17 +227,17 @@ export const RAGSearch: React.FC = () => {
                     return (
                       <div className="cocursor-rag-result-turn">
                         {/* 总结信息 */}
-                        <div style={{ marginBottom: "12px" }}>
-                          <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#666" }}>
+                        <div className="cocursor-rag-result-summary">
+                          <div className="cocursor-rag-result-summary-topic">
                             {summaryData.main_topic}
                           </div>
-                          <div style={{ fontSize: "14px", marginBottom: "8px" }}>
+                          <div className="cocursor-rag-result-summary-text">
                             {summaryData.summary}
                           </div>
                           {summaryData.key_points && summaryData.key_points.length > 0 && (
-                            <div style={{ fontSize: "13px", color: "#666" }}>
+                            <div className="cocursor-rag-result-key-points">
                               <strong>关键知识点:</strong>
-                              <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
+                              <ul>
                                 {summaryData.key_points.map((point: string, idx: number) => (
                                   <li key={idx}>{point}</li>
                                 ))}
@@ -245,19 +245,11 @@ export const RAGSearch: React.FC = () => {
                             </div>
                           )}
                           {summaryData.tags && summaryData.tags.length > 0 && (
-                            <div style={{ marginTop: "8px" }}>
+                            <div className="cocursor-rag-result-tags">
                               {summaryData.tags.map((tag: string, idx: number) => (
                                 <span
                                   key={idx}
-                                  style={{
-                                    display: "inline-block",
-                                    padding: "2px 8px",
-                                    margin: "2px",
-                                    backgroundColor: "#e3f2fd",
-                                    borderRadius: "12px",
-                                    fontSize: "12px",
-                                    color: "#1565c0",
-                                  }}
+                                  className="cocursor-rag-result-tag"
                                 >
                                   {tag}
                                 </span>
@@ -283,10 +275,10 @@ export const RAGSearch: React.FC = () => {
                     );
                   })() : isTurn ? (
                     <div className="cocursor-rag-result-turn">
-                      <div style={{ marginBottom: "8px" }}>
+                      <div className="cocursor-rag-result-message">
                         <strong>{t("rag.search.user")}:</strong> {result.user_text}
                       </div>
-                      <div>
+                      <div className="cocursor-rag-result-message">
                         <strong>{t("rag.search.ai")}:</strong> {result.ai_text}
                       </div>
                     </div>

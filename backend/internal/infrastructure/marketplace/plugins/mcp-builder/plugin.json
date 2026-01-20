@@ -1,0 +1,11 @@
+{
+  "id": "mcp-builder",
+  "name": "MCP 构建器",
+  "description": "创建高质量 MCP（模型上下文协议）服务器的指南，使 LLM 能够通过设计良好的工具与外部服务交互。适用于构建 MCP 服务器来集成外部 API 或服务，无论是 Python (FastMCP) 还是 Node/TypeScript (MCP SDK)。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "开发工具",
+  "skill": {
+    "skill_name": "mcp-builder"
+  }
+}

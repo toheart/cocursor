@@ -239,8 +239,17 @@ export class WebviewPanel {
       case "fetchRAGStats":
         this._handleFetchRAGStats();
         break;
+      case "fetchQdrantStatus":
+        this._handleFetchQdrantStatus();
+        break;
       case "downloadQdrant":
         this._handleDownloadQdrant(message.payload as { version?: string });
+        break;
+      case "startQdrant":
+        this._handleStartQdrant();
+        break;
+      case "stopQdrant":
+        this._handleStopQdrant();
         break;
       case "openRAGSearch":
         this._handleOpenRAGSearch(message.payload as { route?: string } | undefined);
@@ -1038,6 +1047,51 @@ export class WebviewPanel {
   private _handleOpenRAGSearch(payload?: { route?: string }): void {
     const route = payload?.route || "/";
     WebviewPanel.createOrShow(this._extensionUri, "ragSearch", this._context, route);
+  }
+
+  private async _handleFetchQdrantStatus(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/rag/qdrant/status", { timeout: 10000 });
+      this._sendMessage({
+        type: "fetchQdrantStatus-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchQdrantStatus-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleStartQdrant(): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/start", {}, { timeout: 10000 });
+      this._sendMessage({
+        type: "startQdrant-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "startQdrant-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleStopQdrant(): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/stop", {}, { timeout: 10000 });
+      this._sendMessage({
+        type: "stopQdrant-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "stopQdrant-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
   }
 
   private _sendMessage(message: ExtensionMessage): void {

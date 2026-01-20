@@ -65,8 +65,8 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
       newErrors.url = t("rag.config.invalidUrl");
     }
 
-    // 验证 API Key
-    if (!embedding.apiKey) {
+    // 验证 API Key（占位符表示已配置，通过验证）
+    if (!embedding.apiKey && embedding.apiKey !== '••••••') {
       newErrors.apiKey = t("rag.config.apiKeyRequired");
     }
 
@@ -98,6 +98,16 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
 
   // 测试连接
   const handleTestConnection = useCallback(async () => {
+    // 如果 API Key 是占位符，说明已配置，不需要测试
+    if (embedding.apiKey === '••••••') {
+      setTestResult({
+        success: true,
+        message: t("rag.config.apiKeyConfigured"),
+      });
+      showToast(t("rag.config.apiKeyConfigured"), "success");
+      return;
+    }
+
     if (!embedding.url || !embedding.apiKey || !embedding.model) {
       showToast(t("rag.config.testRequired"), "error");
       return;
@@ -146,6 +156,7 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
     onStepComplete(isComplete && testSuccess);
 
     // 自动测试：如果表单完整且未测试过，触发一次测试
+    // 如果 API Key 是占位符，直接标记为成功，不测试
     if (
       autoAdvance &&
       isComplete &&
@@ -154,9 +165,18 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
       !testing
     ) {
       autoTestTriggerRef.current = true;
-      handleTestConnection();
+      if (embedding.apiKey === '••••••') {
+        // API Key 是占位符，直接标记为已配置
+        setTestResult({
+          success: true,
+          message: t("rag.config.apiKeyConfigured"),
+        });
+      } else {
+        // 需要测试连接
+        handleTestConnection();
+      }
     }
-  }, [validateForm, onStepComplete, testResult, autoAdvance, testing, handleTestConnection]);
+  }, [validateForm, onStepComplete, testResult, autoAdvance, testing, handleTestConnection, embedding.apiKey, t]);
 
   return (
     <div className="cocursor-rag-step-1">
@@ -212,13 +232,26 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
         </div>
 
         {/* API Key */}
-        <PasswordInput
-          value={embedding.apiKey}
-          onChange={(value) => onChange({ ...embedding, apiKey: value })}
-          placeholder={t("rag.config.apiKeyPlaceholder")}
-          label={`${t("rag.config.apiKey")} *`}
-          error={errors.apiKey}
-        />
+        <div className="cocursor-rag-form-field">
+          <label className="cocursor-rag-form-label">
+            {t("rag.config.apiKey")} *
+          </label>
+          <PasswordInput
+            value={embedding.apiKey}
+            onChange={(value) => onChange({ ...embedding, apiKey: value })}
+            placeholder={t("rag.config.apiKeyPlaceholder")}
+            label=""
+            error={errors.apiKey}
+          />
+          {embedding.apiKey === '••••••' && (
+            <div className="cocursor-rag-form-hint">
+              {t("rag.config.apiKeyConfigured")}
+            </div>
+          )}
+          {errors.apiKey && (
+            <div className="cocursor-rag-form-error">{errors.apiKey}</div>
+          )}
+        </div>
 
         {/* 模型 */}
         <div className="cocursor-rag-form-field">

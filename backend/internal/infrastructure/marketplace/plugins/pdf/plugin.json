@@ -1,0 +1,11 @@
+{
+  "id": "pdf",
+  "name": "PDF 处理",
+  "description": "综合的 PDF 操作工具包，用于提取文本/表格、创建新 PDF、合并/拆分文档和处理表单。适用于以编程方式处理、生成或分析 PDF 文档。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "生产力",
+  "skill": {
+    "skill_name": "pdf"
+  }
+}

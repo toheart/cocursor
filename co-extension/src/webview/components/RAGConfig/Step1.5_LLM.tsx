@@ -69,7 +69,9 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
     if (!llm.url.trim()) {
       newErrors.url = t('rag.config.urlRequired');
     }
-    if (!llm.apiKey.trim()) {
+    // 如果 API Key 是占位符，说明已配置，不验证为空
+    // 只有当 API Key 既不是占位符也不是有效值时才报错
+    if (!llm.apiKey.trim() && llm.apiKey !== '••••••') {
       newErrors.apiKey = t('rag.config.apiKeyRequired');
     }
     if (!llm.model.trim()) {
@@ -86,6 +88,17 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
 
   // 测试连接
   const handleTestConnection = async () => {
+    // 如果 API Key 是占位符，说明已配置，不需要测试
+    if (llm.apiKey === '••••••') {
+      setTestResult({
+        success: true,
+        message: t("rag.config.apiKeyConfigured"),
+      });
+      showToast(t("rag.config.apiKeyConfigured"), "success");
+      onStepComplete(true);
+      return;
+    }
+
     if (!validate()) {
       return;
     }
@@ -141,14 +154,24 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
 
   // 当所有字段填写完整时自动测试
   useEffect(() => {
-    if (autoAdvance && !autoTested && llm.url && llm.apiKey && llm.model && !testing && !testResult) {
-      // 延迟自动测试，给用户时间看到输入内容
-      const timer = setTimeout(() => {
-        handleTestConnection();
-      }, 500);
-      return () => clearTimeout(timer);
+    // 如果 API Key 是占位符，直接标记为成功
+    if (autoAdvance && !autoTested && llm.url && llm.model && !testing && !testResult) {
+      if (llm.apiKey === '••••••') {
+        setTestResult({
+          success: true,
+          message: t("rag.config.apiKeyConfigured"),
+        });
+        onStepComplete(true);
+        setAutoTested(true);
+      } else if (llm.apiKey) {
+        // 延迟自动测试，给用户时间看到输入内容
+        const timer = setTimeout(() => {
+          handleTestConnection();
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [llm.url, llm.apiKey, llm.model, autoAdvance, autoTested, testing, testResult]);
+  }, [llm.url, llm.apiKey, llm.model, autoAdvance, autoTested, testing, testResult, handleTestConnection, onStepComplete, t]);
 
   // 模型建议列表
   const modelSuggestions = [
@@ -228,6 +251,11 @@ export const Step1_5_LLM: React.FC<Step1_5Props> = ({
           placeholder={t('rag.config.apiKeyPlaceholder')}
           error={errors.apiKey}
         />
+        {llm.apiKey === '••••••' && (
+          <div className="cocursor-rag-form-hint">
+            {t('rag.config.apiKeyConfigured')}
+          </div>
+        )}
       </div>
 
       {/* Model */}

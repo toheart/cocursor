@@ -1,0 +1,11 @@
+{
+  "id": "canvas-design",
+  "name": "画布设计",
+  "description": "使用设计理念创建 .png 和 .pdf 文档中的美观视觉艺术。适用于用户要求创建海报、艺术品、设计或其他静态作品。创建原创视觉设计，永不复制现有艺术家的作品以避免版权侵犯。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "创意",
+  "skill": {
+    "skill_name": "canvas-design"
+  }
+}

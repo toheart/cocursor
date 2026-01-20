@@ -1,0 +1,11 @@
+{
+  "id": "pptx",
+  "name": "PPTX 处理",
+  "description": "全面的 PowerPoint 演示文稿操作工具，用于创建、编辑、分析和转换演示文稿。支持内容替换、布局重组、缩略图生成等高级功能。",
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "category": "生产力",
+  "skill": {
+    "skill_name": "pptx"
+  }
+}
