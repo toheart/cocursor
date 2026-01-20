@@ -23,6 +23,7 @@ type WorkspaceSession struct {
 	ContextUsagePercent float64
 	IsArchived          bool
 	CreatedOnBranch     string
+	TokenCount          int   // 会话的 Token 数量
 	CachedAt            int64 // 毫秒时间戳
 }
 
@@ -39,6 +40,12 @@ type WorkspaceFileMetadata struct {
 	UpdatedAt    int64 // Unix 时间戳
 }
 
+// DailyTokenUsage 每日 Token 使用统计
+type DailyTokenUsage struct {
+	Date       string // 日期 YYYY-MM-DD
+	TokenCount int    // 当日 Token 总数
+}
+
 // WorkspaceSessionRepository 工作区会话仓储接口
 type WorkspaceSessionRepository interface {
 	// Save 保存或更新会话（upsert）
@@ -53,6 +60,8 @@ type WorkspaceSessionRepository interface {
 	FindByWorkspaces(workspaceIDs []string, search string, limit, offset int) ([]*WorkspaceSession, int, error)
 	// GetCachedComposerIDs 获取已缓存的 composer_id 列表
 	GetCachedComposerIDs(workspaceID string) ([]string, error)
+	// GetDailyTokenUsage 按日期聚合 Token 使用量
+	GetDailyTokenUsage(workspaceIDs []string, startDate, endDate string) ([]*DailyTokenUsage, error)
 }
 
 // WorkspaceFileMetadataRepository 工作区文件元数据仓储接口
@@ -95,8 +104,8 @@ func (r *workspaceSessionRepository) Save(session *WorkspaceSession) error {
 		INSERT OR REPLACE INTO workspace_sessions 
 		(workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		 total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		 is_archived, created_on_branch, cached_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 is_archived, created_on_branch, token_count, cached_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := r.db.Exec(query,
 		session.WorkspaceID,
@@ -113,6 +122,7 @@ func (r *workspaceSessionRepository) Save(session *WorkspaceSession) error {
 		session.ContextUsagePercent,
 		session.IsArchived,
 		session.CreatedOnBranch,
+		session.TokenCount,
 		session.CachedAt,
 	)
 
@@ -128,7 +138,7 @@ func (r *workspaceSessionRepository) FindByWorkspaceID(workspaceID string) ([]*W
 	query := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
 		FROM workspace_sessions
 		WHERE workspace_id = ?
 		ORDER BY last_updated_at DESC`
@@ -160,6 +170,7 @@ func (r *workspaceSessionRepository) FindByWorkspaceID(workspaceID string) ([]*W
 			&session.ContextUsagePercent,
 			&isArchivedInt,
 			&session.CreatedOnBranch,
+			&session.TokenCount,
 			&session.CachedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan workspace session: %w", err)
@@ -177,7 +188,7 @@ func (r *workspaceSessionRepository) FindByWorkspaceIDAndComposerID(workspaceID,
 	query := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
 		FROM workspace_sessions
 		WHERE workspace_id = ? AND composer_id = ?`
 
@@ -200,6 +211,7 @@ func (r *workspaceSessionRepository) FindByWorkspaceIDAndComposerID(workspaceID,
 		&session.ContextUsagePercent,
 		&isArchivedInt,
 		&session.CreatedOnBranch,
+		&session.TokenCount,
 		&session.CachedAt,
 	)
 
@@ -238,7 +250,7 @@ func (r *workspaceSessionRepository) FindByWorkspacesAndDateRange(workspaceIDs [
 	query := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
 		FROM workspace_sessions
 		WHERE workspace_id IN (`
 	
@@ -286,6 +298,7 @@ func (r *workspaceSessionRepository) FindByWorkspacesAndDateRange(workspaceIDs [
 			&session.ContextUsagePercent,
 			&isArchivedInt,
 			&session.CreatedOnBranch,
+			&session.TokenCount,
 			&session.CachedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan workspace session: %w", err)
@@ -308,7 +321,7 @@ func (r *workspaceSessionRepository) FindByWorkspaces(workspaceIDs []string, sea
 	baseQuery := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
 		FROM workspace_sessions
 		WHERE workspace_id IN (`
 	
@@ -380,6 +393,7 @@ func (r *workspaceSessionRepository) FindByWorkspaces(workspaceIDs []string, sea
 			&session.ContextUsagePercent,
 			&isArchivedInt,
 			&session.CreatedOnBranch,
+			&session.TokenCount,
 			&session.CachedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan workspace session: %w", err)
@@ -415,6 +429,68 @@ func (r *workspaceSessionRepository) GetCachedComposerIDs(workspaceID string) ([
 	}
 
 	return composerIDs, nil
+}
+
+// GetDailyTokenUsage 按日期聚合 Token 使用量
+func (r *workspaceSessionRepository) GetDailyTokenUsage(workspaceIDs []string, startDate, endDate string) ([]*DailyTokenUsage, error) {
+	if len(workspaceIDs) == 0 {
+		return []*DailyTokenUsage{}, nil
+	}
+
+	// 解析日期范围
+	startTime, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_date: %w", err)
+	}
+	endTime, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_date: %w", err)
+	}
+
+	// 转换为毫秒时间戳范围
+	startMs := startTime.UnixMilli()
+	endMs := endTime.AddDate(0, 0, 1).UnixMilli() - 1 // 包含结束日期当天
+
+	// 构建查询：按日期聚合 Token
+	// 使用 last_updated_at 作为统计日期（会话活跃时间）
+	query := `
+		SELECT 
+			DATE(last_updated_at/1000, 'unixepoch', 'localtime') as date,
+			SUM(COALESCE(token_count, 0)) as total_tokens
+		FROM workspace_sessions
+		WHERE workspace_id IN (`
+
+	args := make([]interface{}, 0, len(workspaceIDs)+2)
+	for i, wsID := range workspaceIDs {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args = append(args, wsID)
+	}
+
+	query += `) AND last_updated_at >= ? AND last_updated_at <= ?
+		GROUP BY DATE(last_updated_at/1000, 'unixepoch', 'localtime')
+		ORDER BY date`
+
+	args = append(args, startMs, endMs)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query daily token usage: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*DailyTokenUsage
+	for rows.Next() {
+		usage := &DailyTokenUsage{}
+		if err := rows.Scan(&usage.Date, &usage.TokenCount); err != nil {
+			return nil, fmt.Errorf("failed to scan daily token usage: %w", err)
+		}
+		result = append(result, usage)
+	}
+
+	return result, nil
 }
 
 // Save 保存或更新元数据（upsert）

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { apiService, SessionHealth, getVscodeApi } from "../services/api";
+import { apiService, SessionHealth, DailySummary, getVscodeApi } from "../services/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import ReactMarkdown from "react-markdown";
 
 /**
  * 工作分析数据接口
@@ -15,6 +16,8 @@ interface WorkAnalysisData {
     tab_acceptance_rate: number;
     composer_acceptance_rate: number;
     active_sessions: number;
+    total_tokens: number;
+    token_trend: string;
   };
   daily_details: Array<{
     date: string;
@@ -22,6 +25,8 @@ interface WorkAnalysisData {
     lines_removed: number;
     files_changed: number;
     active_sessions: number;
+    token_usage: number;
+    has_daily_report: boolean;
   }>;
   code_changes_trend: Array<{
     date: string;
@@ -125,6 +130,14 @@ export const WorkAnalysis: React.FC = () => {
   const loadDataTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const healthIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 日报弹窗相关状态
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportModalType, setReportModalType] = useState<"view" | "generate">("view");
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // 加载健康状态
   useEffect(() => {
@@ -239,6 +252,64 @@ export const WorkAnalysis: React.FC = () => {
     return t(`workAnalysis.sessionHealth.${status}`) || t("common.unknown");
   };
 
+  // 格式化 Token 数量
+  const formatTokenCount = (count: number): string => {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`;
+    } else if (count >= 1000) {
+      return `${(count / 1000).toFixed(1)}K`;
+    }
+    return count.toString();
+  };
+
+  // 格式化接受率（处理 -1 表示 N/A）
+  const formatAcceptanceRate = (rate: number): string => {
+    if (rate < 0) {
+      return t("workAnalysis.dailyReport.notAvailable");
+    }
+    return `${rate.toFixed(1)}%`;
+  };
+
+  // 打开日报查看弹窗
+  const handleViewReport = async (date: string) => {
+    setSelectedDate(date);
+    setReportModalType("view");
+    setShowReportModal(true);
+    setLoadingReport(true);
+    
+    try {
+      const summary = await apiService.getDailySummary(date);
+      setDailySummary(summary);
+    } catch (err) {
+      console.error("Failed to load daily summary:", err);
+      setDailySummary(null);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  // 打开日报生成引导弹窗
+  const handleGenerateReport = (date: string) => {
+    setSelectedDate(date);
+    setReportModalType("generate");
+    setShowReportModal(true);
+    setCopied(false);
+  };
+
+  // 复制命令到剪贴板
+  const handleCopyCommand = () => {
+    const command = `/daily-summary ${selectedDate}`;
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // 关闭弹窗
+  const handleCloseModal = () => {
+    setShowReportModal(false);
+    setDailySummary(null);
+  };
 
   return (
     <div className="cocursor-work-analysis">
@@ -348,6 +419,27 @@ export const WorkAnalysis: React.FC = () => {
           <>
             {/* 概览卡片 */}
             <div className="cocursor-overview-cards">
+              {/* Token 统计卡片 */}
+              <div className="cocursor-card">
+                <h3>{t("workAnalysis.tokenStats.title")}</h3>
+                <div className="cocursor-stat-large">
+                  {formatTokenCount(data.overview.total_tokens || 0)}
+                </div>
+                {data.overview.token_trend && (
+                  <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                    <span style={{ 
+                      color: data.overview.token_trend.startsWith("+") 
+                        ? "var(--vscode-testing-iconPassed)" 
+                        : data.overview.token_trend.startsWith("-") 
+                          ? "var(--vscode-testing-iconFailed)" 
+                          : "var(--vscode-foreground)" 
+                    }}>
+                      {data.overview.token_trend.startsWith("+") ? "↑" : data.overview.token_trend.startsWith("-") ? "↓" : ""} {data.overview.token_trend}
+                    </span>
+                    <span style={{ opacity: 0.6, marginLeft: "4px" }}>{t("workAnalysis.tokenStats.trend")}</span>
+                  </div>
+                )}
+              </div>
               <div className="cocursor-card">
                 <h3>{t("workAnalysis.overview.codeChanges")}</h3>
                 <div className="cocursor-stat">
@@ -366,11 +458,11 @@ export const WorkAnalysis: React.FC = () => {
               <div className="cocursor-card">
                 <h3>{t("workAnalysis.overview.acceptanceRate")}</h3>
                 <div className="cocursor-stat-large">
-                  {data.overview.acceptance_rate.toFixed(1)}%
+                  {formatAcceptanceRate(data.overview.acceptance_rate)}
                 </div>
                 <div style={{ marginTop: "8px", fontSize: "12px", opacity: 0.8 }}>
-                  <div>Tab: {data.overview.tab_acceptance_rate.toFixed(1)}%</div>
-                  <div>Composer: {data.overview.composer_acceptance_rate.toFixed(1)}%</div>
+                  <div>Tab: {formatAcceptanceRate(data.overview.tab_acceptance_rate)}</div>
+                  <div>Composer: {formatAcceptanceRate(data.overview.composer_acceptance_rate)}</div>
                 </div>
               </div>
               <div className="cocursor-card">
@@ -379,39 +471,106 @@ export const WorkAnalysis: React.FC = () => {
               </div>
             </div>
 
-            {/* 每日详情表格 */}
+            {/* 每日详情卡片网格 */}
             {data.daily_details && Array.isArray(data.daily_details) && data.daily_details.length > 0 && (
               <div className="cocursor-section" style={{ marginTop: "24px" }}>
-                <h2>每日详情</h2>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1px solid var(--vscode-panel-border)" }}>
-                        <th style={{ padding: "8px", textAlign: "left", fontWeight: 600 }}>日期</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>添加</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>删除</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>文件</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>活跃会话</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.daily_details.map((day, index) => (
-                        <tr 
-                          key={index} 
-                          style={{ 
-                            borderBottom: "1px solid var(--vscode-panel-border)",
-                            opacity: day.lines_added === 0 && day.lines_removed === 0 ? 0.6 : 1
-                          }}
+                <h2>{t("workAnalysis.dailyDetails.title")}</h2>
+                <div className="cocursor-daily-cards-grid">
+                  {(() => {
+                    // 计算当周最大 Token 用量，用于进度条
+                    const maxToken = Math.max(...data.daily_details.map(d => d.token_usage || 0), 1);
+                    const today = new Date().toISOString().split('T')[0];
+                    
+                    return data.daily_details.map((day, index) => {
+                      const dateObj = new Date(day.date);
+                      const dayNum = dateObj.getDate();
+                      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                      const weekdaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                      const isToday = day.date === today;
+                      const hasActivity = day.lines_added > 0 || day.lines_removed > 0 || day.token_usage > 0;
+                      const tokenPercent = maxToken > 0 ? ((day.token_usage || 0) / maxToken) * 100 : 0;
+                      
+                      return (
+                        <div 
+                          key={index}
+                          className={`cocursor-daily-card ${day.has_daily_report ? 'has-report' : 'no-report'} ${isToday ? 'is-today' : ''} ${!hasActivity ? 'no-activity' : ''}`}
                         >
-                          <td style={{ padding: "8px" }}>{day.date}</td>
-                          <td style={{ padding: "8px", textAlign: "right" }}>{day.lines_added}</td>
-                          <td style={{ padding: "8px", textAlign: "right" }}>{day.lines_removed}</td>
-                          <td style={{ padding: "8px", textAlign: "right" }}>{day.files_changed}</td>
-                          <td style={{ padding: "8px", textAlign: "right" }}>{day.active_sessions}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          {/* 日期头部 */}
+                          <div className="cocursor-daily-card-date">
+                            <div className="cocursor-daily-card-day">{dayNum}</div>
+                            <div className="cocursor-daily-card-weekday">
+                              {t("common.unknown") === "未知" ? `周${weekdays[dateObj.getDay()]}` : weekdaysEn[dateObj.getDay()]}
+                              {isToday && <span className="cocursor-daily-card-today"> · {t("workAnalysis.dailyDetails.today")}</span>}
+                            </div>
+                          </div>
+                          
+                          {/* 指标区域 */}
+                          <div className="cocursor-daily-card-metrics">
+                            {/* Token 用量 */}
+                            <div className="cocursor-daily-card-metric-row">
+                              <div className="cocursor-daily-card-icon token">⚡</div>
+                              <div className="cocursor-daily-card-metric-content">
+                                <div className="cocursor-daily-card-metric-value">
+                                  {hasActivity ? formatTokenCount(day.token_usage || 0) : '—'}
+                                </div>
+                                <div className="cocursor-daily-card-mini-bar">
+                                  <div 
+                                    className="cocursor-daily-card-mini-bar-fill token"
+                                    style={{ width: `${tokenPercent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* 代码变更 */}
+                            <div className="cocursor-daily-card-metric-row">
+                              <div className="cocursor-daily-card-icon code">±</div>
+                              {hasActivity ? (
+                                <div className="cocursor-daily-card-code-changes">
+                                  <span className="cocursor-daily-card-added">+{day.lines_added}</span>
+                                  <span className="cocursor-daily-card-removed">-{day.lines_removed}</span>
+                                </div>
+                              ) : (
+                                <span className="cocursor-daily-card-no-data">—</span>
+                              )}
+                            </div>
+                            
+                            {/* 会话数 */}
+                            <div className="cocursor-daily-card-metric-row">
+                              <div className="cocursor-daily-card-icon session">◉</div>
+                              <div className="cocursor-daily-card-metric-value">
+                                {hasActivity ? day.active_sessions : '0'}
+                              </div>
+                              <div className="cocursor-daily-card-metric-label">
+                                {t("workAnalysis.dailyDetails.sessions")}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* 底部操作区 */}
+                          {hasActivity && (
+                            <div className="cocursor-daily-card-action">
+                              {day.has_daily_report ? (
+                                <button
+                                  className="cocursor-daily-card-view-btn"
+                                  onClick={() => handleViewReport(day.date)}
+                                >
+                                  {t("workAnalysis.dailyDetails.viewReport")} →
+                                </button>
+                              ) : (
+                                <button
+                                  className="cocursor-daily-card-generate-btn"
+                                  onClick={() => handleGenerateReport(day.date)}
+                                >
+                                  + {t("workAnalysis.dailyDetails.generateReport")}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             )}
@@ -535,6 +694,153 @@ export const WorkAnalysis: React.FC = () => {
           </>
         )}
       </main>
+
+      {/* 日报弹窗 */}
+      {showReportModal && (
+        <div
+          className="cocursor-modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000
+          }}
+          onClick={handleCloseModal}
+        >
+          <div
+            className="cocursor-modal"
+            style={{
+              backgroundColor: "var(--vscode-editor-background)",
+              borderRadius: "8px",
+              padding: "24px",
+              maxWidth: "600px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {reportModalType === "view" ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <h2 style={{ margin: 0 }}>{selectedDate} {t("workAnalysis.dailyReport.viewTitle")}</h2>
+                  <button
+                    onClick={handleCloseModal}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--vscode-foreground)",
+                      cursor: "pointer",
+                      fontSize: "18px"
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {loadingReport ? (
+                  <div style={{ textAlign: "center", padding: "20px" }}>
+                    {t("workAnalysis.loading")}
+                  </div>
+                ) : dailySummary ? (
+                  <div className="cocursor-markdown-content" style={{ lineHeight: "1.6" }}>
+                    <ReactMarkdown>{dailySummary.summary}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "20px", color: "var(--vscode-descriptionForeground)" }}>
+                    {t("workAnalysis.dailyReport.notAvailable")}
+                  </div>
+                )}
+                <div style={{ marginTop: "16px", textAlign: "right" }}>
+                  <button
+                    onClick={handleCloseModal}
+                    style={{
+                      background: "var(--vscode-button-background)",
+                      color: "var(--vscode-button-foreground)",
+                      border: "none",
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {t("workAnalysis.dailyReport.close")}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <h2 style={{ margin: 0 }}>{t("workAnalysis.dailyReport.generateTitle")}</h2>
+                  <button
+                    onClick={handleCloseModal}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--vscode-foreground)",
+                      cursor: "pointer",
+                      fontSize: "18px"
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p>{t("workAnalysis.dailyReport.generatePrompt")}</p>
+                <div
+                  style={{
+                    backgroundColor: "var(--vscode-input-background)",
+                    border: "1px solid var(--vscode-input-border)",
+                    borderRadius: "4px",
+                    padding: "12px",
+                    marginTop: "12px",
+                    fontFamily: "monospace"
+                  }}
+                >
+                  /daily-summary {selectedDate}
+                </div>
+                <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={handleCopyCommand}
+                    style={{
+                      background: copied ? "var(--vscode-testing-iconPassed)" : "var(--vscode-button-background)",
+                      color: "var(--vscode-button-foreground)",
+                      border: "none",
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {copied ? t("workAnalysis.dailyReport.copied") : t("workAnalysis.dailyReport.copyCommand")}
+                  </button>
+                </div>
+                <p style={{ marginTop: "16px", color: "var(--vscode-descriptionForeground)", fontSize: "13px" }}>
+                  {t("workAnalysis.dailyReport.afterGenerate")}
+                </p>
+                <div style={{ marginTop: "16px", textAlign: "right" }}>
+                  <button
+                    onClick={handleCloseModal}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid var(--vscode-button-background)",
+                      color: "var(--vscode-button-background)",
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {t("workAnalysis.dailyReport.close")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

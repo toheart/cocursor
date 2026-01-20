@@ -1,16 +1,19 @@
 /**
  * RAG 搜索组件
+ * 支持新的 KnowledgeChunk 模型
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { apiService } from "../services/api";
 import { getVscodeApi } from "../services/api";
 import { useApi, useDebounce, useToast } from "../hooks";
 import { ToastContainer } from "./shared";
+import type { ChunkSearchResult } from "../types";
 
-interface SearchResult {
+// 旧的搜索结果格式（兼容）
+interface LegacySearchResult {
   type: "message" | "turn";
   session_id: string;
   score: number;
@@ -37,6 +40,14 @@ interface SearchResult {
   };
 }
 
+// 统一的搜索结果类型
+type SearchResult = ChunkSearchResult | LegacySearchResult;
+
+// 类型守卫
+function isChunkResult(result: SearchResult): result is ChunkSearchResult {
+  return 'chunk_id' in result;
+}
+
 const DEBOUNCE_DELAY = 500;
 
 export const RAGSearch: React.FC = () => {
@@ -49,21 +60,46 @@ export const RAGSearch: React.FC = () => {
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
   const debouncedQuery = useDebounce(query, DEBOUNCE_DELAY);
 
-  // 搜索
+  // 搜索（优先使用新的 chunks 接口）
   const performSearch = useCallback(async () => {
     if (!debouncedQuery.trim()) {
       return { results: [], count: 0 };
     }
 
     try {
+      // 优先尝试新的 chunks 接口
+      const response = await apiService.searchChunks(
+        debouncedQuery,
+        selectedProjects.length > 0 ? selectedProjects : undefined,
+        20
+      ) as { results?: ChunkSearchResult[]; count?: number; error?: string };
+
+      if (response.error) {
+        // 如果新接口失败，回退到旧接口
+        console.warn("Chunks search failed, falling back to legacy search:", response.error);
+        return performLegacySearch();
+      }
+
+      return {
+        results: response.results || [],
+        count: response.count || 0,
+      };
+    } catch (error) {
+      console.warn("Chunks search error, falling back to legacy:", error);
+      return performLegacySearch();
+    }
+  }, [debouncedQuery, selectedProjects]);
+
+  // 旧的搜索接口（兼容）
+  const performLegacySearch = useCallback(async () => {
+    try {
       const response = await apiService.searchRAG(
         debouncedQuery,
         selectedProjects.length > 0 ? selectedProjects : undefined,
         20
-      ) as { results?: SearchResult[]; count?: number; error?: string };
+      ) as { results?: LegacySearchResult[]; count?: number; error?: string };
 
       if (response.error) {
-        // 检查是否是 RAG 未配置错误
         if (response.error.includes("not initialized") || 
             response.error.includes("not configured") ||
             response.error.includes("Please configure")) {
@@ -146,7 +182,23 @@ export const RAGSearch: React.FC = () => {
   return (
     <div className="cocursor-rag-search">
       <div className="cocursor-rag-search-header">
-        <h2>{t("rag.search.title")}</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <h2>{t("rag.search.title")}</h2>
+          <span
+            className="cocursor-rag-beta-badge"
+            title={t("rag.betaTooltip")}
+            style={{
+              backgroundColor: "var(--vscode-statusBarItem-warningBackground)",
+              color: "var(--vscode-statusBarItem-warningForeground)",
+              padding: "2px 8px",
+              borderRadius: "3px",
+              fontSize: "12px",
+              fontWeight: "600"
+            }}
+          >
+            {t("rag.beta")}
+          </span>
+        </div>
         <button
           className="cocursor-rag-config-button secondary"
           onClick={() => {
@@ -196,37 +248,150 @@ export const RAGSearch: React.FC = () => {
 
           <div className="cocursor-rag-results-list">
             {results.map((result, index) => {
-              const resultId = `${result.session_id}-${result.type}-${index}`;
+              // 处理新的 ChunkSearchResult 格式
+              if (isChunkResult(result)) {
+                const resultId = `chunk-${result.chunk_id}`;
+                const isExpanded = expandedResults.has(resultId);
+
+                return (
+                  <div
+                    key={resultId}
+                    className="cocursor-rag-result-item"
+                    onClick={() => handleResultClick(result.session_id)}
+                  >
+                    <div className="cocursor-rag-result-header">
+                      <div>
+                        <strong className="cocursor-rag-result-project">
+                          {result.project_name || result.project_id}
+                        </strong>
+                        <span className="cocursor-rag-result-meta">
+                          {formatTime(result.timestamp)}
+                        </span>
+                        {result.is_enriched && (
+                          <span className="cocursor-rag-enriched-badge" title={t("rag.search.enriched")}>
+                            ✨
+                          </span>
+                        )}
+                        {result.has_code && (
+                          <span className="cocursor-rag-code-badge" title={t("rag.search.hasCode")}>
+                            {"</>"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="cocursor-rag-result-score">
+                        {t("rag.search.score")}: {(result.score * 100).toFixed(1)}%
+                      </div>
+                    </div>
+
+                    {/* 主题和摘要 */}
+                    <div className="cocursor-rag-result-turn">
+                      {result.main_topic && (
+                        <div className="cocursor-rag-result-summary-topic">
+                          {result.main_topic}
+                        </div>
+                      )}
+                      <div className="cocursor-rag-result-summary-text">
+                        {result.summary || result.user_query_preview}
+                      </div>
+
+                      {/* 工具标签 */}
+                      {result.tools_used && result.tools_used.length > 0 && (
+                        <div className="cocursor-rag-result-tools">
+                          <span className="cocursor-rag-tools-label">{t("rag.search.toolsUsed")}:</span>
+                          {result.tools_used.slice(0, 5).map((tool, idx) => (
+                            <span key={idx} className="cocursor-rag-tool-tag">
+                              {tool}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 修改的文件 */}
+                      {result.files_modified && result.files_modified.length > 0 && (
+                        <div className="cocursor-rag-result-files">
+                          <span className="cocursor-rag-files-label">{t("rag.search.filesModified")}:</span>
+                          {result.files_modified.slice(0, 3).map((file, idx) => (
+                            <span key={idx} className="cocursor-rag-file-tag">
+                              {file}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 标签 */}
+                      {result.tags && result.tags.length > 0 && (
+                        <div className="cocursor-rag-result-tags">
+                          {result.tags.map((tag, idx) => (
+                            <span key={idx} className="cocursor-rag-result-tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 展开按钮 */}
+                      <div>
+                        <button
+                          className="cocursor-rag-result-expand-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(resultId);
+                          }}
+                        >
+                          {isExpanded
+                            ? t("rag.search.collapse")
+                            : t("rag.search.viewOriginalConversation")}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 展开的详情 */}
+                    {isExpanded && (
+                      <div className="cocursor-rag-result-expanded">
+                        <div className="cocursor-rag-result-expanded-title">
+                          {t("rag.search.user")}:
+                        </div>
+                        <div className="cocursor-rag-result-expanded-content">
+                          {result.user_query_preview}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // 处理旧的 LegacySearchResult 格式
+              const legacyResult = result as LegacySearchResult;
+              const resultId = `${legacyResult.session_id}-${legacyResult.type}-${index}`;
               const isExpanded = expandedResults.has(resultId);
-              const isTurn = result.type === "turn";
+              const isTurn = legacyResult.type === "turn";
 
               return (
                 <div
                   key={resultId}
                   className="cocursor-rag-result-item"
-                  onClick={() => handleResultClick(result.session_id)}
+                  onClick={() => handleResultClick(legacyResult.session_id)}
                 >
                   <div className="cocursor-rag-result-header">
                     <div>
                       <strong className="cocursor-rag-result-project">
-                        {result.project_name || result.project_id}
+                        {legacyResult.project_name || legacyResult.project_id}
                       </strong>
                       <span className="cocursor-rag-result-meta">
-                        {formatTime(result.timestamp)}
+                        {formatTime(legacyResult.timestamp)}
                       </span>
                     </div>
                     <div className="cocursor-rag-result-score">
-                      {t("rag.search.score")}: {(result.score * 100).toFixed(1)}%
+                      {t("rag.search.score")}: {(legacyResult.score * 100).toFixed(1)}%
                     </div>
                   </div>
 
-                  {isTurn && result.summary ? (() => {
-                    const summaryData = parseSummary(result.summary);
+                  {isTurn && legacyResult.summary ? (() => {
+                    const summaryData = parseSummary(legacyResult.summary);
                     if (!summaryData) return null;
 
                     return (
                       <div className="cocursor-rag-result-turn">
-                        {/* 总结信息 */}
                         <div className="cocursor-rag-result-summary">
                           <div className="cocursor-rag-result-summary-topic">
                             {summaryData.main_topic}
@@ -236,7 +401,7 @@ export const RAGSearch: React.FC = () => {
                           </div>
                           {summaryData.key_points && summaryData.key_points.length > 0 && (
                             <div className="cocursor-rag-result-key-points">
-                              <strong>关键知识点:</strong>
+                              <strong>{t("rag.search.keyPoints")}:</strong>
                               <ul>
                                 {summaryData.key_points.map((point: string, idx: number) => (
                                   <li key={idx}>{point}</li>
@@ -247,17 +412,13 @@ export const RAGSearch: React.FC = () => {
                           {summaryData.tags && summaryData.tags.length > 0 && (
                             <div className="cocursor-rag-result-tags">
                               {summaryData.tags.map((tag: string, idx: number) => (
-                                <span
-                                  key={idx}
-                                  className="cocursor-rag-result-tag"
-                                >
+                                <span key={idx} className="cocursor-rag-result-tag">
                                   {tag}
                                 </span>
                               ))}
                             </div>
                           )}
                         </div>
-                        {/* 查看原始对话按钮 */}
                         <div>
                           <button
                             className="cocursor-rag-result-expand-button"
@@ -268,7 +429,7 @@ export const RAGSearch: React.FC = () => {
                           >
                             {isExpanded
                               ? t("rag.search.collapse")
-                              : "查看原始对话"}
+                              : t("rag.search.viewOriginalConversation")}
                           </button>
                         </div>
                       </div>
@@ -276,41 +437,41 @@ export const RAGSearch: React.FC = () => {
                   })() : isTurn ? (
                     <div className="cocursor-rag-result-turn">
                       <div className="cocursor-rag-result-message">
-                        <strong>{t("rag.search.user")}:</strong> {result.user_text}
+                        <strong>{t("rag.search.user")}:</strong> {legacyResult.user_text}
                       </div>
                       <div className="cocursor-rag-result-message">
-                        <strong>{t("rag.search.ai")}:</strong> {result.ai_text}
+                        <strong>{t("rag.search.ai")}:</strong> {legacyResult.ai_text}
                       </div>
                     </div>
                   ) : (
-                    <div className="cocursor-rag-result-content">{result.content}</div>
+                    <div className="cocursor-rag-result-content">{legacyResult.content}</div>
                   )}
 
-                  {isExpanded && result.message_ids && (
+                  {isExpanded && legacyResult.message_ids && (
                     <div className="cocursor-rag-result-expanded">
                       <div className="cocursor-rag-result-expanded-title">
                         {t("rag.search.messagesInTurn")}:
                       </div>
-                      {result.message_ids.map((msgId, idx) => (
+                      {legacyResult.message_ids.map((msgId, idx) => (
                         <div key={idx} className="cocursor-rag-result-expanded-list">
                           • {msgId}
                         </div>
                       ))}
                     </div>
                   )}
-                  {isExpanded && !result.message_ids && result.user_text && result.ai_text && (
+                  {isExpanded && !legacyResult.message_ids && legacyResult.user_text && legacyResult.ai_text && (
                     <div className="cocursor-rag-result-expanded">
                       <div className="cocursor-rag-result-expanded-title">
                         {t("rag.search.user")}:
                       </div>
                       <div className="cocursor-rag-result-expanded-content">
-                        {result.user_text}
+                        {legacyResult.user_text}
                       </div>
                       <div className="cocursor-rag-result-expanded-title">
                         {t("rag.search.ai")}:
                       </div>
                       <div className="cocursor-rag-result-expanded-content">
-                        {result.ai_text}
+                        {legacyResult.ai_text}
                       </div>
                     </div>
                   )}

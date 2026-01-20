@@ -21,21 +21,37 @@ func NewMarketplaceHandler(pluginService *appMarketplace.PluginService) *Marketp
 	}
 }
 
+// ListPluginsRequest 列出插件请求参数
+type ListPluginsRequest struct {
+	Category  string  `form:"category"`   // 分类筛选
+	Search    string  `form:"search"`     // 搜索关键词
+	Installed *bool   `form:"installed"`  // 是否只显示已安装
+	Lang      string  `form:"lang"`       // 语言 (zh-CN 或 en，默认 zh-CN)
+	Source    string  `form:"source"`     // 来源筛选 (builtin/project/team_global/team_project)
+	TeamID    string  `form:"team_id"`    // 团队 ID 筛选
+}
+
 // ListPlugins 获取插件列表
 // @Summary 获取插件列表
-// @Description 支持分类、搜索、已安装筛选
+// @Description 支持分类、搜索、已安装筛选、语言本地化、来源筛选、团队筛选
 // @Tags 插件市场
 // @Accept json
 // @Produce json
 // @Param category query string false "分类筛选"
 // @Param search query string false "搜索关键词"
 // @Param installed query bool false "是否只显示已安装"
+// @Param lang query string false "语言 (zh-CN 或 en，默认 zh-CN)"
+// @Param source query string false "来源筛选 (builtin/project/team_global/team_project)"
+// @Param team_id query string false "团队 ID 筛选"
 // @Success 200 {object} response.Response{data=map[string]interface{}}
 // @Failure 500 {object} response.ErrorResponse
 // @Router /marketplace/plugins [get]
 func (h *MarketplaceHandler) ListPlugins(c *gin.Context) {
 	category := c.Query("category")
 	search := c.Query("search")
+	lang := c.Query("lang")
+	source := c.Query("source")
+	teamID := c.Query("team_id")
 
 	var installed *bool
 	if installedStr := c.Query("installed"); installedStr != "" {
@@ -45,7 +61,17 @@ func (h *MarketplaceHandler) ListPlugins(c *gin.Context) {
 		}
 	}
 
-	plugins, err := h.pluginService.ListPlugins(category, search, installed)
+	// 构建筛选选项
+	opts := appMarketplace.ListPluginsOptions{
+		Category:  category,
+		Search:    search,
+		Installed: installed,
+		Lang:      lang,
+		Source:    source,
+		TeamID:    teamID,
+	}
+
+	plugins, err := h.pluginService.ListPluginsWithOptions(opts)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500001, "Failed to list plugins: "+err.Error())
 		return
@@ -63,14 +89,16 @@ func (h *MarketplaceHandler) ListPlugins(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "插件 ID"
+// @Param lang query string false "语言 (zh-CN 或 en，默认 zh-CN)"
 // @Success 200 {object} response.Response{data=map[string]interface{}}
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /marketplace/plugins/{id} [get]
 func (h *MarketplaceHandler) GetPlugin(c *gin.Context) {
 	id := c.Param("id")
+	lang := c.Query("lang") // 获取语言参数
 
-	plugin, err := h.pluginService.GetPlugin(id)
+	plugin, err := h.pluginService.GetPlugin(id, lang)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, 404001, "Plugin not found: "+err.Error())
 		return
@@ -86,11 +114,14 @@ func (h *MarketplaceHandler) GetPlugin(c *gin.Context) {
 // @Tags 插件市场
 // @Accept json
 // @Produce json
+// @Param lang query string false "语言 (zh-CN 或 en，默认 zh-CN)"
 // @Success 200 {object} response.Response{data=map[string]interface{}}
 // @Failure 500 {object} response.ErrorResponse
 // @Router /marketplace/installed [get]
 func (h *MarketplaceHandler) GetInstalledPlugins(c *gin.Context) {
-	plugins, err := h.pluginService.GetInstalledPlugins()
+	lang := c.Query("lang") // 获取语言参数
+
+	plugins, err := h.pluginService.GetInstalledPlugins(lang)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500001, "Failed to get installed plugins: "+err.Error())
 		return

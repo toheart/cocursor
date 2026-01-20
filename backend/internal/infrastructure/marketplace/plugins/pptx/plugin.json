@@ -1,10 +1,22 @@
 {
   "id": "pptx",
   "name": "PPTX 处理",
+  "name_i18n": {
+    "zh-CN": "PPTX 处理",
+    "en": "PPTX Processing"
+  },
   "description": "全面的 PowerPoint 演示文稿操作工具，用于创建、编辑、分析和转换演示文稿。支持内容替换、布局重组、缩略图生成等高级功能。",
+  "description_i18n": {
+    "zh-CN": "全面的 PowerPoint 演示文稿操作工具，用于创建、编辑、分析和转换演示文稿。支持内容替换、布局重组、缩略图生成等高级功能。",
+    "en": "Comprehensive presentation creation, editing, and analysis. When Claude needs to work with presentations (.pptx files) for: (1) Creating new presentations, (2) Modifying or editing content, (3) Working with layouts, (4) Adding comments or speaker notes, or any other presentation tasks"
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "生产力",
+  "category": "productivity",
+  "category_i18n": {
+    "zh-CN": "生产力",
+    "en": "Productivity"
+  },
   "skill": {
     "skill_name": "pptx"
   }

@@ -271,3 +271,217 @@
   font-weight: 600;
   color: var(--vscode-foreground);
 }
+
+/* ========== 模态框样式 ========== */
+.cocursor-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.cocursor-modal {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.cocursor-modal.wide {
+  max-width: 560px;
+}
+
+.cocursor-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+}
+
+.cocursor-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.cocursor-modal-close:hover {
+  color: var(--vscode-foreground);
+}
+
+.cocursor-modal-body {
+  padding: 20px;
+}
+
+.cocursor-modal-desc {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+}
+
+.cocursor-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+/* ========== 表单样式 ========== */
+.cocursor-form-group {
+  margin-bottom: 16px;
+}
+
+.cocursor-form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-form-label-hint {
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 4px;
+}
+
+.cocursor-form-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.cocursor-form-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-form-input::placeholder {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
+.cocursor-form-select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.cocursor-form-select:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-form-help {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.4;
+}
+
+.cocursor-form-error {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 4px;
+  color: #f44336;
+  font-size: 13px;
+}
+
+.cocursor-form-hint {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cocursor-form-hint-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-form-hint-value {
+  font-family: monospace;
+  color: var(--vscode-foreground);
+}
+
+/* ========== 按钮样式扩展 ========== */
+.cocursor-btn.primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+}
+
+.cocursor-btn.primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.cocursor-btn.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-btn.secondary:hover:not(:disabled) {
+  background-color: var(--vscode-input-background);
+}
+
+.cocursor-btn.full-width {
+  width: 100%;
+}
+
+.cocursor-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.cocursor-btn-icon {
+  font-size: 14px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -14,7 +14,7 @@ import (
 func ProvideScanScheduler(
 	ragInitializer *RAGInitializer,
 	projectManager *appCursor.ProjectManager,
-	ragRepo domainRAG.RAGRepository,
+	indexStatusRepo domainRAG.IndexStatusRepository,
 	configManager *infraRAG.ConfigManager,
 ) *ScanScheduler {
 	// 读取配置
@@ -22,9 +22,9 @@ func ProvideScanScheduler(
 	if err != nil {
 		// 配置读取失败，返回禁用的调度器
 		scheduler := NewScanScheduler(
-			nil, // ragService 稍后通过 initializer 获取
+			nil, // chunkService 稍后通过 initializer 获取
 			projectManager,
-			ragRepo,
+			indexStatusRepo,
 			&ScanConfig{
 				Enabled:     false,
 				Interval:    1 * time.Hour,
@@ -49,11 +49,11 @@ func ProvideScanScheduler(
 		scanConfig.Enabled = false
 	}
 
-	// 创建调度器（ragService 稍后通过 initializer 设置）
+	// 创建调度器（chunkService 稍后通过 initializer 设置）
 	scheduler := NewScanScheduler(
 		nil, // 稍后通过 initializer 设置
 		projectManager,
-		ragRepo,
+		indexStatusRepo,
 		scanConfig,
 	)
 	scheduler.SetRAGInitializer(ragInitializer)

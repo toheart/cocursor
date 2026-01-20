@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
 	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/gin-gonic/gin"
@@ -41,6 +42,21 @@ func (m *mockWorkspaceSessionRepository) GetCachedComposerIDs(workspaceID string
 	return []string{}, nil
 }
 
+// mockDailySummaryRepository 模拟 DailySummaryRepository
+type mockDailySummaryRepository struct{}
+
+func (m *mockDailySummaryRepository) Save(summary *domainCursor.DailySummary) error {
+	return nil
+}
+
+func (m *mockDailySummaryRepository) FindByDate(date string) (*domainCursor.DailySummary, error) {
+	return nil, nil
+}
+
+func (m *mockDailySummaryRepository) FindDatesByRange(startDate, endDate string) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+
 func TestAnalyticsHandler_WorkAnalysis(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -49,9 +65,11 @@ func TestAnalyticsHandler_WorkAnalysis(t *testing.T) {
 	mockGlobalDBReader2 := infraCursor.NewMockGlobalDBReader()
 	dbReader := infraCursor.NewDBReader()
 	dataMerger := appCursor.NewDataMerger(dbReader, mockGlobalDBReader2)
-	// 创建 mock sessionRepo（测试中可能不需要实际数据）
+	// 创建 mock repositories（测试中可能不需要实际数据）
 	sessionRepo := &mockWorkspaceSessionRepository{}
-	workAnalysisService := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, dataMerger)
+	summaryRepo := &mockDailySummaryRepository{}
+	tokenService := appCursor.NewTokenService()
+	workAnalysisService := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, dataMerger, summaryRepo, tokenService)
 	sessionService := appCursor.NewSessionService(appCursor.NewProjectManager(), sessionRepo)
 	handler := NewAnalyticsHandler(
 		appCursor.NewTokenService(),

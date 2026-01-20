@@ -2,8 +2,8 @@ package rag
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"sort"
 
 	domainRAG "github.com/cocursor/backend/internal/domain/rag"
 	"github.com/cocursor/backend/internal/infrastructure/embedding"
@@ -15,19 +15,19 @@ import (
 type SearchService struct {
 	embeddingClient *embedding.Client
 	qdrantManager   *vector.QdrantManager
-	ragRepo         domainRAG.RAGRepository
+	chunkRepo       domainRAG.ChunkRepository
 }
 
 // NewSearchService 创建搜索服务
 func NewSearchService(
 	embeddingClient *embedding.Client,
 	qdrantManager *vector.QdrantManager,
-	ragRepo domainRAG.RAGRepository,
+	chunkRepo domainRAG.ChunkRepository,
 ) *SearchService {
 	return &SearchService{
 		embeddingClient: embeddingClient,
 		qdrantManager:   qdrantManager,
-		ragRepo:         ragRepo,
+		chunkRepo:       chunkRepo,
 	}
 }
 
@@ -38,25 +38,40 @@ type SearchRequest struct {
 	Limit      int      `json:"limit"`                 // 返回结果数量
 }
 
-// SearchResult 搜索结果
-type SearchResult struct {
-	Type        string   `json:"type"` // "message" 或 "turn"
-	SessionID   string   `json:"session_id"`
-	Score       float32  `json:"score"`
-	Content     string   `json:"content"`
-	UserText    string   `json:"user_text,omitempty"`  // 对话对才有
-	AIText      string   `json:"ai_text,omitempty"`    // 对话对才有
-	MessageID   string   `json:"message_id,omitempty"` // 消息才有
-	TurnIndex   int      `json:"turn_index,omitempty"` // 对话对才有
-	ProjectID   string   `json:"project_id"`
-	ProjectName string   `json:"project_name"`
-	Timestamp   int64    `json:"timestamp"`
-	MessageIDs  []string `json:"message_ids,omitempty"` // 对话对包含的消息 ID
-	Summary     string   `json:"summary"`               // 总结 JSON 字符串
+// ChunkSearchResult 知识片段搜索结果
+type ChunkSearchResult struct {
+	ChunkID          string   `json:"chunk_id"`
+	SessionID        string   `json:"session_id"`
+	Score            float32  `json:"score"`
+	ProjectID        string   `json:"project_id"`
+	ProjectName      string   `json:"project_name"`
+	UserQueryPreview string   `json:"user_query_preview"`
+	Summary          string   `json:"summary,omitempty"`
+	MainTopic        string   `json:"main_topic,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	ToolsUsed        []string `json:"tools_used,omitempty"`
+	FilesModified    []string `json:"files_modified,omitempty"`
+	HasCode          bool     `json:"has_code"`
+	Timestamp        int64    `json:"timestamp"`
+	IsEnriched       bool     `json:"is_enriched"`
 }
 
-// Search 执行语义搜索
-func (s *SearchService) Search(ctx context.Context, req *SearchRequest) ([]*SearchResult, error) {
+// ChunkDetail 知识片段详情
+type ChunkDetail struct {
+	ChunkSearchResult
+	UserQuery        string `json:"user_query"`
+	AIResponseCore   string `json:"ai_response_core"`
+	EnrichmentStatus string `json:"enrichment_status"`
+	EnrichmentError  string `json:"enrichment_error,omitempty"`
+}
+
+// Search 执行语义搜索（使用 cursor_knowledge 集合）
+func (s *SearchService) Search(ctx context.Context, req *SearchRequest) ([]*ChunkSearchResult, error) {
+	return s.SearchChunks(ctx, req)
+}
+
+// SearchChunks 搜索知识片段
+func (s *SearchService) SearchChunks(ctx context.Context, req *SearchRequest) ([]*ChunkSearchResult, error) {
 	if req.Limit <= 0 {
 		req.Limit = 10
 	}
@@ -79,63 +94,25 @@ func (s *SearchService) Search(ctx context.Context, req *SearchRequest) ([]*Sear
 		return nil, fmt.Errorf("qdrant client not initialized")
 	}
 
-	// 2. 只在对话对级别搜索（总结向量）
-	turnResults, err := s.searchTurns(ctx, client, queryVector, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search turns: %w", err)
-	}
-
-	return turnResults, nil
-}
-
-// searchTurns 搜索对话对级别
-func (s *SearchService) searchTurns(ctx context.Context, client *qdrant.Client, queryVector []float32, req *SearchRequest) ([]*SearchResult, error) {
-	// 构建过滤条件
+	// 2. 构建过滤条件
 	filter := s.buildProjectFilter(req.ProjectIDs)
 
-	// 执行搜索
-	limit := uint64(req.Limit * 2)
+	// 3. 执行搜索
+	limit := uint64(req.Limit)
 	searchResp, err := client.Query(ctx, &qdrant.QueryPoints{
-		CollectionName: "cursor_sessions_turns",
+		CollectionName: "cursor_knowledge",
 		Query:          qdrant.NewQuery(queryVector...),
-		Limit:          &limit, // 多取一些，因为会加权
+		Limit:          &limit,
 		Filter:         filter,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query qdrant: %w", err)
 	}
 
-	var results []*SearchResult
+	// 4. 转换结果
+	results := make([]*ChunkSearchResult, 0, len(searchResp))
 	for _, hit := range searchResp {
-		result := s.turnHitToResult(hit)
-		if result != nil {
-			results = append(results, result)
-		}
-	}
-
-	return results, nil
-}
-
-// searchMessages 搜索消息级别
-func (s *SearchService) searchMessages(ctx context.Context, client *qdrant.Client, queryVector []float32, req *SearchRequest) ([]*SearchResult, error) {
-	// 构建过滤条件
-	filter := s.buildProjectFilter(req.ProjectIDs)
-
-	// 执行搜索
-	limit := uint64(req.Limit * 2)
-	searchResp, err := client.Query(ctx, &qdrant.QueryPoints{
-		CollectionName: "cursor_sessions_messages",
-		Query:          qdrant.NewQuery(queryVector...),
-		Limit:          &limit, // 多取一些，用于合并
-		Filter:         filter,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var results []*SearchResult
-	for _, hit := range searchResp {
-		result := s.messageHitToResult(hit)
+		result := s.chunkHitToResult(hit)
 		if result != nil {
 			results = append(results, result)
 		}
@@ -170,143 +147,140 @@ func (s *SearchService) buildProjectFilter(projectIDs []string) *qdrant.Filter {
 	}
 }
 
-// turnHitToResult 将对话对命中转换为搜索结果
-func (s *SearchService) turnHitToResult(hit *qdrant.ScoredPoint) *SearchResult {
+// chunkHitToResult 将知识片段命中转换为搜索结果
+func (s *SearchService) chunkHitToResult(hit *qdrant.ScoredPoint) *ChunkSearchResult {
 	payload := hit.GetPayload()
 	if payload == nil {
 		return nil
 	}
 
-	result := &SearchResult{
-		Type:  "turn",
+	result := &ChunkSearchResult{
 		Score: hit.GetScore(),
 	}
 
 	// 从 payload 提取信息
+	if val, ok := payload["chunk_id"]; ok {
+		result.ChunkID = extractStringValue(val)
+	}
 	if val, ok := payload["session_id"]; ok {
-		result.SessionID = s.extractStringValue(val)
-	}
-	if val, ok := payload["turn_index"]; ok {
-		result.TurnIndex = int(s.extractIntValue(val))
-	}
-	if val, ok := payload["user_text"]; ok {
-		result.UserText = s.extractStringValue(val)
-	}
-	if val, ok := payload["ai_text"]; ok {
-		result.AIText = s.extractStringValue(val)
-	}
-	if val, ok := payload["combined_text"]; ok {
-		result.Content = s.extractStringValue(val)
+		result.SessionID = extractStringValue(val)
 	}
 	if val, ok := payload["project_id"]; ok {
-		result.ProjectID = s.extractStringValue(val)
+		result.ProjectID = extractStringValue(val)
 	}
 	if val, ok := payload["project_name"]; ok {
-		result.ProjectName = s.extractStringValue(val)
+		result.ProjectName = extractStringValue(val)
 	}
-	// 提取 summary (JSON 字符串)
+	if val, ok := payload["user_query_preview"]; ok {
+		result.UserQueryPreview = extractStringValue(val)
+	}
 	if val, ok := payload["summary"]; ok {
-		result.Summary = s.extractStringValue(val)
+		result.Summary = extractStringValue(val)
 	}
-
-	return result
-}
-
-// messageHitToResult 将消息命中转换为搜索结果
-func (s *SearchService) messageHitToResult(hit *qdrant.ScoredPoint) *SearchResult {
-	payload := hit.GetPayload()
-	if payload == nil {
-		return nil
+	if val, ok := payload["main_topic"]; ok {
+		result.MainTopic = extractStringValue(val)
 	}
-
-	result := &SearchResult{
-		Type:  "message",
-		Score: hit.GetScore(),
+	if val, ok := payload["tags"]; ok {
+		tagsStr := extractStringValue(val)
+		if tagsStr != "" {
+			var tags []string
+			if err := json.Unmarshal([]byte(tagsStr), &tags); err == nil {
+				result.Tags = tags
+			}
+		}
 	}
-
-	// 从 payload 提取信息
-	if val, ok := payload["session_id"]; ok {
-		result.SessionID = s.extractStringValue(val)
+	if val, ok := payload["tools_used"]; ok {
+		toolsStr := extractStringValue(val)
+		if toolsStr != "" {
+			var tools []string
+			if err := json.Unmarshal([]byte(toolsStr), &tools); err == nil {
+				result.ToolsUsed = tools
+			}
+		}
 	}
-	if val, ok := payload["message_id"]; ok {
-		result.MessageID = s.extractStringValue(val)
-	}
-	if val, ok := payload["content"]; ok {
-		result.Content = s.extractStringValue(val)
+	if val, ok := payload["has_code"]; ok {
+		result.HasCode = extractBoolValue(val)
 	}
 	if val, ok := payload["timestamp"]; ok {
-		result.Timestamp = s.extractIntValue(val)
+		result.Timestamp = extractIntValue(val)
 	}
-	if val, ok := payload["project_id"]; ok {
-		result.ProjectID = s.extractStringValue(val)
-	}
-	if val, ok := payload["project_name"]; ok {
-		result.ProjectName = s.extractStringValue(val)
-	}
+
+	// 判断是否已增强
+	result.IsEnriched = result.Summary != ""
 
 	return result
 }
 
-// extractStringValue 从 Value 中提取字符串
-func (s *SearchService) extractStringValue(val *qdrant.Value) string {
+// GetChunkDetail 获取知识片段详情
+func (s *SearchService) GetChunkDetail(chunkID string) (*ChunkDetail, error) {
+	if s.chunkRepo == nil {
+		return nil, fmt.Errorf("chunk repository not initialized")
+	}
+
+	chunk, err := s.chunkRepo.GetChunk(chunkID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chunk: %w", err)
+	}
+	if chunk == nil {
+		return nil, fmt.Errorf("chunk not found")
+	}
+
+	// 从数据库获取完整信息
+	detail := &ChunkDetail{
+		ChunkSearchResult: ChunkSearchResult{
+			ChunkID:          chunk.ID,
+			SessionID:        chunk.SessionID,
+			Score:            0, // 详情不包含分数
+			ProjectID:        chunk.ProjectID,
+			ProjectName:      chunk.ProjectName,
+			UserQueryPreview: chunk.UserQueryPreview(),
+			Summary:          chunk.Summary,
+			MainTopic:        chunk.MainTopic,
+			Tags:             chunk.Tags,
+			ToolsUsed:        chunk.ToolsUsed,
+			FilesModified:    chunk.FilesModified,
+			HasCode:          chunk.HasCode,
+			Timestamp:        chunk.Timestamp,
+			IsEnriched:       chunk.IsEnriched(),
+		},
+		UserQuery:        chunk.UserQuery,
+		AIResponseCore:   chunk.AIResponseCore,
+		EnrichmentStatus: chunk.EnrichmentStatus,
+		EnrichmentError:  chunk.EnrichmentError,
+	}
+
+	return detail, nil
+}
+
+// extractStringValue 从 qdrant.Value 提取字符串值
+func extractStringValue(val *qdrant.Value) string {
 	if val == nil {
 		return ""
 	}
-	if strVal, ok := val.Kind.(*qdrant.Value_StringValue); ok {
-		return strVal.StringValue
+	if strVal := val.GetStringValue(); strVal != "" {
+		return strVal
 	}
 	return ""
 }
 
-// extractIntValue 从 Value 中提取整数
-func (s *SearchService) extractIntValue(val *qdrant.Value) int64 {
+// extractIntValue 从 qdrant.Value 提取整数值
+func extractIntValue(val *qdrant.Value) int64 {
 	if val == nil {
 		return 0
 	}
-	if intVal, ok := val.Kind.(*qdrant.Value_IntegerValue); ok {
-		return intVal.IntegerValue
+	if intVal := val.GetIntegerValue(); intVal != 0 {
+		return intVal
+	}
+	if dblVal := val.GetDoubleValue(); dblVal != 0 {
+		return int64(dblVal)
 	}
 	return 0
 }
 
-// mergeResults 合并搜索结果（对话对加权 20%，去重，排序）
-func (s *SearchService) mergeResults(turnResults, messageResults []*SearchResult, limit int) []*SearchResult {
-	// 对话对加权 20%
-	for _, result := range turnResults {
-		result.Score = result.Score * 1.2
+// extractBoolValue 从 qdrant.Value 提取布尔值
+func extractBoolValue(val *qdrant.Value) bool {
+	if val == nil {
+		return false
 	}
-
-	// 合并结果
-	allResults := append(turnResults, messageResults...)
-
-	// 去重（基于 session_id + type + message_id/turn_index）
-	seen := make(map[string]bool)
-	var uniqueResults []*SearchResult
-	for _, result := range allResults {
-		key := s.getResultKey(result)
-		if !seen[key] {
-			seen[key] = true
-			uniqueResults = append(uniqueResults, result)
-		}
-	}
-
-	// 按分数排序
-	sort.Slice(uniqueResults, func(i, j int) bool {
-		return uniqueResults[i].Score > uniqueResults[j].Score
-	})
-
-	// 限制数量
-	if len(uniqueResults) > limit {
-		uniqueResults = uniqueResults[:limit]
-	}
-
-	return uniqueResults
-}
-
-// getResultKey 获取结果去重键
-func (s *SearchService) getResultKey(result *SearchResult) string {
-	if result.Type == "turn" {
-		return fmt.Sprintf("%s:turn:%d", result.SessionID, result.TurnIndex)
-	}
-	return fmt.Sprintf("%s:message:%s", result.SessionID, result.MessageID)
+	return val.GetBoolValue()
 }

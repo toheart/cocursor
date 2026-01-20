@@ -66,6 +66,8 @@ export interface CodeBlock {
 
 // ========== 插件相关 ==========
 
+export type PluginSource = "builtin" | "project" | "team_global" | "team_project";
+
 export interface Plugin {
   id: string;
   name: string;
@@ -74,6 +76,7 @@ export interface Plugin {
   version: string;
   icon?: string;
   category: string;
+  category_display?: string; // 本地化的分类显示名称
   installed: boolean;
   installed_version?: string;
   skill?: {
@@ -87,6 +90,18 @@ export interface Plugin {
   command?: {
     commands: CommandItem[];
   };
+  // 团队相关字段
+  source?: PluginSource;
+  full_id?: string;
+  team_id?: string;
+  team_name?: string;
+  author_id?: string;
+  author_name?: string;
+  author_endpoint?: string;
+  author_online?: boolean;
+  published_at?: string;
+  is_downloaded?: boolean;
+  downloaded_at?: string;
 }
 
 export interface CommandItem {
@@ -215,12 +230,163 @@ export interface WeekRange {
   end: string;
 }
 
+// ========== RAG 相关 ==========
+
+// 旧的搜索结果（兼容）
+export interface RAGSearchResult {
+  type: "message" | "turn";
+  session_id: string;
+  score: number;
+  content: string;
+  user_text?: string;
+  ai_text?: string;
+  message_id?: string;
+  turn_index?: number;
+  project_id: string;
+  project_name: string;
+  timestamp: number;
+  message_ids?: string[];
+  summary?: string;
+}
+
+// 新的知识片段搜索结果
+export interface ChunkSearchResult {
+  chunk_id: string;
+  session_id: string;
+  score: number;
+  project_id: string;
+  project_name: string;
+  user_query_preview: string;
+  summary?: string;
+  main_topic?: string;
+  tags?: string[];
+  tools_used?: string[];
+  files_modified?: string[];
+  has_code: boolean;
+  timestamp: number;
+  is_enriched: boolean;
+}
+
+// 知识片段详情
+export interface ChunkDetail extends ChunkSearchResult {
+  user_query: string;
+  ai_response_core: string;
+  enrichment_status: "pending" | "processing" | "completed" | "failed";
+  enrichment_error?: string;
+}
+
+// 增强队列统计
+export interface EnrichmentStats {
+  pending_count: number;
+  processing_count: number;
+  completed_count: number;
+  failed_count: number;
+}
+
+// 索引统计
+export interface IndexStats {
+  total_files: number;
+  total_chunks: number;
+  last_scan_time: number;
+}
+
+// 搜索过滤器
+export interface SearchFilters {
+  has_code?: boolean;
+  tools_used?: string[];
+  time_range?: {
+    start: number;
+    end: number;
+  };
+}
+
+// ========== 团队相关 ==========
+
+export interface Team {
+  id: string;
+  name: string;
+  leader_id: string;
+  leader_name: string;
+  leader_endpoint: string;
+  member_count: number;
+  skill_count: number;
+  created_at: string;
+  joined_at: string;
+  is_leader: boolean;
+  leader_online: boolean;
+  last_sync_at?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  endpoint: string;
+  is_leader: boolean;
+  is_online: boolean;
+  joined_at: string;
+}
+
+export interface Identity {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NetworkInterface {
+  name: string;
+  addresses: string[];
+  is_up: boolean;
+  is_loopback: boolean;
+}
+
+export interface NetworkConfig {
+  preferred_interface?: string;
+  preferred_ip?: string;
+  last_updated?: string;
+}
+
+export interface DiscoveredTeam {
+  team_id: string;
+  name: string;
+  leader_name: string;
+  endpoint: string;
+  member_count: number;
+  version: string;
+}
+
+export interface TeamSkillEntry {
+  plugin_id: string;
+  name: string;
+  description: string;
+  version: string;
+  scope: string;
+  author_id: string;
+  author_name: string;
+  author_endpoint: string;
+  published_at: string;
+  file_count: number;
+  total_size: number;
+  checksum: string;
+}
+
+export interface SkillValidationResult {
+  valid: boolean;
+  error?: string;
+  name: string;
+  description: string;
+  version: string;
+  files: string[];
+  total_size: number;
+  skill_path: string;
+}
+
 // ========== VSCode 相关 ==========
 
 declare global {
   interface Window {
     __WORKSPACE_PATH__?: string;
-    __VIEW_TYPE__?: "workAnalysis" | "recentSessions" | "marketplace";
+    __VIEW_TYPE__?: "workAnalysis" | "recentSessions" | "marketplace" | "team";
     __INITIAL_ROUTE__?: string;
   }
 }

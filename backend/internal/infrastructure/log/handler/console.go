@@ -77,7 +77,7 @@ func (h *ConsoleHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	// 格式化日志
-	fmt.Fprintf(h.out, "%s%s%s %s%s %s%s\n",
+	fmt.Fprintf(h.out, "%s%s%s %s%s %s\n",
 		levelColor, level, colorReset,
 		timestamp,
 		modulePrefix,

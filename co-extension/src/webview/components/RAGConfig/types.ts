@@ -37,6 +37,10 @@ export interface ConfigState {
     interval: string;
     batchSize: number;
     concurrency: number;
+    // 高级选项
+    incrementalScan?: boolean;
+    maxFileSize?: number;
+    ignorePatterns?: string;
   };
 }
 
@@ -52,11 +56,12 @@ export interface ConfigTemplateData {
 }
 
 // 预定义模板
+// 注意：URL 应该是基础地址，后端会自动处理 /v1/embeddings 路径
 export const CONFIG_TEMPLATES: Record<ConfigTemplate, ConfigTemplateData> = {
   openai: {
     name: 'rag.config.template.openai',
-    url: 'https://api.openai.com/v1',
-    model: 'text-embedding-ada-002',
+    url: 'https://api.openai.com',  // 基础地址，不含 /v1
+    model: 'text-embedding-3-small', // 更新为新版模型，性能更好且更便宜
   },
   azure: {
     name: 'rag.config.template.azure',

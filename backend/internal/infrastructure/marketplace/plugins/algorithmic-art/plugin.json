@@ -1,10 +1,22 @@
 {
   "id": "algorithmic-art",
   "name": "算法艺术",
+  "name_i18n": {
+    "zh-CN": "算法艺术",
+    "en": "Algorithmic Art"
+  },
   "description": "使用 p5.js 创建算法艺术，具有种子随机性和交互式参数探索。适用于用户请求使用代码、生成艺术、算法艺术、流场或粒子系统创建艺术。创建原创算法艺术而不是复制现有艺术家的作品，以避免版权侵犯。",
+  "description_i18n": {
+    "zh-CN": "使用 p5.js 创建算法艺术，具有种子随机性和交互式参数探索。适用于用户请求使用代码、生成艺术、算法艺术、流场或粒子系统创建艺术。创建原创算法艺术而不是复制现有艺术家的作品，以避免版权侵犯。",
+    "en": "Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing artists' work to avoid copyright violations."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "创意",
+  "category": "creative",
+  "category_i18n": {
+    "zh-CN": "创意",
+    "en": "Creative"
+  },
   "skill": {
     "skill_name": "algorithmic-art"
   }

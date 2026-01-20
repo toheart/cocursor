@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import axios from "axios";
 import { WebviewMessage, ExtensionMessage } from "./types/message";
 
-export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow";
+export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team";
 
 export class WebviewPanel {
   public static workAnalysisPanel: WebviewPanel | undefined;
@@ -10,6 +10,7 @@ export class WebviewPanel {
   public static marketplacePanel: WebviewPanel | undefined;
   public static ragSearchPanel: WebviewPanel | undefined;
   public static workflowPanel: WebviewPanel | undefined;
+  public static teamPanel: WebviewPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private readonly _viewType: WebviewType;
@@ -76,6 +77,8 @@ export class WebviewPanel {
       currentPanel = WebviewPanel.ragSearchPanel;
     } else if (viewType === "workflow") {
       currentPanel = WebviewPanel.workflowPanel;
+    } else if (viewType === "team") {
+      currentPanel = WebviewPanel.teamPanel;
     }
 
     // 如果已经有对应类型的面板，显示它并导航到指定路由
@@ -101,13 +104,15 @@ export class WebviewPanel {
       viewType === "recentSessions" ? "最近对话 - CoCursor" :
       viewType === "marketplace" ? "插件市场 - CoCursor" :
       viewType === "ragSearch" ? "RAG 搜索 - CoCursor" :
-      "OpenSpec 工作流 - CoCursor";
+      viewType === "workflow" ? "OpenSpec 工作流 - CoCursor" :
+      "团队 - CoCursor";
     const panelId = 
       viewType === "workAnalysis" ? "cocursorWorkAnalysis" :
       viewType === "recentSessions" ? "cocursorRecentSessions" :
       viewType === "marketplace" ? "cocursorMarketplace" :
       viewType === "ragSearch" ? "cocursorRAGSearch" :
-      "cocursorWorkflow";
+      viewType === "workflow" ? "cocursorWorkflow" :
+      "cocursorTeam";
     
     const panel = vscode.window.createWebviewPanel(
       panelId,
@@ -136,6 +141,8 @@ export class WebviewPanel {
       WebviewPanel.ragSearchPanel = newPanel;
     } else if (viewType === "workflow") {
       WebviewPanel.workflowPanel = newPanel;
+    } else if (viewType === "team") {
+      WebviewPanel.teamPanel = newPanel;
     }
     
     console.log(`WebviewPanel: ${viewType}面板创建完成`);
@@ -151,9 +158,6 @@ export class WebviewPanel {
         break;
       case "getPeers":
         this._handleGetPeers();
-        break;
-      case "joinTeam":
-        this._handleJoinTeam(message.payload as { teamCode: string });
         break;
       case "fetchCurrentSessionHealth":
         this._handleFetchCurrentSessionHealth(message.payload as { projectPath?: string; projectName?: string });
@@ -189,7 +193,7 @@ export class WebviewPanel {
         this._handleChangeLanguage(message.payload as { language: string });
         break;
       case "fetchPlugins":
-        this._handleFetchPlugins(message.payload as { category?: string; search?: string; installed?: boolean });
+        this._handleFetchPlugins(message.payload as { category?: string; search?: string; installed?: boolean; lang?: string; source?: string; team_id?: string });
         break;
       case "fetchPlugin":
         this._handleFetchPlugin(message.payload as { id: string });
@@ -254,6 +258,59 @@ export class WebviewPanel {
       case "openRAGSearch":
         this._handleOpenRAGSearch(message.payload as { route?: string } | undefined);
         break;
+      // ========== 团队相关命令 ==========
+      case "fetchTeamIdentity":
+        this._handleFetchTeamIdentity();
+        break;
+      case "setTeamIdentity":
+        this._handleSetTeamIdentity(message.payload as { name: string });
+        break;
+      case "fetchNetworkInterfaces":
+        this._handleFetchNetworkInterfaces();
+        break;
+      case "createTeam":
+        this._handleCreateTeam(message.payload as { name: string; preferred_interface?: string; preferred_ip?: string });
+        break;
+      case "discoverTeams":
+        this._handleDiscoverTeams(message.payload as { timeout?: number });
+        break;
+      case "joinTeam":
+        this._handleJoinTeamByEndpoint(message.payload as { endpoint: string });
+        break;
+      case "fetchTeamList":
+        this._handleFetchTeamList();
+        break;
+      case "fetchTeamMembers":
+        this._handleFetchTeamMembers(message.payload as { teamId: string });
+        break;
+      case "leaveTeam":
+        this._handleLeaveTeam(message.payload as { teamId: string });
+        break;
+      case "dissolveTeam":
+        this._handleDissolveTeam(message.payload as { teamId: string });
+        break;
+      case "fetchTeamSkillIndex":
+        this._handleFetchTeamSkillIndex(message.payload as { teamId: string });
+        break;
+      case "validateSkillDirectory":
+        this._handleValidateSkillDirectory(message.payload as { path: string });
+        break;
+      case "publishTeamSkill":
+        this._handlePublishTeamSkill(message.payload as { teamId: string; pluginId: string; localPath: string });
+        break;
+      case "downloadTeamSkill":
+        this._handleDownloadTeamSkill(message.payload as { teamId: string; pluginId: string; authorEndpoint: string; checksum?: string });
+        break;
+      case "selectDirectory":
+        this._handleSelectDirectory();
+        break;
+      // ========== 日报相关命令 ==========
+      case "fetchDailyReportStatus":
+        this._handleFetchDailyReportStatus(message.payload as { startDate: string; endDate: string });
+        break;
+      case "fetchDailySummary":
+        this._handleFetchDailySummary(message.payload as { date: string });
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
@@ -284,7 +341,8 @@ export class WebviewPanel {
       WebviewPanel.recentSessionsPanel,
       WebviewPanel.marketplacePanel,
       WebviewPanel.ragSearchPanel,
-      WebviewPanel.workflowPanel
+      WebviewPanel.workflowPanel,
+      WebviewPanel.teamPanel
     ].filter(Boolean) as WebviewPanel[];
 
     panels.forEach(panel => {
@@ -339,22 +397,6 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "getPeers-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
-      });
-    }
-  }
-
-  private async _handleJoinTeam(payload: { teamCode: string }): Promise<void> {
-    try {
-      // TODO: 调用后端 API
-      const response = { code: 0, data: null, message: "success" };
-      this._sendMessage({
-        type: "joinTeam-response",
-        data: response
-      });
-    } catch (error) {
-      this._sendMessage({
-        type: "joinTeam-response",
         data: { error: error instanceof Error ? error.message : "未知错误" }
       });
     }
@@ -532,7 +574,8 @@ export class WebviewPanel {
         apiUrl += `?${params.toString()}`;
       }
 
-      const response = await axios.get(apiUrl, { timeout: 10000 });
+      // 工作分析接口需要遍历多个工作区和日期，处理时间较长
+      const response = await axios.get(apiUrl, { timeout: 60000 });
       
       if (response.data.code === 0) {
         this._sendMessage({
@@ -645,7 +688,7 @@ export class WebviewPanel {
     });
   }
 
-  private async _handleFetchPlugins(payload: { category?: string; search?: string; installed?: boolean }): Promise<void> {
+  private async _handleFetchPlugins(payload: { category?: string; search?: string; installed?: boolean; lang?: string; source?: string; team_id?: string }): Promise<void> {
     try {
       const params = new URLSearchParams();
       if (payload.category) {
@@ -656,6 +699,15 @@ export class WebviewPanel {
       }
       if (payload.installed !== undefined) {
         params.append("installed", payload.installed.toString());
+      }
+      if (payload.lang) {
+        params.append("lang", payload.lang);
+      }
+      if (payload.source) {
+        params.append("source", payload.source);
+      }
+      if (payload.team_id) {
+        params.append("team_id", payload.team_id);
       }
 
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins${params.toString() ? `?${params.toString()}` : ""}`;
@@ -677,10 +729,16 @@ export class WebviewPanel {
     }
   }
 
-  private async _handleFetchPlugin(payload: { id: string }): Promise<void> {
+  private async _handleFetchPlugin(payload: { id: string; lang?: string }): Promise<void> {
     try {
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}`;
-      const response = await axios.get(apiUrl, { timeout: 10000 });
+      const params = new URLSearchParams();
+      if (payload.lang) {
+        params.append("lang", payload.lang);
+      }
+      const urlWithParams = params.toString() ? `${apiUrl}?${params.toString()}` : apiUrl;
+      
+      const response = await axios.get(urlWithParams, { timeout: 10000 });
 
       if (response.data.code === 0) {
         this._sendMessage({
@@ -698,10 +756,16 @@ export class WebviewPanel {
     }
   }
 
-  private async _handleFetchInstalledPlugins(): Promise<void> {
+  private async _handleFetchInstalledPlugins(payload?: { lang?: string }): Promise<void> {
     try {
       const apiUrl = "http://localhost:19960/api/v1/marketplace/installed";
-      const response = await axios.get(apiUrl, { timeout: 10000 });
+      const params = new URLSearchParams();
+      if (payload && payload.lang) {
+        params.append("lang", payload.lang);
+      }
+      const urlWithParams = params.toString() ? `${apiUrl}?${params.toString()}` : apiUrl;
+      
+      const response = await axios.get(urlWithParams, { timeout: 10000 });
 
       if (response.data.code === 0) {
         this._sendMessage({
@@ -1094,6 +1158,371 @@ export class WebviewPanel {
     }
   }
 
+  // ========== 团队相关处理函数 ==========
+
+  private async _handleFetchTeamIdentity(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/team/identity", { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchTeamIdentity-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取身份失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamIdentity-response",
+        data: { exists: false, error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleSetTeamIdentity(payload: { name: string }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/team/identity", payload, { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "setTeamIdentity-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "设置身份失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "setTeamIdentity-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchNetworkInterfaces(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/team/network/interfaces", { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchNetworkInterfaces-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取网卡列表失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchNetworkInterfaces-response",
+        data: { interfaces: [], error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleCreateTeam(payload: { name: string; preferred_interface?: string; preferred_ip?: string }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/team/create", payload, { timeout: 30000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "createTeam-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "创建团队失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "createTeam-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleDiscoverTeams(payload: { timeout?: number }): Promise<void> {
+    try {
+      const timeout = payload.timeout || 5;
+      const response = await axios.get(`http://localhost:19960/api/v1/team/discover?timeout=${timeout}`, { timeout: (timeout + 5) * 1000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "discoverTeams-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "发现团队失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "discoverTeams-response",
+        data: { teams: [], error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleJoinTeamByEndpoint(payload: { endpoint: string }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/team/join", payload, { timeout: 30000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "joinTeam-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "加入团队失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "joinTeam-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchTeamList(): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/team/list", { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchTeamList-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取团队列表失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamList-response",
+        data: { teams: [], total: 0, error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchTeamMembers(payload: { teamId: string }): Promise<void> {
+    try {
+      const response = await axios.get(`http://localhost:19960/api/v1/team/${payload.teamId}/members`, { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchTeamMembers-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取成员列表失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamMembers-response",
+        data: { members: [], error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleLeaveTeam(payload: { teamId: string }): Promise<void> {
+    try {
+      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/leave`, {}, { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "leaveTeam-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "离开团队失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "leaveTeam-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleDissolveTeam(payload: { teamId: string }): Promise<void> {
+    try {
+      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/dissolve`, {}, { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "dissolveTeam-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "解散团队失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "dissolveTeam-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchTeamSkillIndex(payload: { teamId: string }): Promise<void> {
+    try {
+      const response = await axios.get(`http://localhost:19960/api/v1/team/${payload.teamId}/skills`, { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchTeamSkillIndex-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取技能索引失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamSkillIndex-response",
+        data: { entries: [], error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleValidateSkillDirectory(payload: { path: string }): Promise<void> {
+    try {
+      const response = await axios.post("http://localhost:19960/api/v1/team/skills/validate", { path: payload.path }, { timeout: 10000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "validateSkillDirectory-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "验证技能目录失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "validateSkillDirectory-response",
+        data: { valid: false, error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handlePublishTeamSkill(payload: { teamId: string; pluginId: string; localPath: string }): Promise<void> {
+    try {
+      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/publish`, {
+        plugin_id: payload.pluginId,
+        local_path: payload.localPath
+      }, { timeout: 60000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "publishTeamSkill-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "发布技能失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "publishTeamSkill-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleDownloadTeamSkill(payload: { teamId: string; pluginId: string; authorEndpoint: string; checksum?: string }): Promise<void> {
+    try {
+      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/download`, {
+        plugin_id: payload.pluginId,
+        author_endpoint: payload.authorEndpoint,
+        checksum: payload.checksum
+      }, { timeout: 120000 });
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "downloadTeamSkill-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "下载技能失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "downloadTeamSkill-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleSelectDirectory(): Promise<void> {
+    try {
+      const result = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: "选择技能目录"
+      });
+
+      if (result && result.length > 0) {
+        this._sendMessage({
+          type: "selectDirectory-response",
+          data: { path: result[0].fsPath }
+        });
+      } else {
+        this._sendMessage({
+          type: "selectDirectory-response",
+          data: { cancelled: true }
+        });
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "selectDirectory-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  // ========== 日报相关处理 ==========
+
+  private async _handleFetchDailyReportStatus(payload: { startDate: string; endDate: string }): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/daily-summary/batch-status", {
+        params: {
+          start_date: payload.startDate,
+          end_date: payload.endDate
+        },
+        timeout: 10000
+      });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchDailyReportStatus-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取日报状态失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchDailyReportStatus-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchDailySummary(payload: { date: string }): Promise<void> {
+    try {
+      const response = await axios.get("http://localhost:19960/api/v1/daily-summary", {
+        params: {
+          date: payload.date
+        },
+        timeout: 10000
+      });
+
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchDailySummary-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取日报失败");
+      }
+    } catch (error) {
+      // 404 表示日报不存在，返回 null 而不是错误
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        this._sendMessage({
+          type: "fetchDailySummary-response",
+          data: null
+        });
+      } else {
+        this._sendMessage({
+          type: "fetchDailySummary-response",
+          data: { error: error instanceof Error ? error.message : "未知错误" }
+        });
+      }
+    }
+  }
+
   private _sendMessage(message: ExtensionMessage): void {
     this._panel.webview.postMessage(message);
   }
@@ -1162,6 +1591,8 @@ export class WebviewPanel {
       WebviewPanel.ragSearchPanel = undefined;
     } else if (this._viewType === "workflow") {
       WebviewPanel.workflowPanel = undefined;
+    } else if (this._viewType === "team") {
+      WebviewPanel.teamPanel = undefined;
     }
 
     // 清理资源

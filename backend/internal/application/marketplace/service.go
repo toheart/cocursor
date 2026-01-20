@@ -34,40 +34,82 @@ func NewPluginService(
 	}
 }
 
+// ListPluginsOptions 列出插件的选项
+type ListPluginsOptions struct {
+	Category  string // 分类筛选
+	Search    string // 搜索关键词
+	Installed *bool  // 是否只显示已安装
+	Lang      string // 语言 (zh-CN 或 en)
+	Source    string // 来源筛选 (builtin/project/team_global/team_project)
+	TeamID    string // 团队 ID 筛选
+}
+
 // ListPlugins 列出所有插件
 // category: 分类筛选（可选）
 // search: 搜索关键词（可选）
 // installed: 是否只显示已安装（可选）
-func (s *PluginService) ListPlugins(category, search string, installed *bool) ([]*domainMarketplace.Plugin, error) {
+// lang: 语言（可选），支持 "zh-CN" 和 "en"，默认为 "zh-CN"
+func (s *PluginService) ListPlugins(category, search string, installed *bool, lang ...string) ([]*domainMarketplace.Plugin, error) {
+	language := ""
+	if len(lang) > 0 {
+		language = lang[0]
+	}
+	return s.ListPluginsWithOptions(ListPluginsOptions{
+		Category:  category,
+		Search:    search,
+		Installed: installed,
+		Lang:      language,
+	})
+}
+
+// ListPluginsWithOptions 使用选项列出所有插件
+func (s *PluginService) ListPluginsWithOptions(opts ListPluginsOptions) ([]*domainMarketplace.Plugin, error) {
 	plugins, err := s.pluginLoader.LoadPlugins()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load plugins: %w", err)
 	}
 
+	// 确定语言，默认为中文
+	language := "zh-CN"
+	if opts.Lang != "" {
+		language = opts.Lang
+	}
+
 	// 应用筛选
 	var filtered []*domainMarketplace.Plugin
 	for _, plugin := range plugins {
-		// 分类筛选
-		if category != "" && plugin.Category != category {
+		// 来源筛选
+		if opts.Source != "" && string(plugin.Source) != opts.Source {
 			continue
 		}
 
-		// 搜索筛选
-		if search != "" {
-			searchLower := strings.ToLower(search)
-			nameMatch := strings.Contains(strings.ToLower(plugin.Name), searchLower)
-			descMatch := strings.Contains(strings.ToLower(plugin.Description), searchLower)
+		// 团队 ID 筛选
+		if opts.TeamID != "" && plugin.TeamID != opts.TeamID {
+			continue
+		}
+
+		// 分类筛选
+		if opts.Category != "" && plugin.Category != opts.Category {
+			continue
+		}
+
+		// 搜索筛选（使用本地化后的名称和描述）
+		if opts.Search != "" {
+			localizedPlugin := plugin.Localize(language)
+			searchLower := strings.ToLower(opts.Search)
+			nameMatch := strings.Contains(strings.ToLower(localizedPlugin.Name), searchLower)
+			descMatch := strings.Contains(strings.ToLower(localizedPlugin.Description), searchLower)
 			if !nameMatch && !descMatch {
 				continue
 			}
 		}
 
 		// 已安装筛选
-		if installed != nil {
-			if *installed && !plugin.Installed {
+		if opts.Installed != nil {
+			if *opts.Installed && !plugin.Installed {
 				continue
 			}
-			if !*installed && plugin.Installed {
+			if !*opts.Installed && plugin.Installed {
 				continue
 			}
 		}
@@ -75,29 +117,51 @@ func (s *PluginService) ListPlugins(category, search string, installed *bool) ([
 		filtered = append(filtered, plugin)
 	}
 
-	return filtered, nil
+	// 对所有返回的插件进行本地化
+	var result []*domainMarketplace.Plugin
+	for _, plugin := range filtered {
+		result = append(result, plugin.Localize(language))
+	}
+
+	return result, nil
 }
 
 // GetPlugin 获取插件详情
-func (s *PluginService) GetPlugin(id string) (*domainMarketplace.Plugin, error) {
+// lang: 语言（可选），支持 "zh-CN" 和 "en"，默认为 "zh-CN"
+func (s *PluginService) GetPlugin(id string, lang ...string) (*domainMarketplace.Plugin, error) {
 	plugin, err := s.pluginLoader.LoadPlugin(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load plugin: %w", err)
 	}
-	return plugin, nil
+
+	// 确定语言，默认为中文
+	language := "zh-CN"
+	if len(lang) > 0 && lang[0] != "" {
+		language = lang[0]
+	}
+
+	// 返回本地化的插件信息
+	return plugin.Localize(language), nil
 }
 
 // GetInstalledPlugins 获取已安装插件列表
-func (s *PluginService) GetInstalledPlugins() ([]*domainMarketplace.Plugin, error) {
+// lang: 语言（可选），支持 "zh-CN" 和 "en"，默认为 "zh-CN"
+func (s *PluginService) GetInstalledPlugins(lang ...string) ([]*domainMarketplace.Plugin, error) {
 	plugins, err := s.pluginLoader.LoadPlugins()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load plugins: %w", err)
 	}
 
+	// 确定语言，默认为中文
+	language := "zh-CN"
+	if len(lang) > 0 && lang[0] != "" {
+		language = lang[0]
+	}
+
 	var installed []*domainMarketplace.Plugin
 	for _, plugin := range plugins {
 		if plugin.Installed {
-			installed = append(installed, plugin)
+			installed = append(installed, plugin.Localize(language))
 		}
 	}
 

@@ -1,10 +1,22 @@
 {
   "id": "theme-factory",
   "name": "主题工厂",
+  "name_i18n": {
+    "zh-CN": "主题工厂",
+    "en": "Theme Factory"
+  },
   "description": "使用主题为工件添加样式的工具包。这些工件可以是幻灯片、文档、报告、HTML 着陆页等。有 10 个预设主题，可以应用于任何创建的工件，也可以即时生成新主题。",
+  "description_i18n": {
+    "zh-CN": "使用主题为工件添加样式的工具包。这些工件可以是幻灯片、文档、报告、HTML 着陆页等。有 10 个预设主题，可以应用于任何创建的工件，也可以即时生成新主题。",
+    "en": "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "设计",
+  "category": "design",
+  "category_i18n": {
+    "zh-CN": "设计",
+    "en": "Design"
+  },
   "skill": {
     "skill_name": "theme-factory"
   }

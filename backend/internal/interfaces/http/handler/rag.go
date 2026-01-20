@@ -18,10 +18,12 @@ import (
 
 // RAGHandler RAG 处理器
 type RAGHandler struct {
-	ragInitializer *appRAG.RAGInitializer
-	configManager  *infraRAG.ConfigManager
-	scanScheduler  *appRAG.ScanScheduler
-	logger         *slog.Logger
+	ragInitializer    *appRAG.RAGInitializer
+	configManager     *infraRAG.ConfigManager
+	scanScheduler     *appRAG.ScanScheduler
+	enrichmentService *appRAG.EnrichmentService // 新增：增强服务
+	chunkService      *appRAG.ChunkService      // 新增：知识片段服务
+	logger            *slog.Logger
 }
 
 // NewRAGHandler 创建 RAG 处理器
@@ -38,16 +40,26 @@ func NewRAGHandler(
 	}
 }
 
+// SetEnrichmentService 设置增强服务
+func (h *RAGHandler) SetEnrichmentService(svc *appRAG.EnrichmentService) {
+	h.enrichmentService = svc
+}
+
+// SetChunkService 设置知识片段服务
+func (h *RAGHandler) SetChunkService(svc *appRAG.ChunkService) {
+	h.chunkService = svc
+}
+
 // getServices 获取 RAG 服务（如果已初始化）
-func (h *RAGHandler) getServices() (*appRAG.RAGService, *appRAG.SearchService, *appRAG.ScanScheduler, error) {
-	ragService, searchService, scanScheduler, _, err := h.ragInitializer.InitializeServices()
+func (h *RAGHandler) getServices() (*appRAG.ChunkService, *appRAG.SearchService, *appRAG.ScanScheduler, error) {
+	chunkService, searchService, scanScheduler, _, _, err := h.ragInitializer.InitializeServices()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if ragService == nil {
+	if chunkService == nil {
 		return nil, nil, nil, fmt.Errorf("RAG services not initialized. Please configure RAG first.")
 	}
-	return ragService, searchService, scanScheduler, nil
+	return chunkService, searchService, scanScheduler, nil
 }
 
 // SearchRequest 搜索请求
@@ -248,7 +260,7 @@ func (h *RAGHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	// 2. 重新初始化服务（使用新配置）
-	_, _, _, _, err = h.ragInitializer.InitializeServices()
+	_, _, _, _, _, err = h.ragInitializer.InitializeServices()
 	if err != nil {
 		h.logger.Error("Failed to reinitialize RAG services",
 			"error", err,
@@ -647,7 +659,7 @@ func (h *RAGHandler) TestLLMConnection(c *gin.Context) {
 // TriggerFullIndex 触发全量建索引
 // POST /api/v1/rag/index/full
 func (h *RAGHandler) TriggerFullIndex(c *gin.Context) {
-	ragService, _, scanScheduler, err := h.getServices()
+	chunkService, _, scanScheduler, err := h.getServices()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -656,7 +668,7 @@ func (h *RAGHandler) TriggerFullIndex(c *gin.Context) {
 	// 触发全量扫描
 	h.logger.Info("Triggering full RAG index")
 	go func() {
-		scanScheduler.TriggerFullScan(ragService)
+		scanScheduler.TriggerFullScan(chunkService)
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Full index started"})
@@ -702,7 +714,7 @@ func (h *RAGHandler) ClearAllData(c *gin.Context) {
 	}
 
 	// 2. 清空元数据表
-	_, _, scanScheduler, _, err := h.ragInitializer.InitializeServices()
+	_, _, scanScheduler, _, _, err := h.ragInitializer.InitializeServices()
 	if err != nil {
 		h.logger.Error("Failed to initialize services for clearing metadata",
 			"error", err,
@@ -723,4 +735,125 @@ func (h *RAGHandler) ClearAllData(c *gin.Context) {
 
 	h.logger.Info("All RAG data cleared successfully")
 	c.JSON(http.StatusOK, gin.H{"message": "All data cleared"})
+}
+
+// SearchChunks 使用新的知识片段模型搜索
+// POST /api/v1/rag/search/chunks
+func (h *RAGHandler) SearchChunks(c *gin.Context) {
+	var req SearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+
+	_, searchService, _, err := h.getServices()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	results, err := searchService.SearchChunks(context.Background(), &appRAG.SearchRequest{
+		Query:      req.Query,
+		ProjectIDs: req.ProjectIDs,
+		Limit:      req.Limit,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"results": results,
+		"count":   len(results),
+	})
+}
+
+// GetChunkDetail 获取知识片段详情
+// GET /api/v1/rag/chunks/:id
+func (h *RAGHandler) GetChunkDetail(c *gin.Context) {
+	chunkID := c.Param("id")
+	if chunkID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "chunk_id is required"})
+		return
+	}
+
+	_, searchService, _, err := h.getServices()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	detail, err := searchService.GetChunkDetail(chunkID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if detail == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "chunk not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, detail)
+}
+
+// GetEnrichmentStats 获取增强队列统计
+// GET /api/v1/rag/enrichment/stats
+func (h *RAGHandler) GetEnrichmentStats(c *gin.Context) {
+	if h.enrichmentService == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "enrichment service not configured"})
+		return
+	}
+
+	stats, err := h.enrichmentService.GetQueueStats()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"stats":      stats,
+		"is_running": h.enrichmentService.IsRunning(),
+	})
+}
+
+// RetryEnrichment 重试失败的增强任务
+// POST /api/v1/rag/enrichment/retry
+func (h *RAGHandler) RetryEnrichment(c *gin.Context) {
+	if h.enrichmentService == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "enrichment service not configured"})
+		return
+	}
+
+	count, err := h.enrichmentService.RetryFailed()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Failed tasks reset",
+		"reset_count": count,
+	})
+}
+
+// GetIndexStats 获取索引统计（新模型）
+// GET /api/v1/rag/index/stats
+func (h *RAGHandler) GetIndexStats(c *gin.Context) {
+	if h.chunkService == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "chunk service not configured"})
+		return
+	}
+
+	stats, err := h.chunkService.GetIndexStats()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
 }

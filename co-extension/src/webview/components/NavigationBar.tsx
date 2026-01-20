@@ -13,7 +13,7 @@ export const NavigationBar: React.FC = () => {
   const { t, i18n: i18nInstance } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | undefined;
+  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team" | undefined;
   const [currentLanguage, setCurrentLanguage] = useState<string>(i18nInstance.language);
 
   // 根据路径生成面包屑
@@ -117,6 +117,9 @@ export const NavigationBar: React.FC = () => {
         return t("navigation.workflowDetail");
       }
       return t("navigation.workflow");
+    }
+    if (viewType === "team") {
+      return t("navigation.team");
     }
     if (path === "/work-analysis") return t("navigation.workAnalysis");
     if (path.startsWith("/sessions/")) return t("navigation.sessionDetail");

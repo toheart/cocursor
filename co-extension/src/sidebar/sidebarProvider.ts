@@ -12,6 +12,7 @@ interface TokenUsage {
     chat: number;
   };
   trend: string;
+  method: string; // "tiktoken" 或 "estimate"
 }
 
 export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
@@ -81,22 +82,22 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       // 根节点 - 显示主要功能
       const items: SidebarItem[] = [];
 
-      // Token 消耗（可展开）
+      // 今日效率（可展开）
       if (this.tokenUsage) {
         const tokenText = this.formatTokenCount(this.tokenUsage.total_tokens);
         const trendIcon = this.tokenUsage.trend.startsWith("+") ? "↑" : this.tokenUsage.trend.startsWith("-") ? "↓" : "";
         items.push(
           new SidebarItem(
-            `${t("sidebar.todayToken")}: ${tokenText} ${trendIcon} ${this.tokenUsage.trend}`,
+            `${t("sidebar.todayEfficiency")}: ${tokenText} ${trendIcon} ${this.tokenUsage.trend}`,
             vscode.TreeItemCollapsibleState.Collapsed,
             undefined,
-            "pulse"
+            "dashboard"
           )
         );
       } else {
         items.push(
           new SidebarItem(
-            `${t("sidebar.todayToken")}: ${t("sidebar.tokenLoading")}`,
+            `${t("sidebar.todayEfficiency")}: ${t("sidebar.tokenLoading")}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "sync~spin"
@@ -136,17 +137,17 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
         //   },
         //   "comment-discussion"
         // ),
-        // 隐藏 RAG 搜索功能
-        // new SidebarItem(
-        //   t("sidebar.ragSearch"),
-        //   vscode.TreeItemCollapsibleState.None,
-        //   {
-        //     command: "cocursor.openRAGSearch",
-        //     title: t("sidebar.openRAGSearch"),
-        //     arguments: []
-        //   },
-        //   "search"
-        // ),
+        // RAG 搜索功能（Beta）
+        new SidebarItem(
+          `${t("sidebar.ragSearch")} Beta`,
+          vscode.TreeItemCollapsibleState.None,
+          {
+            command: "cocursor.openRAGSearch",
+            title: t("sidebar.openRAGSearch"),
+            arguments: []
+          },
+          "search"
+        ),
         new SidebarItem(
           t("sidebar.marketplace"),
           vscode.TreeItemCollapsibleState.None,
@@ -156,33 +157,63 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
             arguments: []
           },
           "extensions"
+        ),
+        // 团队功能
+        new SidebarItem(
+          t("sidebar.team"),
+          vscode.TreeItemCollapsibleState.None,
+          {
+            command: "cocursor.openTeam",
+            title: t("sidebar.openTeam"),
+            arguments: []
+          },
+          "organization"
         )
       );
 
       return Promise.resolve(items);
-    } else if (element.label && (element.label.includes("Token:") || element.label.includes("Token"))) {
-      // Token 消耗详情 - 检查是否包含 "Token" 关键字
+    } else if (element.label && element.label.includes(t("sidebar.todayEfficiency"))) {
+      // 今日效率详情
       if (this.tokenUsage) {
-        return Promise.resolve([
+        const items: SidebarItem[] = [];
+        
+        // Token 统计标题
+        items.push(
           new SidebarItem(
-            `${t("sidebar.tokenTypes.tab")}: ${this.formatTokenCount(this.tokenUsage.by_type.tab)}`,
+            `Token: ${this.formatTokenCount(this.tokenUsage.total_tokens)}`,
+            vscode.TreeItemCollapsibleState.None,
+            undefined,
+            "pulse"
+          )
+        );
+        
+        // Token 分类详情
+        items.push(
+          new SidebarItem(
+            `  ${t("sidebar.tokenTypes.tab")}: ${this.formatTokenCount(this.tokenUsage.by_type.tab)}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "symbol-keyword"
-          ),
+          )
+        );
+        items.push(
           new SidebarItem(
-            `${t("sidebar.tokenTypes.composer")}: ${this.formatTokenCount(this.tokenUsage.by_type.composer)}`,
+            `  ${t("sidebar.tokenTypes.composer")}: ${this.formatTokenCount(this.tokenUsage.by_type.composer)}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "code"
-          ),
+          )
+        );
+        items.push(
           new SidebarItem(
-            `${t("sidebar.tokenTypes.chat")}: ${this.formatTokenCount(this.tokenUsage.by_type.chat)}`,
+            `  ${t("sidebar.tokenTypes.chat")}: ${this.formatTokenCount(this.tokenUsage.by_type.chat)}`,
             vscode.TreeItemCollapsibleState.None,
             undefined,
             "comment"
           )
-        ]);
+        );
+        
+        return Promise.resolve(items);
       }
       return Promise.resolve([]);
     }

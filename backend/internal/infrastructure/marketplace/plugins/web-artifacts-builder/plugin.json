@@ -1,10 +1,22 @@
 {
   "id": "web-artifacts-builder",
   "name": "Web 工件构建器",
+  "name_i18n": {
+    "zh-CN": "Web 工件构建器",
+    "en": "Web Artifacts Builder"
+  },
   "description": "使用现代前端 Web 技术（React、Tailwind CSS、shadcn/ui）创建精致、多组件的 claude.ai HTML 工具包。适用于需要状态管理、路由或 shadcn/ui 组件的复杂工件，不适用于简单的单文件 HTML/JSX 工件。",
+  "description_i18n": {
+    "zh-CN": "使用现代前端 Web 技术（React、Tailwind CSS、shadcn/ui）创建精致、多组件的 claude.ai HTML 工具包。适用于需要状态管理、路由或 shadcn/ui 组件的复杂工件，不适用于简单的单文件 HTML/JSX 工件。",
+    "en": "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "开发工具",
+  "category": "tools",
+  "category_i18n": {
+    "zh-CN": "开发工具",
+    "en": "Tools"
+  },
   "skill": {
     "skill_name": "web-artifacts-builder"
   }

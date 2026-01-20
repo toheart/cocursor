@@ -7,6 +7,7 @@ import (
 
 	"log/slog"
 
+	appTeam "github.com/cocursor/backend/internal/application/team"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
@@ -19,10 +20,11 @@ import (
 
 // HTTPServer HTTP 服务器
 type HTTPServer struct {
-	router   *gin.Engine
-	httpPort string
-	server   *http.Server
-	logger   *slog.Logger
+	router         *gin.Engine
+	httpPort       string
+	server         *http.Server
+	logger         *slog.Logger
+	teamComponents *appTeam.TeamComponents
 }
 
 // NewServer 创建 HTTP 服务器
@@ -35,6 +37,7 @@ func NewServer(
 	marketplaceHandler *handler.MarketplaceHandler,
 	workflowHandler *handler.WorkflowHandler,
 	ragHandler *handler.RAGHandler,
+	dailySummaryHandler *handler.DailySummaryHandler,
 	mcpServer *mcp.MCPServer,
 ) *HTTPServer {
 	router := gin.Default()
@@ -85,13 +88,27 @@ func NewServer(
 		api.GET("/workflows/status", workflowHandler.GetWorkflowStatus)
 		api.GET("/workflows/:change_id", workflowHandler.GetWorkflowDetail)
 
+		// 日报相关路由
+		if dailySummaryHandler != nil {
+			api.GET("/daily-summary", dailySummaryHandler.GetDailySummary)
+			api.GET("/daily-summary/batch-status", dailySummaryHandler.GetBatchStatus)
+		}
+
 		// RAG 相关路由
 		if ragHandler != nil {
 			rag := api.Group("/rag")
 			{
+				// 旧的搜索接口（兼容）
 				rag.POST("/search", ragHandler.Search)
+				// 新的搜索接口（使用 KnowledgeChunk）
+				rag.POST("/search/chunks", ragHandler.SearchChunks)
+				// 知识片段详情
+				rag.GET("/chunks/:id", ragHandler.GetChunkDetail)
+
 				rag.POST("/index", ragHandler.Index)
 				rag.GET("/stats", ragHandler.Stats)
+				// 新的索引统计（使用 KnowledgeChunk）
+				rag.GET("/index/stats", ragHandler.GetIndexStats)
 				rag.GET("/config", ragHandler.GetConfig)
 				rag.POST("/config", ragHandler.UpdateConfig)
 				rag.POST("/config/test", ragHandler.TestConfig)
@@ -102,6 +119,10 @@ func NewServer(
 				rag.POST("/qdrant/start", ragHandler.StartQdrant)
 				rag.POST("/qdrant/stop", ragHandler.StopQdrant)
 				rag.GET("/qdrant/status", ragHandler.GetQdrantStatus)
+
+				// 增强队列相关
+				rag.GET("/enrichment/stats", ragHandler.GetEnrichmentStats)
+				rag.POST("/enrichment/retry", ragHandler.RetryEnrichment)
 			}
 		}
 	}
@@ -119,11 +140,16 @@ func NewServer(
 		router.Any("/mcp/sse", gin.WrapH(mcpServer.GetHandler()))
 	}
 
-	return &HTTPServer{
+	server := &HTTPServer{
 		router:   router,
 		httpPort: ":19960",
 		logger:   logger,
 	}
+
+	// 尝试初始化团队服务（可选功能，失败不影响主服务）
+	server.initTeamRoutes(api)
+
+	return server
 }
 
 // Start 启动服务器
@@ -153,4 +179,67 @@ func (s *HTTPServer) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return s.Shutdown(ctx)
+}
+
+// initTeamRoutes 初始化团队相关路由（可选功能）
+func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
+	// 尝试初始化团队组件
+	factory := appTeam.NewTeamFactory()
+	components, err := factory.Initialize(19960, "1.0.0")
+	if err != nil {
+		s.logger.Warn("team service initialization failed, team features disabled",
+			"error", err,
+		)
+		return
+	}
+
+	s.teamComponents = components
+	s.logger.Info("team service initialized successfully")
+
+	// 创建团队处理器
+	teamHandler := handler.NewTeamHandler(
+		components.TeamService,
+		components.SkillPublisher,
+		components.SkillDownloader,
+	)
+
+	// 注册团队路由
+	team := api.Group("/team")
+	{
+		// 身份管理
+		team.GET("/identity", teamHandler.GetIdentity)
+		team.POST("/identity", teamHandler.CreateOrUpdateIdentity)
+
+		// 网络管理
+		team.GET("/network/interfaces", teamHandler.GetNetworkInterfaces)
+
+		// 团队管理
+		team.POST("/create", teamHandler.CreateTeam)
+		team.GET("/discover", teamHandler.DiscoverTeams)
+		team.POST("/join", teamHandler.JoinTeam)
+		team.GET("/list", teamHandler.ListTeams)
+		team.GET("/:id/members", teamHandler.GetTeamMembers)
+		team.POST("/:id/leave", teamHandler.LeaveTeam)
+		team.POST("/:id/dissolve", teamHandler.DissolveTeam)
+
+		// 技能管理
+		team.POST("/skills/validate", teamHandler.ValidateSkill)
+		team.GET("/:id/skills", teamHandler.GetSkillIndex)
+		team.POST("/:id/skills/publish", teamHandler.PublishSkill)
+		team.POST("/:id/skills/download", teamHandler.DownloadSkill)
+	}
+
+	// 注册 P2P 路由（所有成员都暴露）
+	p2p := s.router.Group("/p2p")
+	{
+		p2pHandler := handler.NewP2PHandler(components.SkillPublisher)
+		p2p.GET("/health", p2pHandler.Health)
+		p2p.GET("/skills/:id/meta", p2pHandler.GetSkillMeta)
+		p2p.GET("/skills/:id/download", p2pHandler.DownloadSkill)
+	}
+}
+
+// GetTeamComponents 获取团队组件（如果已初始化）
+func (s *HTTPServer) GetTeamComponents() *appTeam.TeamComponents {
+	return s.teamComponents
 }

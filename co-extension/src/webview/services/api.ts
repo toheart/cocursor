@@ -60,11 +60,6 @@ class ApiService {
     return this.postMessage("getPeers");
   }
 
-  // 加入团队
-  async joinTeam(teamCode: string): Promise<unknown> {
-    return this.postMessage("joinTeam", { teamCode });
-  }
-
   // 获取当前会话健康状态
   async getCurrentSessionHealth(projectPath?: string): Promise<SessionHealth> {
     return this.postMessage("fetchCurrentSessionHealth", { projectPath }) as Promise<SessionHealth>;
@@ -86,18 +81,18 @@ class ApiService {
   }
 
   // 获取插件列表
-  async getPlugins(category?: string, search?: string, installed?: boolean): Promise<unknown> {
-    return this.postMessage("fetchPlugins", { category, search, installed });
+  async getPlugins(category?: string, search?: string, installed?: boolean, lang?: string, source?: string, teamId?: string): Promise<unknown> {
+    return this.postMessage("fetchPlugins", { category, search, installed, lang, source, team_id: teamId });
   }
 
   // 获取插件详情
-  async getPlugin(id: string): Promise<unknown> {
-    return this.postMessage("fetchPlugin", { id });
+  async getPlugin(id: string, lang?: string): Promise<unknown> {
+    return this.postMessage("fetchPlugin", { id, lang });
   }
 
   // 获取已安装插件列表
-  async getInstalledPlugins(): Promise<unknown> {
-    return this.postMessage("fetchInstalledPlugins");
+  async getInstalledPlugins(lang?: string): Promise<unknown> {
+    return this.postMessage("fetchInstalledPlugins", { lang });
   }
 
   // 安装插件
@@ -195,6 +190,138 @@ class ApiService {
   async clearAllData(): Promise<unknown> {
     return this.postMessage("clearAllData");
   }
+
+  // ========== 新 RAG API（使用 KnowledgeChunk） ==========
+
+  // 搜索知识片段
+  async searchChunks(query: string, projectIds?: string[], limit?: number): Promise<unknown> {
+    return this.postMessage("searchRAGChunks", { query, projectIds, limit });
+  }
+
+  // 获取知识片段详情
+  async getChunkDetail(chunkId: string): Promise<unknown> {
+    return this.postMessage("fetchChunkDetail", { chunkId });
+  }
+
+  // 获取增强队列统计
+  async getEnrichmentStats(): Promise<unknown> {
+    return this.postMessage("fetchEnrichmentStats");
+  }
+
+  // 重试失败的增强任务
+  async retryEnrichment(): Promise<unknown> {
+    return this.postMessage("retryEnrichment");
+  }
+
+  // 获取索引统计（新）
+  async getIndexStats(): Promise<unknown> {
+    return this.postMessage("fetchIndexStats");
+  }
+
+  // ========== 团队相关 API ==========
+
+  // 获取本机身份
+  async getTeamIdentity(): Promise<unknown> {
+    return this.postMessage("fetchTeamIdentity");
+  }
+
+  // 创建或更新身份
+  async setTeamIdentity(name: string): Promise<unknown> {
+    return this.postMessage("setTeamIdentity", { name });
+  }
+
+  // 获取网卡列表
+  async getNetworkInterfaces(): Promise<unknown> {
+    return this.postMessage("fetchNetworkInterfaces");
+  }
+
+  // 创建团队
+  async createTeam(name: string, preferredInterface?: string, preferredIP?: string): Promise<unknown> {
+    return this.postMessage("createTeam", { name, preferred_interface: preferredInterface, preferred_ip: preferredIP });
+  }
+
+  // 发现团队
+  async discoverTeams(timeout?: number): Promise<unknown> {
+    return this.postMessage("discoverTeams", { timeout });
+  }
+
+  // 加入团队
+  async joinTeam(endpoint: string): Promise<unknown> {
+    return this.postMessage("joinTeam", { endpoint });
+  }
+
+  // 获取已加入团队列表
+  async getTeamList(): Promise<unknown> {
+    return this.postMessage("fetchTeamList");
+  }
+
+  // 获取团队成员列表
+  async getTeamMembers(teamId: string): Promise<unknown> {
+    return this.postMessage("fetchTeamMembers", { teamId });
+  }
+
+  // 离开团队
+  async leaveTeam(teamId: string): Promise<unknown> {
+    return this.postMessage("leaveTeam", { teamId });
+  }
+
+  // 解散团队
+  async dissolveTeam(teamId: string): Promise<unknown> {
+    return this.postMessage("dissolveTeam", { teamId });
+  }
+
+  // 获取团队技能目录
+  async getTeamSkillIndex(teamId: string): Promise<unknown> {
+    return this.postMessage("fetchTeamSkillIndex", { teamId });
+  }
+
+  // 验证技能目录
+  async validateSkillDirectory(path: string): Promise<unknown> {
+    return this.postMessage("validateSkillDirectory", { path });
+  }
+
+  // 发布技能到团队
+  async publishTeamSkill(teamId: string, pluginId: string, localPath: string): Promise<unknown> {
+    return this.postMessage("publishTeamSkill", { teamId, pluginId, localPath });
+  }
+
+  // 下载团队技能
+  async downloadTeamSkill(teamId: string, pluginId: string, authorEndpoint: string, checksum?: string): Promise<unknown> {
+    return this.postMessage("downloadTeamSkill", { teamId, pluginId, authorEndpoint, checksum });
+  }
+
+  // 选择目录（调用 VSCode 文件选择器）
+  async selectDirectory(): Promise<unknown> {
+    return this.postMessage("selectDirectory");
+  }
+
+  // ========== 日报相关 API ==========
+
+  // 获取日报批量状态
+  async getDailyReportStatus(startDate: string, endDate: string): Promise<DailyReportStatusResponse> {
+    return this.postMessage("fetchDailyReportStatus", { startDate, endDate }) as Promise<DailyReportStatusResponse>;
+  }
+
+  // 获取指定日期的日报
+  async getDailySummary(date: string): Promise<DailySummary | null> {
+    return this.postMessage("fetchDailySummary", { date }) as Promise<DailySummary | null>;
+  }
+}
+
+// 日报状态响应类型
+export interface DailyReportStatusResponse {
+  statuses: Record<string, boolean>;
+}
+
+// 日报类型
+export interface DailySummary {
+  id: string;
+  date: string;
+  summary: string;
+  language: string;
+  total_sessions: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // 会话健康状态类型

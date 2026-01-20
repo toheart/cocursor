@@ -1,181 +1,417 @@
-/* ========== 技能市场样式 - 简约设计 ========== */
+/* ========== 技能市场样式 - 精致现代设计 ========== */
 
-/* Hero 区域 */
+/* ========== 动画定义 ========== */
+@keyframes marketplaceShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroGlow {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes buttonSuccess {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ========== Hero 区域 - 渐变背景 + 微妙动效 ========== */
 .cocursor-marketplace-hero {
-  padding: 32px 24px 24px;
+  padding: 40px 24px 32px;
   text-align: center;
   border-bottom: 1px solid var(--vscode-panel-border);
   background: var(--vscode-sideBar-background);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 渐变背景装饰 */
+.cocursor-marketplace-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    ellipse at 30% 20%,
+    rgba(102, 126, 234, 0.08) 0%,
+    transparent 50%
+  ),
+  radial-gradient(
+    ellipse at 70% 80%,
+    rgba(240, 147, 251, 0.06) 0%,
+    transparent 50%
+  );
+  animation: heroGlow 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 网格纹理 */
+.cocursor-marketplace-hero::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
 }
 
 .cocursor-marketplace-title {
-  font-size: 28px;
-  font-weight: 600;
-  margin: 0 0 8px 0;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
   color: var(--vscode-foreground);
-  line-height: 1.3;
-  letter-spacing: -0.3px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(
+    135deg,
+    var(--vscode-foreground) 0%,
+    var(--vscode-textLink-foreground) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .cocursor-marketplace-subtitle {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--vscode-descriptionForeground);
   margin: 0;
   font-weight: 400;
+  position: relative;
+  z-index: 1;
+  opacity: 0.85;
 }
 
-/* 搜索和筛选区域 */
+/* ========== 搜索和筛选区域 ========== */
 .cocursor-marketplace-header {
   margin-bottom: 24px;
-  padding: 0 20px;
+  padding: 24px 20px 0;
 }
 
 .cocursor-marketplace-search-wrapper {
   position: relative;
-  margin-bottom: 20px;
-  max-width: 600px;
+  margin-bottom: 24px;
+  max-width: 560px;
   margin-left: auto;
   margin-right: auto;
 }
 
 .cocursor-marketplace-search-icon {
   position: absolute;
-  left: 14px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 18px;
+  font-size: 16px;
   opacity: 0.5;
   pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.cocursor-marketplace-search-wrapper:focus-within .cocursor-marketplace-search-icon {
+  opacity: 0.8;
 }
 
 .cocursor-marketplace-search-input {
   width: 100%;
-  padding: 10px 16px 10px 44px;
+  padding: 12px 18px 12px 48px;
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
-  border-radius: 6px;
+  border-radius: 12px;
   font-size: 14px;
-  transition: border-color 0.2s ease;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .cocursor-marketplace-search-input:focus {
   outline: none;
   border-color: var(--vscode-focusBorder);
+  box-shadow: 
+    0 0 0 3px rgba(102, 126, 234, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .cocursor-marketplace-search-input::placeholder {
   color: var(--vscode-descriptionForeground);
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
-/* 分类按钮 */
+/* ========== 筛选区域 ========== */
+.cocursor-marketplace-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+/* ========== 分类按钮 - Pill 设计 ========== */
 .cocursor-marketplace-categories {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 4px;
+  background: var(--vscode-input-background);
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-marketplace-category {
+  padding: 8px 18px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cocursor-marketplace-category:hover {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-foreground);
+}
+
+.cocursor-marketplace-category.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cocursor-marketplace-category:active {
+  transform: scale(0.97);
+}
+
+/* ========== 来源筛选 ========== */
+.cocursor-marketplace-sources {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.cocursor-marketplace-category {
-  padding: 6px 16px;
+.cocursor-marketplace-source {
+  padding: 6px 14px;
   background: transparent;
-  color: var(--vscode-foreground);
+  color: var(--vscode-descriptionForeground);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
-.cocursor-marketplace-category:hover {
+.cocursor-marketplace-source:hover {
   background: var(--vscode-button-secondaryBackground);
-  border-color: var(--vscode-panel-border);
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-descriptionForeground);
 }
 
-.cocursor-marketplace-category.active {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border-color: var(--vscode-button-background);
+.cocursor-marketplace-source.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(240, 147, 251, 0.2) 100%);
+  color: var(--vscode-foreground);
+  border-color: rgba(102, 126, 234, 0.5);
 }
 
-.cocursor-marketplace-category:active {
-  transform: translateY(1px);
+/* ========== 插件来源标签 ========== */
+.cocursor-marketplace-plugin-source {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
-/* 技能列表容器 - 使用自适应 Grid 布局 */
+.cocursor-marketplace-plugin-source.source-team {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.15) 0%, rgba(0, 200, 255, 0.1) 100%);
+  color: #0096ff;
+  border: 1px solid rgba(0, 150, 255, 0.2);
+}
+
+.cocursor-marketplace-plugin-source.source-team.online {
+  background: linear-gradient(135deg, rgba(0, 200, 100, 0.15) 0%, rgba(0, 255, 150, 0.1) 100%);
+  color: #00c864;
+  border: 1px solid rgba(0, 200, 100, 0.2);
+}
+
+.cocursor-marketplace-plugin-source.source-team.online::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #00c864;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulseRing 2s ease-out infinite;
+}
+
+.cocursor-marketplace-plugin-source.source-team.offline {
+  background: rgba(150, 150, 150, 0.1);
+  color: #969696;
+  border: 1px solid rgba(150, 150, 150, 0.2);
+}
+
+.cocursor-marketplace-plugin-source.source-project {
+  background: linear-gradient(135deg, rgba(255, 150, 0, 0.15) 0%, rgba(255, 200, 0, 0.1) 100%);
+  color: #ff9600;
+  border: 1px solid rgba(255, 150, 0, 0.2);
+}
+
+/* ========== 技能列表容器 ========== */
 .cocursor-marketplace-plugins {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
   align-items: start;
 }
 
-/* 技能卡片 - 简约设计 */
+/* ========== 技能卡片 - 交错入场动画 ========== */
 .cocursor-marketplace-plugin {
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 380px;
+  min-height: 360px;
+  animation: cardFadeIn 0.5s ease-out backwards;
+  position: relative;
+}
+
+/* 卡片左边缘彩色指示条 */
+.cocursor-marketplace-plugin::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.6) 0%, rgba(240, 147, 251, 0.6) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .cocursor-marketplace-plugin:hover {
-  border-color: var(--vscode-focusBorder);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  border-color: rgba(102, 126, 234, 0.4);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(102, 126, 234, 0.1);
+  transform: translateY(-4px);
+}
+
+.cocursor-marketplace-plugin:hover::before {
+  opacity: 1;
 }
 
 .cocursor-marketplace-plugin.installed {
   border-color: rgba(76, 175, 80, 0.4);
 }
 
-/* 技能头部 */
+.cocursor-marketplace-plugin.installed::before {
+  background: linear-gradient(180deg, rgba(76, 175, 80, 0.8) 0%, rgba(129, 199, 132, 0.6) 100%);
+  opacity: 1;
+}
+
+/* ========== 技能头部 ========== */
 .cocursor-marketplace-plugin-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px;
+  gap: 14px;
+  padding: 18px 18px 16px;
   border-bottom: 1px solid var(--vscode-panel-border);
-  background: var(--vscode-sideBar-background);
+  background: linear-gradient(180deg, var(--vscode-sideBar-background) 0%, transparent 100%);
 }
 
 .cocursor-marketplace-plugin-header-left {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-width: 0;
 }
 
 .cocursor-marketplace-plugin-header-right {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
   flex-shrink: 0;
 }
 
-/* 技能图标 */
+/* ========== 技能图标 - 渐变背景 ========== */
 .cocursor-marketplace-plugin-icon {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--vscode-input-background);
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--vscode-panel-border);
+  transition: all 0.3s ease;
+}
+
+.cocursor-marketplace-plugin:hover .cocursor-marketplace-plugin-icon {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .cocursor-marketplace-plugin-icon img {
@@ -190,13 +426,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--vscode-button-secondaryBackground);
-  font-size: 20px;
-  font-weight: 600;
+  background: linear-gradient(135deg, 
+    rgba(102, 126, 234, 0.2) 0%, 
+    rgba(240, 147, 251, 0.2) 100%
+  );
+  font-size: 22px;
+  font-weight: 700;
   color: var(--vscode-foreground);
+  text-transform: uppercase;
 }
 
-/* 技能信息 */
+/* 根据技能类别变换渐变色 */
+.cocursor-marketplace-plugin[data-category="productivity"] .cocursor-marketplace-plugin-icon-placeholder {
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.25) 0%, rgba(0, 242, 254, 0.2) 100%);
+}
+
+.cocursor-marketplace-plugin[data-category="creative"] .cocursor-marketplace-plugin-icon-placeholder {
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(245, 87, 108, 0.2) 100%);
+}
+
+.cocursor-marketplace-plugin[data-category="design"] .cocursor-marketplace-plugin-icon-placeholder {
+  background: linear-gradient(135deg, rgba(255, 154, 158, 0.25) 0%, rgba(250, 208, 196, 0.2) 100%);
+}
+
+.cocursor-marketplace-plugin[data-category="tools"] .cocursor-marketplace-plugin-icon-placeholder {
+  background: linear-gradient(135deg, rgba(67, 233, 123, 0.25) 0%, rgba(56, 249, 215, 0.2) 100%);
+}
+
+/* ========== 技能信息 ========== */
 .cocursor-marketplace-plugin-info {
   flex: 1;
   min-width: 0;
@@ -206,20 +463,21 @@
 .cocursor-marketplace-plugin-title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   min-width: 0;
 }
 
 .cocursor-marketplace-plugin-name {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--vscode-foreground);
   line-height: 1.3;
   flex: 1;
   min-width: 0;
+  transition: color 0.2s ease;
 }
 
 .cocursor-marketplace-plugin:hover .cocursor-marketplace-plugin-name {
@@ -227,21 +485,22 @@
 }
 
 .cocursor-marketplace-plugin-installed-badge {
-  font-size: 11px;
-  padding: 4px 8px;
-  background: rgba(76, 175, 80, 0.2);
+  font-size: 10px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(129, 199, 132, 0.15) 100%);
   color: #4caf50;
-  border: 1px solid rgba(76, 175, 80, 0.4);
-  border-radius: 3px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 12px;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: 0.3px;
 }
 
 .cocursor-marketplace-plugin-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
   line-height: 1.5;
@@ -260,8 +519,9 @@
 }
 
 .cocursor-marketplace-plugin-version {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
   color: var(--vscode-descriptionForeground);
+  opacity: 0.8;
 }
 
 .cocursor-marketplace-plugin-installed-version {
@@ -270,57 +530,65 @@
 }
 
 .cocursor-marketplace-plugin-category {
-  background: var(--vscode-button-secondaryBackground);
+  background: linear-gradient(135deg, 
+    var(--vscode-button-secondaryBackground) 0%, 
+    rgba(255, 255, 255, 0.05) 100%
+  );
   color: var(--vscode-button-secondaryForeground);
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
   font-size: 10px;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* 技能组件图标 */
+/* ========== 技能组件图标 ========== */
 .cocursor-marketplace-plugin-components {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
 }
 
 .cocursor-marketplace-plugin-component {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--vscode-input-background);
   border: 1px solid var(--vscode-panel-border);
+  transition: all 0.2s ease;
+}
+
+.cocursor-marketplace-plugin-component:hover {
+  transform: scale(1.1);
 }
 
 .cocursor-marketplace-plugin-component.skill {
-  background: rgba(102, 126, 234, 0.15);
-  border-color: rgba(102, 126, 234, 0.3);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(102, 126, 234, 0.1) 100%);
+  border-color: rgba(102, 126, 234, 0.35);
 }
 
 .cocursor-marketplace-plugin-component.mcp {
-  background: rgba(240, 147, 251, 0.15);
-  border-color: rgba(240, 147, 251, 0.3);
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(240, 147, 251, 0.1) 100%);
+  border-color: rgba(240, 147, 251, 0.35);
 }
 
 .cocursor-marketplace-plugin-component.command {
-  background: rgba(79, 172, 254, 0.15);
-  border-color: rgba(79, 172, 254, 0.3);
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.2) 0%, rgba(79, 172, 254, 0.1) 100%);
+  border-color: rgba(79, 172, 254, 0.35);
 }
 
-/* 技能内容 */
+/* ========== 技能内容 ========== */
 .cocursor-marketplace-plugin-content {
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-height: 0;
 }
@@ -333,7 +601,7 @@
   margin: 0;
   font-size: 13px;
   color: var(--vscode-descriptionForeground);
-  line-height: 1.6;
+  line-height: 1.65;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -357,66 +625,70 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 6px 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  transition: color 0.2s ease;
+  gap: 6px;
+  transition: all 0.2s ease;
   width: fit-content;
 }
 
 .cocursor-marketplace-plugin-expand-button:hover {
   color: var(--vscode-textLink-activeForeground);
+  gap: 8px;
 }
 
 .cocursor-marketplace-plugin-expand-icon {
   font-size: 10px;
-  transition: transform 0.2s;
+  transition: transform 0.3s ease;
 }
 
 .cocursor-marketplace-plugin-expand-button:hover .cocursor-marketplace-plugin-expand-icon {
-  transform: translateX(2px);
+  transform: translateY(2px);
 }
 
 .cocursor-marketplace-plugin-expanded-content {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid var(--vscode-panel-border);
+  animation: cardFadeIn 0.3s ease-out;
 }
 
 .cocursor-marketplace-plugin-section-title {
-  margin: 0 0 8px 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--vscode-descriptionForeground);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.8px;
 }
 
 .cocursor-marketplace-plugin-usage-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .cocursor-marketplace-plugin-usage-item {
   display: flex;
   gap: 12px;
-  padding: 10px;
+  padding: 12px 14px;
   background: var(--vscode-input-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .cocursor-marketplace-plugin-usage-item:hover {
   background: var(--vscode-button-secondaryBackground);
-  border-color: var(--vscode-panel-border);
+  border-color: var(--vscode-descriptionForeground);
+  transform: translateX(4px);
 }
 
 .cocursor-marketplace-plugin-usage-icon {
-  font-size: 16px;
+  font-size: 18px;
   flex-shrink: 0;
 }
 
@@ -429,7 +701,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--vscode-foreground);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .cocursor-marketplace-plugin-usage-description {
@@ -438,17 +710,23 @@
   line-height: 1.5;
 }
 
-/* 操作按钮 */
+/* ========== 操作按钮 - 微交互优化 ========== */
 .cocursor-marketplace-plugin-button {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 90px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
 }
 
 .cocursor-marketplace-plugin-button:disabled {
@@ -457,8 +735,8 @@
 }
 
 .cocursor-marketplace-plugin-button-spinner {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
@@ -470,18 +748,22 @@
 }
 
 .cocursor-marketplace-plugin-button.install {
-  background: var(--vscode-button-background);
+  background: linear-gradient(135deg, var(--vscode-button-background) 0%, rgba(102, 126, 234, 0.9) 100%);
   color: var(--vscode-button-foreground);
-  border-color: var(--vscode-button-background);
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .cocursor-marketplace-plugin-button.install:hover:not(:disabled) {
-  background: var(--vscode-button-hoverBackground);
-  border-color: var(--vscode-button-hoverBackground);
+  background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, rgba(102, 126, 234, 1) 100%);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
 }
 
 .cocursor-marketplace-plugin-button.install:active:not(:disabled) {
   transform: translateY(1px);
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3);
+  animation: buttonSuccess 0.3s ease;
 }
 
 .cocursor-marketplace-plugin-button.uninstall {
@@ -492,46 +774,47 @@
 
 .cocursor-marketplace-plugin-button.uninstall:hover:not(:disabled) {
   background: var(--vscode-button-secondaryBackground);
-  border-color: var(--vscode-panel-border);
+  border-color: var(--vscode-descriptionForeground);
   color: var(--vscode-foreground);
 }
 
 .cocursor-marketplace-plugin-button.uninstall:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
-/* 空状态 */
+/* ========== 空状态 ========== */
 .cocursor-marketplace-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 24px;
+  padding: 100px 24px;
   text-align: center;
-  gap: 16px;
+  gap: 20px;
   grid-column: 1 / -1;
 }
 
 .cocursor-marketplace-empty-icon {
-  font-size: 64px;
-  opacity: 0.3;
-  margin-bottom: 8px;
+  font-size: 72px;
+  opacity: 0.25;
+  margin-bottom: 12px;
+  filter: grayscale(0.3);
 }
 
 .cocursor-marketplace-empty p {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--vscode-foreground);
   margin: 0;
 }
 
 .cocursor-marketplace-empty span {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
-/* Toast 通知 */
+/* ========== Toast 通知 ========== */
 .cocursor-marketplace-toasts {
   position: fixed;
   top: 24px;
@@ -539,97 +822,126 @@
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   pointer-events: none;
 }
 
 .cocursor-marketplace-toast {
-  padding: 12px 16px;
-  border-radius: 4px;
+  padding: 14px 20px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 200px;
-  max-width: 400px;
+  gap: 10px;
+  min-width: 220px;
+  max-width: 420px;
+  animation: toastSlideIn 0.3s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .cocursor-marketplace-toast-success {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: 1px solid var(--vscode-button-background);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.95) 0%, rgba(129, 199, 132, 0.9) 100%);
+  color: #fff;
+  border: 1px solid rgba(76, 175, 80, 0.5);
 }
 
 .cocursor-marketplace-toast-error {
-  background: var(--vscode-errorForeground);
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.95) 0%, rgba(239, 83, 80, 0.9) 100%);
   color: #fff;
-  border: 1px solid var(--vscode-errorForeground);
+  border: 1px solid rgba(244, 67, 54, 0.5);
 }
 
-/* 错误提示 */
+/* ========== 错误提示 ========== */
 .cocursor-marketplace-error-alert {
-  margin: 16px 20px;
-  padding: 12px 16px;
-  background: rgba(244, 67, 54, 0.1);
-  border: 1px solid var(--vscode-errorForeground);
-  border-radius: 4px;
+  margin: 20px 24px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(239, 83, 80, 0.05) 100%);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 10px;
   color: var(--vscode-errorForeground);
   font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .cocursor-marketplace-error-alert::before {
   content: "⚠️";
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .cocursor-marketplace-retry-button {
-  padding: 6px 12px;
+  padding: 8px 16px;
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.2s ease;
-  margin-left: 12px;
+  margin-left: auto;
 }
 
 .cocursor-marketplace-retry-button:hover {
   background: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
 }
 
-/* 骨架屏 */
+/* ========== 骨架屏 - Shimmer 动画 ========== */
 .cocursor-marketplace-plugin-skeleton {
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  padding: 16px;
-  height: 380px;
+  padding: 18px;
+  min-height: 360px;
   display: flex;
   flex-direction: column;
+  animation: cardFadeIn 0.5s ease-out backwards;
 }
 
 .cocursor-marketplace-plugin-skeleton-header {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.cocursor-marketplace-plugin-skeleton-icon,
+.cocursor-marketplace-plugin-skeleton-title,
+.cocursor-marketplace-plugin-skeleton-meta,
+.cocursor-marketplace-plugin-skeleton-button,
+.cocursor-marketplace-plugin-skeleton-desc {
+  background: linear-gradient(
+    90deg,
+    var(--vscode-input-background) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    var(--vscode-input-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: marketplaceShimmer 1.5s ease-in-out infinite;
 }
 
 .cocursor-marketplace-plugin-skeleton-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  background: var(--vscode-input-background);
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
   flex-shrink: 0;
 }
 
@@ -637,68 +949,90 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .cocursor-marketplace-plugin-skeleton-title {
-  height: 20px;
-  width: 60%;
-  border-radius: 3px;
-  background: var(--vscode-input-background);
+  height: 22px;
+  width: 65%;
+  border-radius: 6px;
 }
 
 .cocursor-marketplace-plugin-skeleton-meta {
   height: 14px;
-  width: 40%;
-  border-radius: 2px;
-  background: var(--vscode-input-background);
+  width: 45%;
+  border-radius: 4px;
 }
 
 .cocursor-marketplace-plugin-skeleton-button {
-  width: 80px;
-  height: 32px;
-  border-radius: 4px;
-  background: var(--vscode-input-background);
+  width: 90px;
+  height: 36px;
+  border-radius: 8px;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .cocursor-marketplace-plugin-skeleton-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-panel-border);
 }
 
-/* 响应式设计 */
+.cocursor-marketplace-plugin-skeleton-desc {
+  height: 14px;
+  border-radius: 4px;
+}
+
+.cocursor-marketplace-plugin-skeleton-desc:nth-child(1) {
+  width: 100%;
+}
+
+.cocursor-marketplace-plugin-skeleton-desc:nth-child(2) {
+  width: 85%;
+}
+
+.cocursor-marketplace-plugin-skeleton-desc:nth-child(3) {
+  width: 60%;
+}
+
+/* ========== 响应式设计 ========== */
 @media (max-width: 1280px) {
   .cocursor-marketplace-plugins {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 18px;
+    padding: 20px;
   }
 
   .cocursor-marketplace-hero {
-    padding: 28px 20px 20px;
+    padding: 36px 20px 28px;
   }
 
   .cocursor-marketplace-header {
-    padding: 0 16px;
-  }
-
-  .cocursor-marketplace-plugins {
-    padding: 16px;
+    padding: 20px 16px 0;
   }
 }
 
 @media (max-width: 768px) {
   .cocursor-marketplace-plugins {
     grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 12px;
+    gap: 16px;
+    padding: 16px;
   }
 
   .cocursor-marketplace-hero {
-    padding: 24px 16px 16px;
+    padding: 28px 16px 20px;
+  }
+
+  .cocursor-marketplace-hero::after {
+    background-size: 20px 20px;
   }
 
   .cocursor-marketplace-header {
-    padding: 0 12px;
-    margin-bottom: 16px;
+    padding: 16px 12px 0;
+    margin-bottom: 20px;
   }
 
   .cocursor-marketplace-search-wrapper {
@@ -706,13 +1040,23 @@
   }
 
   .cocursor-marketplace-title {
-    font-size: 24px;
+    font-size: 26px;
+  }
+
+  .cocursor-marketplace-categories {
+    padding: 3px;
+    border-radius: 10px;
+  }
+
+  .cocursor-marketplace-category {
+    padding: 6px 14px;
+    font-size: 12px;
   }
 
   .cocursor-marketplace-plugin-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
+    gap: 14px;
   }
 
   .cocursor-marketplace-plugin-header-right {
@@ -724,15 +1068,16 @@
 
 @media (max-width: 480px) {
   .cocursor-marketplace-plugins {
-    padding: 8px;
+    padding: 12px;
+    gap: 14px;
   }
 
   .cocursor-marketplace-hero {
-    padding: 20px 12px 12px;
+    padding: 24px 12px 16px;
   }
 
   .cocursor-marketplace-title {
-    font-size: 20px;
+    font-size: 22px;
   }
 
   .cocursor-marketplace-subtitle {
@@ -740,11 +1085,17 @@
   }
 
   .cocursor-marketplace-plugin-icon {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
 
   .cocursor-marketplace-plugin-icon-placeholder {
-    font-size: 16px;
+    font-size: 18px;
+  }
+
+  .cocursor-marketplace-plugin-button {
+    padding: 8px 16px;
+    font-size: 12px;
+    min-width: 80px;
   }
 }

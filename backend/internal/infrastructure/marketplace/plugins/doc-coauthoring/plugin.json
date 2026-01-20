@@ -1,10 +1,22 @@
 {
   "id": "doc-coauthoring",
   "name": "文档协作",
+  "name_i18n": {
+    "zh-CN": "文档协作",
+    "en": "Doc Co-authoring"
+  },
   "description": "指导用户通过结构化工作流进行文档协作编写。适用于需要编写文档、提案、技术规范、决策文档或类似结构化内容的场景。",
+  "description_i18n": {
+    "zh-CN": "指导用户通过结构化工作流进行文档协作编写。适用于需要编写文档、提案、技术规范、决策文档或类似结构化内容的场景。",
+    "en": "Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "生产力",
+  "category": "productivity",
+  "category_i18n": {
+    "zh-CN": "生产力",
+    "en": "Productivity"
+  },
   "skill": {
     "skill_name": "doc-coauthoring"
   }

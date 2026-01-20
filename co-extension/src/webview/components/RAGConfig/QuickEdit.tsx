@@ -86,11 +86,11 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
   // 获取服务提供商
   const getProvider = () => {
     if (embedding.url.includes('openai.com')) {
-      return 'OpenAI';
+      return t("rag.config.template.openai");
     } else if (embedding.url.includes('azure.com')) {
-      return 'Azure OpenAI';
+      return t("rag.config.template.azure");
     } else {
-      return '自定义';
+      return t("rag.config.template.custom");
     }
   };
 
@@ -127,45 +127,45 @@ export const QuickEdit: React.FC<QuickEditProps> = ({
   const handleStartQdrant = async () => {
     try {
       await apiService.startQdrant();
-      showToast(t("rag.config.actions.start") + "成功", "success");
+      showToast(t("rag.actions.start") + t("rag.success"), "success");
       // 立即刷新状态
       setTimeout(() => {
         apiService.getQdrantStatus();
       }, 1000);
     } catch (error) {
-      showToast(t("rag.config.actions.start") + "失败: " + (error instanceof Error ? error.message : String(error)), "error");
+      showToast(t("rag.actions.start") + t("rag.failed") + ": " + (error instanceof Error ? error.message : String(error)), "error");
     }
   };
 
   const handleStopQdrant = async () => {
     try {
       await apiService.stopQdrant();
-      showToast(t("rag.config.stop") + "成功", "success");
+      showToast(t("rag.actions.stop") + t("rag.success"), "success");
       // 立即刷新状态
       setTimeout(() => {
         apiService.getQdrantStatus();
       }, 1000);
     } catch (error) {
-      showToast(t("rag.config.stop") + "失败: " + (error instanceof Error ? error.message : String(error)), "error");
+      showToast(t("rag.actions.stop") + t("rag.failed") + ": " + (error instanceof Error ? error.message : String(error)), "error");
     }
   };
 
   const handleTriggerFullIndex = async () => {
     try {
       await apiService.triggerFullIndex();
-      showToast("已触发全量索引", "success");
+      showToast(t("rag.triggerFullIndexSuccess"), "success");
     } catch (error) {
-      showToast("触发全量索引失败: " + (error instanceof Error ? error.message : String(error)), "error");
+      showToast(t("rag.triggerFullIndexFailed") + ": " + (error instanceof Error ? error.message : String(error)), "error");
     }
   };
 
   const handleClearAllData = async () => {
-    if (window.confirm("此操作将删除所有已索引的数据,包括对话总结和向量。此操作不可撤销,确定要继续吗?")) {
+    if (window.confirm(t("rag.clearDataWarning"))) {
       try {
         await apiService.clearAllData();
-        showToast("已清空所有数据", "success");
+        showToast(t("rag.dataCleared"), "success");
       } catch (error) {
-        showToast("清空数据失败: " + (error instanceof Error ? error.message : String(error)), "error");
+        showToast(t("rag.clearDataFailed") + ": " + (error instanceof Error ? error.message : String(error)), "error");
       }
     }
   };

@@ -20,16 +20,16 @@ import (
 
 // ScanScheduler 扫描调度器
 type ScanScheduler struct {
-	ragService     *RAGService
-	ragInitializer *RAGInitializer // 用于延迟初始化
-	projectManager *appCursor.ProjectManager
-	ragRepo        domainRAG.RAGRepository
-	config         *ScanConfig
-	mu             sync.RWMutex
-	stopChan       chan struct{}
-	ticker         *time.Ticker
-	initialized    bool
-	logger         *slog.Logger
+	chunkService    *ChunkService
+	ragInitializer  *RAGInitializer // 用于延迟初始化
+	projectManager  *appCursor.ProjectManager
+	indexStatusRepo domainRAG.IndexStatusRepository
+	config          *ScanConfig
+	mu              sync.RWMutex
+	stopChan        chan struct{}
+	ticker          *time.Ticker
+	initialized     bool
+	logger          *slog.Logger
 }
 
 // ScanConfig 扫描配置
@@ -42,19 +42,19 @@ type ScanConfig struct {
 
 // NewScanScheduler 创建扫描调度器
 func NewScanScheduler(
-	ragService *RAGService,
+	chunkService *ChunkService,
 	projectManager *appCursor.ProjectManager,
-	ragRepo domainRAG.RAGRepository,
+	indexStatusRepo domainRAG.IndexStatusRepository,
 	config *ScanConfig,
 ) *ScanScheduler {
 	return &ScanScheduler{
-		ragService:     ragService,
-		projectManager: projectManager,
-		ragRepo:        ragRepo,
-		config:         config,
-		stopChan:       make(chan struct{}),
-		initialized:    false,
-		logger:         log.NewModuleLogger("rag", "scanner"),
+		chunkService:    chunkService,
+		projectManager:  projectManager,
+		indexStatusRepo: indexStatusRepo,
+		config:          config,
+		stopChan:        make(chan struct{}),
+		initialized:     false,
+		logger:          log.NewModuleLogger("rag", "scanner"),
 	}
 }
 
@@ -69,11 +69,11 @@ func (s *ScanScheduler) Start() error {
 		return nil
 	}
 
-	// 如果 ragService 为 nil，尝试通过 initializer 初始化
-	if s.ragService == nil && s.ragInitializer != nil && !s.initialized {
-		ragService, _, _, _, err := s.ragInitializer.InitializeServices()
-		if err == nil && ragService != nil {
-			s.ragService = ragService
+	// 如果 chunkService 为 nil，尝试通过 initializer 初始化
+	if s.chunkService == nil && s.ragInitializer != nil && !s.initialized {
+		chunkService := s.ragInitializer.GetChunkService()
+		if chunkService != nil {
+			s.chunkService = chunkService
 			s.initialized = true
 		} else {
 			// 初始化失败，禁用调度器
@@ -82,8 +82,8 @@ func (s *ScanScheduler) Start() error {
 		}
 	}
 
-	// 如果仍然没有 ragService，不启动
-	if s.ragService == nil {
+	// 如果仍然没有 chunkService，不启动
+	if s.chunkService == nil {
 		return nil
 	}
 
@@ -258,23 +258,23 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
 			defer wg.Done()
 			defer func() { <-sem }() // 释放信号量
 
-			// 确保 ragService 已初始化
-			if s.ragService == nil && s.ragInitializer != nil && !s.initialized {
-				ragService, _, _, _, err := s.ragInitializer.InitializeServices()
-				if err == nil && ragService != nil {
-					s.ragService = ragService
+			// 确保 chunkService 已初始化
+			if s.chunkService == nil && s.ragInitializer != nil && !s.initialized {
+				chunkService := s.ragInitializer.GetChunkService()
+				if chunkService != nil {
+					s.chunkService = chunkService
 					s.initialized = true
 				}
 			}
 
-			// 如果仍然没有 ragService，跳过
-			if s.ragService == nil {
+			// 如果仍然没有 chunkService，跳过
+			if s.chunkService == nil {
 				return
 			}
 
 			// 检查内容哈希（精确检测）
 			if s.needsReindex(f.SessionID, f.FilePath) {
-				err := s.ragService.IndexSession(f.SessionID, f.FilePath)
+				err := s.chunkService.IndexSession(f.SessionID, f.FilePath)
 				if err != nil {
 					s.logger.Error("Failed to index session",
 						"session_id", f.SessionID,
@@ -283,10 +283,10 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
 					)
 				}
 			} else {
-				// 只更新文件修改时间
+				// 只更新文件修改时间（使用 indexStatusRepo）
 				fileInfo, _ := os.Stat(f.FilePath)
 				if fileInfo != nil {
-					s.ragRepo.UpdateFileMtime(f.FilePath, fileInfo.ModTime().Unix())
+					s.indexStatusRepo.UpdateFileMtime(f.FilePath, fileInfo.ModTime().Unix())
 				}
 			}
 		}(file)
@@ -297,20 +297,20 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) {
 
 // needsUpdate 检查文件是否需要更新（快速检测：只检查 mtime）
 func (s *ScanScheduler) needsUpdate(sessionID, filePath string, fileMtime time.Time) bool {
-	metadata, err := s.ragRepo.GetFileMetadata(filePath)
-	if err != nil || metadata == nil {
-		return true // 没有元数据，需要索引
+	status, err := s.indexStatusRepo.GetIndexStatus(filePath)
+	if err != nil || status == nil {
+		return true // 没有状态，需要索引
 	}
 
 	// 比较文件修改时间
-	return fileMtime.Unix() > metadata.FileMtime
+	return fileMtime.Unix() > status.FileMtime
 }
 
 // needsReindex 检查是否需要重新索引（精确检测：检查内容哈希）
 func (s *ScanScheduler) needsReindex(sessionID, filePath string) bool {
-	metadata, err := s.ragRepo.GetFileMetadata(filePath)
-	if err != nil || metadata == nil {
-		return true // 没有元数据，需要索引
+	status, err := s.indexStatusRepo.GetIndexStatus(filePath)
+	if err != nil || status == nil {
+		return true // 没有状态，需要索引
 	}
 
 	// 计算当前文件哈希
@@ -320,7 +320,7 @@ func (s *ScanScheduler) needsReindex(sessionID, filePath string) bool {
 	}
 
 	// 比较内容哈希
-	return currentHash != metadata.ContentHash
+	return currentHash != status.ContentHash
 }
 
 // calculateFileHash 计算文件内容哈希
@@ -376,11 +376,11 @@ func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
 
 	// 如果从禁用变为启用，启动调度器
 	if config.Enabled && !oldEnabled {
-		// 尝试初始化 RAG 服务
-		if s.ragService == nil && s.ragInitializer != nil && !s.initialized {
-			ragService, _, _, _, err := s.ragInitializer.InitializeServices()
-			if err == nil && ragService != nil {
-				s.ragService = ragService
+		// 尝试初始化服务
+		if s.chunkService == nil && s.ragInitializer != nil && !s.initialized {
+			chunkService := s.ragInitializer.GetChunkService()
+			if chunkService != nil {
+				s.chunkService = chunkService
 				s.initialized = true
 			} else {
 				// 初始化失败，禁用调度器
@@ -389,8 +389,8 @@ func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
 			}
 		}
 
-		// 如果有 ragService，启动定时器
-		if s.ragService != nil && config.Interval > 0 {
+		// 如果有 chunkService，启动定时器
+		if s.chunkService != nil && config.Interval > 0 {
 			if s.ticker != nil {
 				s.ticker.Stop()
 			}
@@ -418,11 +418,11 @@ func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
 }
 
 // TriggerFullScan 触发全量扫描
-func (s *ScanScheduler) TriggerFullScan(ragService *RAGService) {
+func (s *ScanScheduler) TriggerFullScan(chunkService *ChunkService) {
 	s.logger.Info("Triggering full RAG index")
-	// 更新 ragService（如果传入）
-	if ragService != nil {
-		s.ragService = ragService
+	// 更新 chunkService（如果传入）
+	if chunkService != nil {
+		s.chunkService = chunkService
 	}
 	// 执行全量扫描（覆盖 needsUpdate 逻辑）
 	go s.runFullScan()
@@ -500,5 +500,78 @@ func (s *ScanScheduler) runFullScan() {
 // ClearMetadata 清空元数据
 func (s *ScanScheduler) ClearMetadata() error {
 	s.logger.Info("Clearing RAG metadata")
-	return s.ragRepo.ClearAllMetadata()
+	return s.indexStatusRepo.ClearAllStatus()
+}
+
+// ===== 事件驱动接口 =====
+// 以下方法实现 events.Handler 接口，用于接收 FileWatcher 的事件
+
+// HandleEvent 实现 events.Handler 接口
+// 处理会话文件变更事件
+func (s *ScanScheduler) HandleEvent(event interface{}) error {
+	// 类型断言为 SessionFileEvent
+	sessionEvent, ok := event.(interface {
+		Type() interface{}
+		SessionID() string
+		ProjectKey() string
+		FilePath() string
+	})
+
+	if !ok {
+		return nil
+	}
+
+	return s.HandleSessionFileEvent(
+		sessionEvent.SessionID(),
+		sessionEvent.ProjectKey(),
+		sessionEvent.FilePath(),
+	)
+}
+
+// HandleSessionFileEvent 处理会话文件事件
+// 这是事件驱动模式的入口，由 FileWatcher 触发
+func (s *ScanScheduler) HandleSessionFileEvent(sessionID, projectKey, filePath string) error {
+	s.logger.Debug("Handling session file event",
+		"session_id", sessionID,
+		"project_key", projectKey,
+		"file_path", filePath,
+	)
+
+	// 确保 chunkService 已初始化
+	if s.chunkService == nil && s.ragInitializer != nil && !s.initialized {
+		chunkService := s.ragInitializer.GetChunkService()
+		if chunkService != nil {
+			s.chunkService = chunkService
+			s.initialized = true
+		}
+	}
+
+	// 如果仍然没有 chunkService，跳过
+	if s.chunkService == nil {
+		s.logger.Debug("ChunkService not initialized, skipping event")
+		return nil
+	}
+
+	// 检查是否需要重新索引
+	if s.needsReindex(sessionID, filePath) {
+		if err := s.chunkService.IndexSession(sessionID, filePath); err != nil {
+			s.logger.Error("Failed to index session from event",
+				"session_id", sessionID,
+				"file_path", filePath,
+				"error", err,
+			)
+			return err
+		}
+		s.logger.Info("Session indexed from event",
+			"session_id", sessionID,
+		)
+	} else {
+		// 只更新文件修改时间
+		fileInfo, _ := os.Stat(filePath)
+		if fileInfo != nil {
+			s.indexStatusRepo.UpdateFileMtime(filePath, fileInfo.ModTime().Unix())
+		}
+	}
+
+	return nil
 }

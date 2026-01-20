@@ -21,10 +21,12 @@ interface RAGConfig {
   embedding_api: {
     url: string;
     model: string;
+    has_api_key?: boolean;
   };
   llm_chat_api: {
     url: string;
     model: string;
+    has_api_key?: boolean;
   };
   qdrant: {
     version: string;
@@ -36,6 +38,10 @@ interface RAGConfig {
     interval: string;
     batch_size: number;
     concurrency: number;
+    // 高级选项
+    incremental_scan?: boolean;
+    max_file_size?: number;
+    ignore_patterns?: string;
   };
 }
 
@@ -81,6 +87,10 @@ export const RAGConfig: React.FC = () => {
       interval: '1h',
       batchSize: 10,
       concurrency: 3,
+      // 高级选项默认值
+      incrementalScan: true,
+      maxFileSize: 10,
+      ignorePatterns: 'node_modules/**, .git/**, .cursor/**, dist/**, build/**',
     },
   });
 
@@ -118,6 +128,10 @@ export const RAGConfig: React.FC = () => {
             interval: response.scan_config?.interval || '1h',
             batchSize: response.scan_config?.batch_size || 10,
             concurrency: response.scan_config?.concurrency || 3,
+            // 高级选项
+            incrementalScan: response.scan_config?.incremental_scan ?? true,
+            maxFileSize: response.scan_config?.max_file_size || 10,
+            ignorePatterns: response.scan_config?.ignore_patterns || 'node_modules/**, .git/**, .cursor/**',
           },
         }));
       }
@@ -207,8 +221,16 @@ export const RAGConfig: React.FC = () => {
     setConfigState(prev => ({ ...prev, qdrant: data }));
   };
 
-  const handleScanChange = (data: { enabled: boolean; interval: string; batchSize: number; concurrency: number }) => {
-    setConfigState(prev => ({ ...prev, scan: data }));
+  const handleScanChange = (data: { 
+    enabled: boolean; 
+    interval: string; 
+    batchSize: number; 
+    concurrency: number;
+    incrementalScan?: boolean;
+    maxFileSize?: number;
+    ignorePatterns?: string;
+  }) => {
+    setConfigState(prev => ({ ...prev, scan: { ...prev.scan, ...data } }));
   };
 
   const handleSwitchMode = () => {
@@ -252,6 +274,10 @@ export const RAGConfig: React.FC = () => {
           interval: scan.interval,
           batch_size: scan.batchSize,
           concurrency: scan.concurrency,
+          // 高级选项
+          incremental_scan: scan.incrementalScan ?? true,
+          max_file_size: scan.maxFileSize ?? 10,
+          ignore_patterns: scan.ignorePatterns ?? 'node_modules/**, .git/**, .cursor/**',
         },
       };
 
@@ -298,7 +324,23 @@ export const RAGConfig: React.FC = () => {
     <div className="cocursor-rag-config">
       {/* 模式切换按钮 */}
       <div className="cocursor-rag-config-header">
-        <h2>{t("rag.config.title")}</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <h2>{t("rag.config.title")}</h2>
+          <span
+            className="cocursor-rag-beta-badge"
+            title={t("rag.betaTooltip")}
+            style={{
+              backgroundColor: "var(--vscode-statusBarItem-warningBackground)",
+              color: "var(--vscode-statusBarItem-warningForeground)",
+              padding: "2px 8px",
+              borderRadius: "3px",
+              fontSize: "12px",
+              fontWeight: "600"
+            }}
+          >
+            {t("rag.beta")}
+          </span>
+        </div>
         {configState.mode === 'quick-edit' && (
           <button
             type="button"

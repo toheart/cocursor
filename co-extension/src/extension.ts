@@ -172,6 +172,12 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openTeam", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "team", context, "/");
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.showPeers", () => {
       vscode.window.showInformationMessage("显示节点列表功能开发中...");
     })

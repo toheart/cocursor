@@ -1,13 +1,21 @@
 /**
  * 步骤 1: Embedding API 配置
+ * 优化版本：改进 UX 体验，统一验证逻辑，添加模型建议
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
 import { useToast } from "../../hooks";
 import { PasswordInput } from "./PasswordInput";
 import { CONFIG_TEMPLATES, ConfigTemplate } from "./types";
+
+// Embedding 模型建议列表
+const EMBEDDING_MODEL_SUGGESTIONS = [
+  { label: 'text-embedding-3-small (推荐)', value: 'text-embedding-3-small', provider: 'openai' },
+  { label: 'text-embedding-3-large', value: 'text-embedding-3-large', provider: 'openai' },
+  { label: 'text-embedding-ada-002', value: 'text-embedding-ada-002', provider: 'openai' },
+];
 
 interface Step1Props {
   embedding: {
@@ -32,7 +40,6 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
   const [selectedTemplate, setSelectedTemplate] = useState<ConfigTemplate>('custom');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [autoTested, setAutoTested] = useState(false); // 是否已自动测试
   const autoTestTriggerRef = useRef(false); // 防止自动测试重复触发
 
   // 验证错误
@@ -41,6 +48,39 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
     apiKey?: string;
     model?: string;
   }>({});
+
+  // 追踪哪些字段被用户"触摸"过
+  const [touched, setTouched] = useState<{
+    url: boolean;
+    apiKey: boolean;
+    model: boolean;
+  }>({
+    url: false,
+    apiKey: false,
+    model: false,
+  });
+
+  // 是否已尝试提交（点击测试连接或下一步）
+  const [submitted, setSubmitted] = useState(false);
+
+  // 根据选择的模板过滤模型建议
+  const filteredModelSuggestions = useMemo(() => {
+    if (selectedTemplate === 'openai') {
+      return EMBEDDING_MODEL_SUGGESTIONS.filter(m => m.provider === 'openai');
+    }
+    return EMBEDDING_MODEL_SUGGESTIONS;
+  }, [selectedTemplate]);
+
+  // 检测当前 URL 对应的模板类型
+  useEffect(() => {
+    if (embedding.url.includes('openai.com')) {
+      setSelectedTemplate('openai');
+    } else if (embedding.url.includes('azure.com')) {
+      setSelectedTemplate('azure');
+    } else if (embedding.url) {
+      setSelectedTemplate('custom');
+    }
+  }, []);
 
   // 选择模板
   const handleTemplateSelect = (template: ConfigTemplate) => {
@@ -52,39 +92,12 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
       apiKey: embedding.apiKey, // 保留 API Key
       model: templateData.model,
     });
+
+    // 重置错误状态
+    setErrors({});
+    setTouched({ url: false, apiKey: false, model: false });
+    setSubmitted(false);
   };
-
-  // 表单验证 - 使用 useCallback 避免循环依赖
-  const validateForm = useCallback(() => {
-    const newErrors: typeof errors = {};
-
-    // 验证 URL
-    if (!embedding.url) {
-      newErrors.url = t("rag.config.urlRequired");
-    } else if (embedding.url && !isValidUrl(embedding.url)) {
-      newErrors.url = t("rag.config.invalidUrl");
-    }
-
-    // 验证 API Key（占位符表示已配置，通过验证）
-    if (!embedding.apiKey && embedding.apiKey !== '••••••') {
-      newErrors.apiKey = t("rag.config.apiKeyRequired");
-    }
-
-    // 验证模型
-    if (!embedding.model) {
-      newErrors.model = t("rag.config.modelRequired");
-    }
-
-    setErrors(newErrors);
-
-    // 检查步骤是否完成
-    const isComplete =
-      !newErrors.url &&
-      !newErrors.apiKey &&
-      !newErrors.model;
-
-    return isComplete;
-  }, [embedding.url, embedding.apiKey, embedding.model, t]);
 
   // URL 验证
   const isValidUrl = (url: string) => {
@@ -96,8 +109,77 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
     }
   };
 
+  // 验证单个字段
+  const validateField = useCallback((field: 'url' | 'apiKey' | 'model', value: string): string | undefined => {
+    switch (field) {
+      case 'url':
+        if (!value) {
+          return t("rag.config.urlRequired");
+        } else if (!isValidUrl(value)) {
+          return t("rag.config.invalidUrl");
+        }
+        return undefined;
+      case 'apiKey':
+        // 占位符表示已配置，通过验证
+        if (!value && value !== '••••••') {
+          return t("rag.config.apiKeyRequired");
+        }
+        return undefined;
+      case 'model':
+        if (!value) {
+          return t("rag.config.modelRequired");
+        }
+        return undefined;
+      default:
+        return undefined;
+    }
+  }, [t]);
+
+  // 验证所有字段（用于提交时）
+  const validateAllFields = useCallback(() => {
+    const newErrors: typeof errors = {};
+    
+    const urlError = validateField('url', embedding.url);
+    if (urlError) newErrors.url = urlError;
+    
+    const apiKeyError = validateField('apiKey', embedding.apiKey);
+    if (apiKeyError) newErrors.apiKey = apiKeyError;
+    
+    const modelError = validateField('model', embedding.model);
+    if (modelError) newErrors.model = modelError;
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [embedding.url, embedding.apiKey, embedding.model, validateField]);
+
+  // 检查表单是否完整（不触发错误显示）
+  const isFormComplete = useCallback(() => {
+    return (
+      embedding.url &&
+      isValidUrl(embedding.url) &&
+      (embedding.apiKey || embedding.apiKey === '••••••') &&
+      embedding.model
+    );
+  }, [embedding.url, embedding.apiKey, embedding.model]);
+
+  // 字段 blur 时验证
+  const handleBlur = (field: 'url' | 'apiKey' | 'model') => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    
+    const value = embedding[field];
+    const error = validateField(field, value);
+    setErrors(prev => ({ ...prev, [field]: error }));
+  };
+
   // 测试连接
   const handleTestConnection = useCallback(async () => {
+    setSubmitted(true);
+    
+    // 验证所有字段
+    if (!validateAllFields()) {
+      return;
+    }
+
     // 如果 API Key 是占位符，说明已配置，不需要测试
     if (embedding.apiKey === '••••••') {
       setTestResult({
@@ -105,11 +187,6 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
         message: t("rag.config.apiKeyConfigured"),
       });
       showToast(t("rag.config.apiKeyConfigured"), "success");
-      return;
-    }
-
-    if (!embedding.url || !embedding.apiKey || !embedding.model) {
-      showToast(t("rag.config.testRequired"), "error");
       return;
     }
 
@@ -146,20 +223,20 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
     } finally {
       setTesting(false);
     }
-  }, [embedding.url, embedding.apiKey, embedding.model, showToast, t]);
+  }, [embedding.url, embedding.apiKey, embedding.model, showToast, t, validateAllFields]);
 
-  // 自动测试：只触发一次
+  // 更新步骤完成状态
   useEffect(() => {
-    const isComplete = validateForm();
+    const formComplete = isFormComplete();
     const testSuccess = testResult?.success;
+    onStepComplete(formComplete && !!testSuccess);
+  }, [isFormComplete, testResult, onStepComplete]);
 
-    onStepComplete(isComplete && testSuccess);
-
-    // 自动测试：如果表单完整且未测试过，触发一次测试
-    // 如果 API Key 是占位符，直接标记为成功，不测试
+  // 自动测试：只在 autoAdvance 模式下且表单完整时触发一次
+  useEffect(() => {
     if (
       autoAdvance &&
-      isComplete &&
+      isFormComplete() &&
       !autoTestTriggerRef.current &&
       !testResult &&
       !testing
@@ -176,7 +253,12 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
         handleTestConnection();
       }
     }
-  }, [validateForm, onStepComplete, testResult, autoAdvance, testing, handleTestConnection, embedding.apiKey, t]);
+  }, [autoAdvance, isFormComplete, testResult, testing, handleTestConnection, embedding.apiKey, t]);
+
+  // 判断是否显示某个字段的错误
+  const shouldShowError = (field: 'url' | 'apiKey' | 'model') => {
+    return (touched[field] || submitted) && errors[field];
+  };
 
   return (
     <div className="cocursor-rag-step-1">
@@ -190,7 +272,7 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
       {/* 模板选择器 */}
       <div className="cocursor-rag-template-selector">
         <label className="cocursor-rag-template-label">
-          {t("rag.config.template")}
+          {t("rag.config.templateLabel")}
         </label>
         <div className="cocursor-rag-template-buttons">
           {(["openai", "azure", "custom"] as ConfigTemplate[]).map((template) => (
@@ -202,7 +284,7 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
               }`}
               onClick={() => handleTemplateSelect(template)}
             >
-              {CONFIG_TEMPLATES[template].name}
+              {t(CONFIG_TEMPLATES[template].name)}
             </button>
           ))}
         </div>
@@ -218,15 +300,19 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
           <input
             type="text"
             className={`cocursor-rag-form-input ${
-              errors.url ? "error" : ""
+              shouldShowError('url') ? "error" : ""
             }`}
             value={embedding.url}
             onChange={(e) => 
               onChange({ ...embedding, url: e.target.value })
             }
+            onBlur={() => handleBlur('url')}
             placeholder="https://api.openai.com"
           />
-          {errors.url && (
+          <div className="cocursor-rag-form-hint">
+            {t("rag.config.apiUrlHint")}
+          </div>
+          {shouldShowError('url') && (
             <div className="cocursor-rag-form-error">{errors.url}</div>
           )}
         </div>
@@ -241,15 +327,12 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
             onChange={(value) => onChange({ ...embedding, apiKey: value })}
             placeholder={t("rag.config.apiKeyPlaceholder")}
             label=""
-            error={errors.apiKey}
+            error={shouldShowError('apiKey') ? errors.apiKey : undefined}
           />
           {embedding.apiKey === '••••••' && (
             <div className="cocursor-rag-form-hint">
               {t("rag.config.apiKeyConfigured")}
             </div>
-          )}
-          {errors.apiKey && (
-            <div className="cocursor-rag-form-error">{errors.apiKey}</div>
           )}
         </div>
 
@@ -261,15 +344,27 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
           <input
             type="text"
             className={`cocursor-rag-form-input ${
-              errors.model ? "error" : ""
+              shouldShowError('model') ? "error" : ""
             }`}
             value={embedding.model}
             onChange={(e) => 
               onChange({ ...embedding, model: e.target.value })
             }
-            placeholder="text-embedding-ada-002"
+            onBlur={() => handleBlur('model')}
+            placeholder="text-embedding-3-small"
+            list="embedding-model-suggestions"
           />
-          {errors.model && (
+          <datalist id="embedding-model-suggestions">
+            {filteredModelSuggestions.map((suggestion) => (
+              <option key={suggestion.value} value={suggestion.value}>
+                {suggestion.label}
+              </option>
+            ))}
+          </datalist>
+          <div className="cocursor-rag-form-hint">
+            {t("rag.config.embeddingModelHint")}
+          </div>
+          {shouldShowError('model') && (
             <div className="cocursor-rag-form-error">{errors.model}</div>
           )}
         </div>
@@ -282,12 +377,7 @@ export const Step1_Embedding: React.FC<Step1Props> = ({
             type="button"
             className="cocursor-rag-test-button"
             onClick={handleTestConnection}
-            disabled={
-              testing ||
-              !embedding.url ||
-              !embedding.apiKey ||
-              !embedding.model
-            }
+            disabled={testing}
           >
             {testing ? t("rag.config.testing") : t("rag.config.testConnection")}
           </button>

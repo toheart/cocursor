@@ -12,5 +12,5 @@ var ProviderSet = wire.NewSet(
 	NewMarketplaceHandler,
 	NewWorkflowHandler,
 	NewRAGHandler,
-	// 可以继续添加其他 Handler
+	NewDailySummaryHandler,
 )

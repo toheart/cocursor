@@ -6,8 +6,11 @@ import (
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	appRAG "github.com/cocursor/backend/internal/application/rag"
-	infraMarketplace "github.com/cocursor/backend/internal/infrastructure/marketplace"
+	"github.com/cocursor/backend/internal/domain/events"
+	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	applog "github.com/cocursor/backend/internal/infrastructure/log"
+	infraMarketplace "github.com/cocursor/backend/internal/infrastructure/marketplace"
+	"github.com/cocursor/backend/internal/infrastructure/watcher"
 	"github.com/cocursor/backend/internal/infrastructure/websocket"
 	"github.com/cocursor/backend/internal/interfaces"
 	"log/slog"
@@ -25,6 +28,10 @@ type App struct {
 	mcpInitializer        *infraMarketplace.MCPInitializer
 	db                    *sql.DB
 	logger                *slog.Logger
+
+	// 文件监听相关
+	eventBus    events.EventBus
+	fileWatcher *watcher.FileWatcher
 }
 
 // NewApp 创建应用实例
@@ -41,6 +48,21 @@ func NewApp(
 ) *App {
 	logger := applog.NewModuleLogger("app", "main")
 
+	// 初始化事件总线
+	eventBus := watcher.NewEventBus()
+
+	// 初始化文件监听器
+	pathResolver := infraCursor.NewPathResolver()
+	workspaceDir, _ := pathResolver.GetWorkspaceStorageDir()
+
+	config := watcher.DefaultWatchConfig()
+	config.WorkspaceDir = workspaceDir
+
+	fileWatcher, err := watcher.NewFileWatcher(config, eventBus)
+	if err != nil {
+		logger.Error("Failed to create file watcher", "error", err)
+	}
+
 	return &App{
 		HTTPServer:            httpServer,
 		MCPServer:             mcpServer,
@@ -52,6 +74,8 @@ func NewApp(
 		mcpInitializer:        mcpInitializer,
 		db:                    db,
 		logger:                logger,
+		eventBus:              eventBus,
+		fileWatcher:           fileWatcher,
 	}
 }
 
@@ -84,6 +108,18 @@ func (a *App) Start() error {
 			a.logger.Error("Failed to start RAG scan scheduler",
 				"error", err,
 			)
+		}
+	}
+
+	// 注册事件订阅者并启动文件监听
+	a.setupEventSubscribers()
+	if a.fileWatcher != nil {
+		if err := a.fileWatcher.Start(); err != nil {
+			a.logger.Error("Failed to start file watcher",
+				"error", err,
+			)
+		} else {
+			a.logger.Info("File watcher started successfully")
 		}
 	}
 
@@ -121,9 +157,68 @@ func (a *App) Start() error {
 	return nil
 }
 
+// setupEventSubscribers 注册事件订阅者
+func (a *App) setupEventSubscribers() {
+	if a.eventBus == nil {
+		return
+	}
+
+	// 注册 RAG Scanner 订阅会话文件事件
+	if a.scanScheduler != nil {
+		a.eventBus.SubscribeMultiple(
+			[]events.EventType{
+				events.SessionFileCreated,
+				events.SessionFileModified,
+			},
+			events.HandlerFunc(func(event events.Event) error {
+				sessionEvent, ok := event.(*events.SessionFileEvent)
+				if !ok {
+					return nil
+				}
+				return a.scanScheduler.HandleSessionFileEvent(
+					sessionEvent.SessionID,
+					sessionEvent.ProjectKey,
+					sessionEvent.FilePath,
+				)
+			}),
+		)
+		a.logger.Info("RAG Scanner subscribed to session file events")
+	}
+
+	// 注册 WorkspaceCacheService 订阅工作区事件
+	if a.workspaceCacheService != nil {
+		a.eventBus.Subscribe(
+			events.WorkspaceCreated,
+			events.HandlerFunc(func(event events.Event) error {
+				wsEvent, ok := event.(*events.WorkspaceEvent)
+				if !ok {
+					return nil
+				}
+				return a.workspaceCacheService.HandleWorkspaceEvent(
+					wsEvent.WorkspaceID,
+					wsEvent.ProjectPath,
+				)
+			}),
+		)
+		a.logger.Info("WorkspaceCacheService subscribed to workspace events")
+	}
+}
+
 // Stop 停止所有服务
 func (a *App) Stop() error {
 	a.logger.Info("Stopping CoCursor backend application")
+
+	// 停止文件监听器
+	if a.fileWatcher != nil {
+		a.fileWatcher.Stop()
+		a.logger.Info("File watcher stopped")
+	}
+
+	// 关闭事件总线
+	if a.eventBus != nil {
+		a.eventBus.Close()
+		a.logger.Info("Event bus closed")
+	}
 
 	// 停止 RAG 扫描调度器
 	if a.scanScheduler != nil {

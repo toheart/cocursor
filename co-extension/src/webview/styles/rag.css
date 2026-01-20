@@ -37,7 +37,7 @@
 
 /* RAG 搜索容器 */
 .cocursor-rag-search {
-  padding: 20px;
+  padding: 16px 20px;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -46,34 +46,34 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-search-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--vscode-foreground);
 }
 
 /* RAG 搜索框 */
 .cocursor-rag-search-box {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: stretch;
 }
 
 .cocursor-rag-search-input {
   flex: 1;
-  padding: 12px 16px;
+  padding: 8px 12px;
   font-size: 14px;
   border: 1px solid var(--vscode-input-border);
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
   outline: none;
   font-family: inherit;
@@ -85,17 +85,16 @@
 
 .cocursor-rag-search-input:focus {
   border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
 }
 
 .cocursor-rag-search-button {
-  padding: 12px 24px;
+  padding: 8px 16px;
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -103,11 +102,6 @@
 
 .cocursor-rag-search-button:hover:not(:disabled) {
   background-color: var(--vscode-button-hoverBackground);
-  transform: translateY(-1px);
-}
-
-.cocursor-rag-search-button:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .cocursor-rag-search-button:disabled {
@@ -117,29 +111,29 @@
 
 /* RAG 搜索结果 */
 .cocursor-rag-results {
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .cocursor-rag-results-header {
-  margin-bottom: 16px;
-  padding: 12px 16px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
   background-color: var(--vscode-sideBar-background);
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--vscode-foreground);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .cocursor-rag-results-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .cocursor-rag-result-item {
-  padding: 20px;
+  padding: 16px 20px;
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
+  border-radius: 6px;
   background-color: var(--vscode-editor-background);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -147,15 +141,14 @@
 
 .cocursor-rag-result-item:hover {
   border-color: var(--vscode-focusBorder);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 .cocursor-rag-result-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   gap: 12px;
 }
 
@@ -170,13 +163,17 @@
 .cocursor-rag-result-project {
   font-weight: 600;
   color: var(--vscode-textLink-foreground);
-  font-size: 15px;
+  font-size: 14px;
   flex-shrink: 0;
+}
+
+.cocursor-rag-result-item:hover .cocursor-rag-result-project {
+  color: var(--vscode-textLink-foreground);
 }
 
 .cocursor-rag-result-meta {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
@@ -184,22 +181,22 @@
 }
 
 .cocursor-rag-result-score {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vscode-terminal-ansiGreen);
-  font-weight: 600;
-  padding: 2px 8px;
+  font-weight: 500;
+  padding: 2px 6px;
   background-color: rgba(137, 209, 133, 0.1);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .cocursor-rag-result-content {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--vscode-foreground);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .cocursor-rag-result-turn {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .cocursor-rag-result-turn-label {
@@ -255,7 +252,7 @@
 
 /* RAG 配置容器 */
 .cocursor-rag-config {
-  padding: 24px;
+  padding: 20px;
   max-width: 900px;
   margin: 0 auto;
 }
@@ -264,36 +261,36 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-config-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--vscode-foreground);
 }
 
 .cocursor-rag-config-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-config-section-title {
-  margin-bottom: 16px;
-  font-size: 16px;
+  margin-bottom: 12px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .cocursor-rag-config-field {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-config-label {
   display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: 6px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--vscode-foreground);
 }
@@ -301,18 +298,17 @@
 .cocursor-rag-config-input {
   width: 100%;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 13px;
   border: 1px solid var(--vscode-input-border);
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
   outline: none;
 }
 
 .cocursor-rag-config-input:focus {
   border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
 }
 
 .cocursor-rag-config-checkbox {
@@ -336,16 +332,16 @@
 
 .cocursor-rag-config-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .cocursor-rag-config-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
@@ -377,15 +373,15 @@
 
 /* RAG 统计信息 */
 .cocursor-rag-stats {
-  margin-top: 24px;
-  padding: 16px;
+  margin-top: 16px;
+  padding: 12px;
   background-color: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .cocursor-rag-stats-title {
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   font-size: 14px;
   font-weight: 600;
 }
@@ -393,11 +389,11 @@
 .cocursor-rag-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 
 .cocursor-rag-stats-item {
-  padding: 12px;
+  padding: 10px;
   background-color: var(--vscode-sideBar-background);
   border-radius: 4px;
   border: 1px solid var(--vscode-panel-border);
@@ -410,7 +406,7 @@
 }
 
 .cocursor-rag-stats-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--vscode-foreground);
 }
@@ -418,19 +414,19 @@
 /* 空状态 */
 .cocursor-rag-empty {
   text-align: center;
-  padding: 60px 40px;
+  padding: 40px 20px;
   color: var(--vscode-descriptionForeground);
-  font-size: 14px;
+  font-size: 13px;
   background-color: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
+  border-radius: 4px;
 }
 
 .cocursor-rag-empty::before {
   content: "🔍";
   display: block;
-  font-size: 48px;
-  margin-bottom: 16px;
+  font-size: 32px;
+  margin-bottom: 12px;
   opacity: 0.5;
 }
 
@@ -561,6 +557,59 @@
   line-height: 1.5;
 }
 
+/* 新增：增强状态和代码标记 */
+.cocursor-rag-enriched-badge,
+.cocursor-rag-code-badge {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.cocursor-rag-enriched-badge {
+  background-color: rgba(76, 175, 80, 0.15);
+  color: var(--vscode-testing-iconPassed, #4caf50);
+}
+
+.cocursor-rag-code-badge {
+  background-color: rgba(156, 39, 176, 0.15);
+  color: var(--vscode-textPreformat-foreground, #9c27b0);
+}
+
+/* 工具标签 */
+.cocursor-rag-result-tools,
+.cocursor-rag-result-files {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.cocursor-rag-tools-label,
+.cocursor-rag-files-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 4px;
+}
+
+.cocursor-rag-tool-tag,
+.cocursor-rag-file-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: rgba(255, 152, 0, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--vscode-charts-orange, #ff9800);
+  font-family: var(--vscode-editor-font-family);
+}
+
+.cocursor-rag-file-tag {
+  background-color: rgba(33, 150, 243, 0.15);
+  color: var(--vscode-textLink-foreground, #2196f3);
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .cocursor-rag-search-header {
@@ -585,20 +634,20 @@
 /* ========== RAG 向导模式样式 ========== */
 
 .cocursor-rag-wizard-progress {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .cocursor-rag-steps-indicator {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-step-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
 }
 
@@ -617,17 +666,17 @@
 
 .cocursor-rag-progress-bar {
   width: 100%;
-  height: 4px;
+  height: 3px;
   background-color: var(--vscode-sideBar-background);
   border-radius: 2px;
   overflow: hidden;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-progress-fill {
   height: 100%;
   background-color: var(--vscode-textLink-foreground);
-  transition: width 0.5s ease-in-out;
+  transition: width 0.3s ease-in-out;
 }
 
 /* 步骤样式 */
@@ -635,33 +684,31 @@
 .cocursor-rag-step-2,
 .cocursor-rag-step-3,
 .cocursor-rag-step-4 {
-  animation: slideIn 0.3s ease-out;
+  animation: fadeIn 0.2s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateX(20px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
 .cocursor-rag-step-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-step-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: var(--vscode-foreground);
 }
 
 .cocursor-rag-step-description {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
   margin: 0;
 }
@@ -856,22 +903,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 32px;
-  padding-top: 24px;
+  margin-top: 24px;
+  padding-top: 16px;
   border-top: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-wizard-nav {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .cocursor-rag-wizard-nav-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
@@ -898,50 +945,49 @@
 
 /* 快速编辑模式 */
 .cocursor-rag-quick-edit {
-  padding: 20px;
+  padding: 16px;
 }
 
 .cocursor-rag-quick-edit-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-quick-edit-card {
-  padding: 16px;
+  padding: 12px;
   background-color: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
 }
 
 .cocursor-rag-quick-edit-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-color: var(--vscode-focusBorder);
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 .cocursor-rag-quick-edit-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .cocursor-rag-quick-edit-card-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--vscode-foreground);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cocursor-rag-quick-edit-card-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -961,43 +1007,43 @@
 }
 
 .cocursor-rag-quick-edit-card-content {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .cocursor-rag-quick-edit-card-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .cocursor-rag-quick-edit-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 24px;
-  padding-top: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-quick-edit-card-item {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .cocursor-rag-quick-edit-card-item strong {
-  margin-right: 8px;
+  margin-right: 6px;
 }
 
 .cocursor-rag-quick-edit-action-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
@@ -1028,13 +1074,13 @@
 }
 
 .cocursor-rag-quick-edit-switch {
-  padding: 8px 16px;
+  padding: 6px 12px;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: 1px solid var(--vscode-button-border);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
@@ -1047,23 +1093,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-quick-edit-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .cocursor-rag-config-mode-switch {
-  padding: 8px 16px;
+  padding: 6px 12px;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: 1px solid var(--vscode-button-border);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
@@ -1076,12 +1122,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-config-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -1089,17 +1135,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 32px;
-  padding-top: 24px;
+  margin-top: 24px;
+  padding-top: 16px;
   border-top: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-config-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
@@ -1130,13 +1176,13 @@
 }
 
 .cocursor-rag-quick-edit-card-action {
-  padding: 6px 12px;
+  padding: 4px 10px;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: 1px solid var(--vscode-button-border);
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   transition: all 0.2s ease;
 }
 
@@ -1147,61 +1193,61 @@
 
 /* Qdrant 状态卡片样式 */
 .cocursor-rag-qdrant-status-card {
-  padding: 16px;
+  padding: 12px;
   background-color: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  margin-bottom: 16px;
+  border-radius: 4px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-qdrant-status-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .cocursor-rag-qdrant-status-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .cocursor-rag-qdrant-status-icon {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .cocursor-rag-qdrant-status-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--vscode-foreground);
 }
 
 .cocursor-rag-qdrant-version {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--vscode-descriptionForeground);
   margin-top: 4px;
 }
 
 .cocursor-rag-qdrant-detail {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .cocursor-rag-qdrant-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cocursor-rag-qdrant-action-button {
-  padding: 6px 12px;
+  padding: 4px 10px;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: 1px solid var(--vscode-button-border);
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   transition: all 0.2s ease;
 }
 
@@ -1211,16 +1257,16 @@
 }
 
 .cocursor-rag-qdrant-download-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-qdrant-download-button:hover:not(:disabled) {
@@ -1233,45 +1279,45 @@
 }
 
 .cocursor-rag-qdrant-help {
-  padding: 16px;
+  padding: 12px;
   background-color: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  margin-top: 16px;
+  border-radius: 4px;
+  margin-top: 12px;
 }
 
 .cocursor-rag-qdrant-help-item {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .cocursor-rag-qdrant-help-list {
-  margin: 8px 0 0 20px;
+  margin: 6px 0 0 16px;
   padding: 0;
   list-style-type: disc;
 }
 
 .cocursor-rag-qdrant-help-list li {
-  margin-bottom: 4px;
-  font-size: 14px;
+  margin-bottom: 3px;
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
 }
 
 /* 扫描配置样式 */
 .cocursor-rag-scan-form {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-recommended-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: 1px solid var(--vscode-button-border);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-recommended-button:hover {
@@ -1282,54 +1328,53 @@
 .cocursor-rag-checkbox-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
   color: var(--vscode-foreground);
   cursor: pointer;
 }
 
 .cocursor-rag-form-helper {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 .cocursor-rag-form-select {
   width: 100%;
-  padding: 8px 12px;
-  font-size: 14px;
+  padding: 6px 8px;
+  font-size: 13px;
   border: 1px solid var(--vscode-input-border);
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
   outline: none;
 }
 
 .cocursor-rag-form-select:focus {
   border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb, 0, 122, 204), 0.1);
 }
 
 .cocursor-rag-slider {
   width: 100%;
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .cocursor-rag-advanced-section {
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .cocursor-rag-advanced-toggle {
-  padding: 8px 12px;
+  padding: 6px 10px;
   background-color: transparent;
   border: 1px solid var(--vscode-button-border);
   color: var(--vscode-foreground);
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s ease;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .cocursor-rag-advanced-toggle:hover {
@@ -1337,55 +1382,53 @@
 }
 
 .cocursor-rag-advanced-content {
-  padding: 16px;
+  padding: 12px;
   background-color: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  animation: slideDown 0.3s ease-out;
+  border-radius: 4px;
+  animation: fadeIn 0.2s ease-out;
 }
 
-@keyframes slideDown {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    max-height: 0;
   }
   to {
     opacity: 1;
-    max-height: 500px;
   }
 }
 
 /* 配置摘要样式 */
 .cocursor-rag-summary {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .cocursor-rag-summary-section {
-  padding: 16px;
+  padding: 12px;
   background-color: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  margin-bottom: 16px;
+  border-radius: 4px;
+  margin-bottom: 12px;
 }
 
 .cocursor-rag-summary-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .cocursor-rag-summary-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--vscode-foreground);
   margin: 0;
 }
 
 .cocursor-rag-summary-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -1400,51 +1443,51 @@
 }
 
 .cocursor-rag-summary-content {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
 }
 
 .cocursor-rag-summary-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .cocursor-rag-summary-item strong {
-  margin-right: 8px;
+  margin-right: 6px;
 }
 
 .cocursor-rag-summary-warning {
-  padding: 12px 16px;
+  padding: 10px 12px;
   background-color: rgba(209, 52, 56, 0.1);
   border: 1px solid var(--vscode-errorForeground);
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
-  font-size: 14px;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
   color: var(--vscode-errorForeground);
 }
 
 .cocursor-rag-warning-icon {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .cocursor-rag-summary-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .cocursor-rag-save-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
@@ -1461,4 +1504,232 @@
 .cocursor-rag-save-button-primary {
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
+}
+
+/* ========== 新增样式：下载进度和状态 ========== */
+
+/* Qdrant 下载区域 */
+.cocursor-rag-qdrant-download-section {
+  margin-top: 16px;
+}
+
+.cocursor-rag-qdrant-download-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background-color: rgba(0, 122, 204, 0.1);
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-rag-qdrant-download-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background-color: rgba(209, 52, 56, 0.1);
+  border: 1px solid var(--vscode-errorForeground);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--vscode-errorForeground);
+}
+
+.cocursor-rag-retry-button {
+  padding: 4px 12px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cocursor-rag-retry-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-rag-qdrant-version-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-rag-refresh-status-button {
+  margin-top: 12px;
+  padding: 6px 12px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cocursor-rag-refresh-status-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
+/* 加载动画 */
+.cocursor-rag-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-focusBorder);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: cocursor-rag-spin 0.8s linear infinite;
+}
+
+@keyframes cocursor-rag-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== 配置预览样式 ========== */
+.cocursor-rag-config-preview {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.cocursor-rag-config-preview h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-config-preview ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-rag-config-preview li {
+  margin-bottom: 4px;
+}
+
+/* ========== 配置检查列表样式 ========== */
+.cocursor-rag-config-checks {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.cocursor-rag-config-checks h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cocursor-rag-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 13px;
+}
+
+.cocursor-rag-check-item:last-child {
+  border-bottom: none;
+}
+
+.cocursor-rag-check-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cocursor-rag-check-label {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  min-width: 120px;
+}
+
+.cocursor-rag-check-message {
+  color: var(--vscode-descriptionForeground);
+  flex: 1;
+}
+
+.cocursor-rag-check-item.ok .cocursor-rag-check-message {
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.cocursor-rag-check-item.warning .cocursor-rag-check-message {
+  color: #f9a825;
+}
+
+.cocursor-rag-check-item.error .cocursor-rag-check-message {
+  color: var(--vscode-errorForeground);
+}
+
+/* ========== 错误和信息提示样式 ========== */
+.cocursor-rag-summary-error {
+  padding: 10px 12px;
+  background-color: rgba(209, 52, 56, 0.15);
+  border: 1px solid var(--vscode-errorForeground);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--vscode-errorForeground);
+}
+
+.cocursor-rag-error-icon {
+  font-size: 14px;
+}
+
+.cocursor-rag-summary-info {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: rgba(0, 122, 204, 0.1);
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 4px;
+}
+
+.cocursor-rag-summary-info h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-rag-summary-info ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-rag-summary-info li {
+  margin-bottom: 4px;
+}
+
+/* 禁用状态的保存按钮 */
+.cocursor-rag-save-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--vscode-disabledForeground);
 }

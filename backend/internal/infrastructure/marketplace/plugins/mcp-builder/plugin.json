@@ -1,10 +1,22 @@
 {
   "id": "mcp-builder",
   "name": "MCP 构建器",
+  "name_i18n": {
+    "zh-CN": "MCP 构建器",
+    "en": "MCP Builder"
+  },
   "description": "创建高质量 MCP（模型上下文协议）服务器的指南，使 LLM 能够通过设计良好的工具与外部服务交互。适用于构建 MCP 服务器来集成外部 API 或服务，无论是 Python (FastMCP) 还是 Node/TypeScript (MCP SDK)。",
+  "description_i18n": {
+    "zh-CN": "创建高质量 MCP（模型上下文协议）服务器的指南，使 LLM 能够通过设计良好的工具与外部服务交互。适用于构建 MCP 服务器来集成外部 API 或服务，无论是 Python (FastMCP) 还是 Node/TypeScript (MCP SDK)。",
+    "en": "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK)."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "开发工具",
+  "category": "tools",
+  "category_i18n": {
+    "zh-CN": "开发工具",
+    "en": "Tools"
+  },
   "skill": {
     "skill_name": "mcp-builder"
   }

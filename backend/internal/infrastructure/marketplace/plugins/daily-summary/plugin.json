@@ -1,10 +1,22 @@
 {
   "id": "daily-summary",
   "name": "每日总结",
+  "name_i18n": {
+    "zh-CN": "每日总结",
+    "en": "Daily Summary"
+  },
   "description": "自动总结 Cursor 聊天记录，生成每日工作汇报",
+  "description_i18n": {
+    "zh-CN": "自动总结 Cursor 聊天记录，生成每日工作汇报",
+    "en": "Automatically summarize Cursor chat records to generate daily work reports"
+  },
   "author": "CoCursor Team",
   "version": "1.0.0",
-  "category": "Productivity",
+  "category": "productivity",
+  "category_i18n": {
+    "zh-CN": "生产力",
+    "en": "Productivity"
+  },
   "skill": {
     "skill_name": "daily-summary"
   },

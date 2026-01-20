@@ -19,9 +19,10 @@ import (
 
 // WorkspaceCacheService 工作区缓存服务
 type WorkspaceCacheService struct {
-	projectManager *ProjectManager
-	pathResolver   *infraCursor.PathResolver
-	dbReader       *infraCursor.DBReader
+	projectManager    *ProjectManager
+	pathResolver      *infraCursor.PathResolver
+	dbReader          *infraCursor.DBReader
+	tiktokenEstimator *infraCursor.TiktokenEstimator
 
 	sessionRepo  storage.WorkspaceSessionRepository
 	metadataRepo storage.WorkspaceFileMetadataRepository
@@ -39,14 +40,21 @@ func NewWorkspaceCacheService(
 	sessionRepo storage.WorkspaceSessionRepository,
 	metadataRepo storage.WorkspaceFileMetadataRepository,
 ) *WorkspaceCacheService {
+	// 初始化 tiktoken 估算器
+	estimator, err := infraCursor.GetTiktokenEstimator()
+	if err != nil {
+		log.Printf("[WorkspaceCacheService] tiktoken 初始化失败，将使用字符估算: %v", err)
+	}
+
 	service := &WorkspaceCacheService{
-		projectManager: projectManager,
-		pathResolver:   infraCursor.NewPathResolver(),
-		dbReader:       infraCursor.NewDBReader(),
-		sessionRepo:    sessionRepo,
-		metadataRepo:   metadataRepo,
-		syncInProgress: make(map[string]bool),
-		stopCh:         make(chan struct{}),
+		projectManager:    projectManager,
+		pathResolver:      infraCursor.NewPathResolver(),
+		dbReader:          infraCursor.NewDBReader(),
+		tiktokenEstimator: estimator,
+		sessionRepo:       sessionRepo,
+		metadataRepo:      metadataRepo,
+		syncInProgress:    make(map[string]bool),
+		stopCh:            make(chan struct{}),
 	}
 
 	// 注册回调
@@ -294,6 +302,11 @@ func (s *WorkspaceCacheService) syncSessions(workspaceID string, composers []dom
 			}
 		}
 
+		// 计算会话的 Token 数量（基于会话名称和文件引用的估算）
+		// 注意：完整的 Token 计算需要读取 transcript 文件，但这里使用简化的估算
+		// 基于会话时长和复杂度进行估算
+		tokenCount := s.estimateSessionTokens(&composer)
+
 		// 插入或更新会话
 		session := &storage.WorkspaceSession{
 			WorkspaceID:         workspaceID,
@@ -310,6 +323,7 @@ func (s *WorkspaceCacheService) syncSessions(workspaceID string, composers []dom
 			ContextUsagePercent: composer.ContextUsagePercent,
 			IsArchived:          composer.IsArchived,
 			CreatedOnBranch:     composer.CreatedOnBranch,
+			TokenCount:          tokenCount,
 			CachedAt:            now,
 		}
 
@@ -453,9 +467,8 @@ func (s *WorkspaceCacheService) scanForNewWorkspaces() {
 			continue
 		}
 
-		// 检查 folder 字段是否为空
+		// 检查 folder 字段是否为空（无效工作区配置，跳过）
 		if workspace.Folder == "" {
-			log.Printf("[WorkspaceCacheService] workspace %s has empty folder field, skipping", workspaceID)
 			continue
 		}
 
@@ -523,4 +536,121 @@ func (s *WorkspaceCacheService) parseFolderURI(uri string) (string, error) {
 	}
 
 	return systemPath, nil
+}
+
+// estimateSessionTokens 估算会话的 Token 数量
+// 基于会话时长、代码变更量和文件引用进行估算
+// 这是一个简化的估算方法，避免读取完整的 transcript 文件
+func (s *WorkspaceCacheService) estimateSessionTokens(composer *domainCursor.ComposerData) int {
+	// 基础 Token 估算公式：
+	// 1. 会话时长贡献：每分钟约 500 Token（用户输入 + AI 回复）
+	// 2. 代码变更贡献：每行变更约 10 Token
+	// 3. 文件引用贡献：每个文件约 200 Token（文件名 + 上下文）
+
+	// 计算会话时长（分钟）
+	durationMs := composer.LastUpdatedAt - composer.CreatedAt
+	durationMinutes := float64(durationMs) / 1000.0 / 60.0
+	if durationMinutes < 1 {
+		durationMinutes = 1 // 最少 1 分钟
+	}
+	if durationMinutes > 120 {
+		durationMinutes = 120 // 最多 2 小时（避免异常值）
+	}
+
+	// 时长贡献
+	durationTokens := int(durationMinutes * 500)
+
+	// 代码变更贡献
+	codeChangeTokens := (composer.TotalLinesAdded + composer.TotalLinesRemoved) * 10
+
+	// 文件引用贡献
+	fileCount := composer.FilesChangedCount
+	if fileCount == 0 && composer.Subtitle != "" {
+		// 从 Subtitle 统计文件数（逗号分隔）
+		fileCount = strings.Count(composer.Subtitle, ",") + 1
+	}
+	fileTokens := fileCount * 200
+
+	// 总 Token 估算
+	totalTokens := durationTokens + codeChangeTokens + fileTokens
+
+	// 上下文使用率修正：上下文使用率越高，Token 消耗越多
+	if composer.ContextUsagePercent > 0 {
+		contextMultiplier := 1.0 + (composer.ContextUsagePercent / 100.0)
+		totalTokens = int(float64(totalTokens) * contextMultiplier)
+	}
+
+	// 最小值保护
+	if totalTokens < 100 {
+		totalTokens = 100
+	}
+
+	return totalTokens
+}
+
+// ===== 事件驱动接口 =====
+// 以下方法用于接收 FileWatcher 的事件
+
+// HandleWorkspaceEvent 处理工作区事件
+// 这是事件驱动模式的入口，由 FileWatcher 触发
+func (s *WorkspaceCacheService) HandleWorkspaceEvent(workspaceID, projectPath string) error {
+	log.Printf("[WorkspaceCacheService] Handling workspace event: workspace_id=%s, project_path=%s", workspaceID, projectPath)
+
+	// 检查 ProjectManager 中是否已存在
+	if s.projectManager.HasWorkspace(workspaceID) {
+		log.Printf("[WorkspaceCacheService] Workspace already registered: %s", workspaceID)
+		return nil
+	}
+
+	// 如果 projectPath 是 file:// URI，需要解析
+	folderPath := projectPath
+	if strings.HasPrefix(projectPath, "file://") {
+		var err error
+		folderPath, err = s.parseFolderURI(projectPath)
+		if err != nil {
+			log.Printf("[WorkspaceCacheService] Failed to parse folder URI: %v", err)
+			return err
+		}
+	}
+
+	// 如果路径为空，尝试从 workspace.json 获取
+	if folderPath == "" {
+		workspaceDir, err := s.pathResolver.GetWorkspaceStorageDir()
+		if err != nil {
+			return err
+		}
+
+		workspaceJSONPath := filepath.Join(workspaceDir, workspaceID, "workspace.json")
+		data, err := os.ReadFile(workspaceJSONPath)
+		if err != nil {
+			log.Printf("[WorkspaceCacheService] Failed to read workspace.json: %v", err)
+			return nil // 不是错误，可能只是工作区还没准备好
+		}
+
+		var workspace struct {
+			Folder string `json:"folder"`
+		}
+		if err := json.Unmarshal(data, &workspace); err != nil {
+			return nil
+		}
+
+		if workspace.Folder == "" {
+			return nil
+		}
+
+		folderPath, err = s.parseFolderURI(workspace.Folder)
+		if err != nil {
+			return nil
+		}
+	}
+
+	// 注册工作区
+	_, err := s.projectManager.RegisterWorkspace(folderPath)
+	if err != nil {
+		log.Printf("[WorkspaceCacheService] Failed to register workspace from event: %v", err)
+		return err
+	}
+
+	log.Printf("[WorkspaceCacheService] Workspace registered from event: %s -> %s", workspaceID, folderPath)
+	return nil
 }

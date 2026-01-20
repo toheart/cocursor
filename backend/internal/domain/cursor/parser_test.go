@@ -140,7 +140,8 @@ func TestParseAcceptanceStats(t *testing.T) {
 	// 验证接受率已计算
 	expectedTabRate := float64(52) / float64(130) * 100
 	assert.InDelta(t, expectedTabRate, stats.TabAcceptanceRate, 0.01)
-	assert.Equal(t, 0.0, stats.ComposerAcceptanceRate, "Composer 建议行数为0时接受率应为0")
+	// Composer 建议行数为0但接受行数>0时返回-1表示N/A（数据特征正常，Cursor可能不记录建议行数）
+	assert.Equal(t, -1.0, stats.ComposerAcceptanceRate, "Composer 建议行数为0但接受行数>0时应返回-1表示N/A")
 }
 
 func TestParseAcceptanceStats_EmptyJSON(t *testing.T) {

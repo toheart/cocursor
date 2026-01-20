@@ -116,14 +116,38 @@ func (s *DailyAcceptanceStats) CalculateAcceptanceRate() {
 			s.WarningMessage += fmt.Sprintf("Composer 接受率异常：建议 %d 行，接受 %d 行", s.ComposerSuggestedLines, s.ComposerAcceptedLines)
 		}
 	} else if s.ComposerAcceptedLines > 0 && s.ComposerSuggestedLines == 0 {
-		// 建议行数为 0 但有接受行数，说明数据可能有问题
-		s.DataQuality = "warning"
-		s.ComposerAcceptanceRate = 0
-		if s.WarningMessage != "" {
-			s.WarningMessage += "; "
-		}
-		s.WarningMessage += fmt.Sprintf("Composer 数据异常：建议 0 行，但接受 %d 行（可能需要重新统计）", s.ComposerAcceptedLines)
+		// 建议行数为 0 但有接受行数
+		// Cursor 可能不记录 Composer 模式的建议行数，这是正常的数据特征
+		// 设置接受率为 -1 表示"不适用"（N/A）
+		s.ComposerAcceptanceRate = -1
+		// 不再标记为 warning，因为这是 Cursor 的正常行为
 	}
+}
+
+// GetOverallAcceptanceRate 获取整体接受率
+// 只使用有有效建议行数的类型计算
+// 返回 -1 表示没有有效数据
+func (s *DailyAcceptanceStats) GetOverallAcceptanceRate() float64 {
+	totalSuggested := s.TabSuggestedLines + s.ComposerSuggestedLines
+	totalAccepted := s.TabAcceptedLines + s.ComposerAcceptedLines
+
+	// 如果两者都有有效数据，正常计算
+	if totalSuggested > 0 && totalAccepted <= totalSuggested {
+		return float64(totalAccepted) / float64(totalSuggested) * 100
+	}
+
+	// 只有 Tab 有有效数据
+	if s.TabSuggestedLines > 0 && s.ComposerSuggestedLines == 0 {
+		return s.TabAcceptanceRate
+	}
+
+	// 只有 Composer 有有效数据
+	if s.ComposerSuggestedLines > 0 && s.TabSuggestedLines == 0 {
+		return s.ComposerAcceptanceRate
+	}
+
+	// 都没有有效数据，返回 -1 表示不适用
+	return -1
 }
 
 // ConversationOverview 对话统计概览
@@ -214,6 +238,7 @@ type TokenUsage struct {
 	TotalTokens int         `json:"total_tokens"` // 总 Token 数
 	ByType      TokenByType `json:"by_type"`      // 按类型分类
 	Trend       string      `json:"trend"`        // 趋势（与昨日对比），如 "+15%" 或 "-5%"
+	Method      string      `json:"method"`       // 计算方法："tiktoken" 或 "estimate"
 }
 
 // TokenByType 按类型分类的 Token
@@ -235,11 +260,13 @@ type WorkAnalysis struct {
 
 // DailyAnalysis 每日分析详情
 type DailyAnalysis struct {
-	Date           string `json:"date"`            // 日期 YYYY-MM-DD
-	LinesAdded     int    `json:"lines_added"`     // 添加行数
-	LinesRemoved   int    `json:"lines_removed"`   // 删除行数
-	FilesChanged   int    `json:"files_changed"`   // 变更文件数
-	ActiveSessions int    `json:"active_sessions"` // 活跃会话数
+	Date           string `json:"date"`             // 日期 YYYY-MM-DD
+	LinesAdded     int    `json:"lines_added"`      // 添加行数
+	LinesRemoved   int    `json:"lines_removed"`    // 删除行数
+	FilesChanged   int    `json:"files_changed"`    // 变更文件数
+	ActiveSessions int    `json:"active_sessions"`  // 活跃会话数
+	TokenUsage     int    `json:"token_usage"`      // 当日 Token 消耗
+	HasDailyReport bool   `json:"has_daily_report"` // 是否有日报
 }
 
 // WorkAnalysisOverview 工作分析概览
@@ -253,6 +280,8 @@ type WorkAnalysisOverview struct {
 	ActiveSessions         int     `json:"active_sessions"`          // 活跃会话数
 	TotalPrompts           int     `json:"total_prompts"`            // 总 Prompts 数（用户输入）
 	TotalGenerations       int     `json:"total_generations"`        // 总 Generations 数（AI 回复）
+	TotalTokens            int     `json:"total_tokens"`             // 周期内总 Token 消耗
+	TokenTrend             string  `json:"token_trend"`              // Token 趋势（与上周期对比）
 }
 
 // DailyCodeChanges 每日代码变更

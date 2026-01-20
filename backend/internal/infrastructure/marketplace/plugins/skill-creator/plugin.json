@@ -1,10 +1,22 @@
 {
   "id": "skill-creator",
   "name": "技能创建器",
+  "name_i18n": {
+    "zh-CN": "技能创建器",
+    "en": "Skill Creator"
+  },
   "description": "创建有效技能的指南。适用于用户想要创建新技能（或更新现有技能）来扩展 Claude 的能力，包含专业知识、工作流或工具集成。",
+  "description_i18n": {
+    "zh-CN": "创建有效技能的指南。适用于用户想要创建新技能（或更新现有技能）来扩展 Claude 的能力，包含专业知识、工作流或工具集成。",
+    "en": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "开发工具",
+  "category": "tools",
+  "category_i18n": {
+    "zh-CN": "开发工具",
+    "en": "Tools"
+  },
   "skill": {
     "skill_name": "skill-creator"
   }

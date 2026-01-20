@@ -12,15 +12,25 @@ import (
 
 // TokenService Token 计算服务
 type TokenService struct {
-	dbReader     *infraCursor.DBReader
-	pathResolver *infraCursor.PathResolver
+	dbReader          *infraCursor.DBReader
+	pathResolver      *infraCursor.PathResolver
+	tiktokenEstimator *infraCursor.TiktokenEstimator
 }
 
 // NewTokenService 创建 Token 计算服务实例
 func NewTokenService() *TokenService {
+	// 尝试获取 tiktoken 估算器，失败时使用字符估算作为 fallback
+	estimator, err := infraCursor.GetTiktokenEstimator()
+	if err != nil {
+		// 记录警告但不阻止服务启动
+		// 后续 countTokens 会使用字符估算作为 fallback
+		estimator = nil
+	}
+
 	return &TokenService{
-		dbReader:     infraCursor.NewDBReader(),
-		pathResolver: infraCursor.NewPathResolver(),
+		dbReader:          infraCursor.NewDBReader(),
+		pathResolver:      infraCursor.NewPathResolver(),
+		tiktokenEstimator: estimator,
 	}
 }
 
@@ -93,11 +103,18 @@ func (s *TokenService) GetTokenUsage(date string, projectName string) (*domainCu
 	// 计算趋势
 	trend := s.calculateTrend(totalToday, totalYesterday)
 
+	// 确定计算方法
+	method := "estimate"
+	if s.tiktokenEstimator != nil {
+		method = s.tiktokenEstimator.GetMethod()
+	}
+
 	return &domainCursor.TokenUsage{
 		Date:        date,
 		TotalTokens: totalToday,
 		ByType:      *todayUsage,
 		Trend:       trend,
+		Method:      method,
 	}, nil
 }
 
@@ -149,7 +166,7 @@ func (s *TokenService) calculateWorkspaceTokenUsage(workspaceID string, date str
 		if !ok {
 			continue
 		}
-		tokens := s.estimateTokens(text)
+		tokens := s.countTokens(text)
 		// prompts 默认归类为 Chat（需要根据 commandType 进一步判断）
 		usage.Chat += tokens
 	}
@@ -162,7 +179,7 @@ func (s *TokenService) calculateWorkspaceTokenUsage(workspaceID string, date str
 			continue
 		}
 
-		tokens := s.estimateTokens(gen.TextDescription)
+		tokens := s.countTokens(gen.TextDescription)
 		switch gen.Type {
 		case "tab":
 			usage.Tab += tokens
@@ -179,10 +196,25 @@ func (s *TokenService) calculateWorkspaceTokenUsage(workspaceID string, date str
 	return usage, nil
 }
 
-// estimateTokens 估算 Token 数量
+// countTokens 计算 Token 数量
+// 优先使用 tiktoken 精确计算，如果不可用则使用字符估算作为 fallback
+func (s *TokenService) countTokens(text string) int {
+	if text == "" {
+		return 0
+	}
+
+	// 优先使用 tiktoken 精确计算
+	if s.tiktokenEstimator != nil {
+		return s.tiktokenEstimator.CountTokens(text)
+	}
+
+	// Fallback: 使用字符估算
+	return s.estimateTokensFallback(text)
+}
+
+// estimateTokensFallback 字符估算 Token 数量（fallback 方法）
 // 使用粗略估算：1 token ≈ 4 字符（英文）或 1.5 字符（中文）
-// TODO: 使用更精确的方法（如 tiktoken）或从 SQLite 直接读取
-func (s *TokenService) estimateTokens(text string) int {
+func (s *TokenService) estimateTokensFallback(text string) int {
 	if text == "" {
 		return 0
 	}

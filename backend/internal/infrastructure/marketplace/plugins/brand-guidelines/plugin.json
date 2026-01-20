@@ -1,10 +1,22 @@
 {
   "id": "brand-guidelines",
   "name": "品牌指南",
+  "name_i18n": {
+    "zh-CN": "品牌指南",
+    "en": "Brand Guidelines"
+  },
   "description": "应用 Anthropic 官方品牌颜色和排版到任何需要品牌视觉效果的工件中。适用于需要品牌颜色、风格指南、视觉格式或公司设计标准的场景。",
+  "description_i18n": {
+    "zh-CN": "应用 Anthropic 官方品牌颜色和排版到任何需要品牌视觉效果的工件中。适用于需要品牌颜色、风格指南、视觉格式或公司设计标准的场景。",
+    "en": "Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's look-and-feel. Use it when brand colors or style guidelines, visual formatting, or company design standards apply."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "设计",
+  "category": "design",
+  "category_i18n": {
+    "zh-CN": "设计",
+    "en": "Design"
+  },
   "skill": {
     "skill_name": "brand-guidelines"
   }

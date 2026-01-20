@@ -1,10 +1,22 @@
 {
   "id": "frontend-design",
   "name": "前端设计",
+  "name_i18n": {
+    "zh-CN": "前端设计",
+    "en": "Frontend Design"
+  },
   "description": "创建独特、生产级的前端界面，具有高质量设计。适用于构建 Web 组件、页面、工件、海报或应用程序（如网站、着陆页、仪表板、React 组件、HTML/CSS 布局，或美化任何 Web UI）。",
+  "description_i18n": {
+    "zh-CN": "创建独特、生产级的前端界面，具有高质量设计。适用于构建 Web 组件、页面、工件、海报或应用程序（如网站、着陆页、仪表板、React 组件、HTML/CSS 布局，或美化任何 Web UI）。",
+    "en": "Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI)."
+  },
   "author": "Anthropic",
   "version": "1.0.0",
-  "category": "设计",
+  "category": "design",
+  "category_i18n": {
+    "zh-CN": "设计",
+    "en": "Design"
+  },
   "skill": {
     "skill_name": "frontend-design"
   }

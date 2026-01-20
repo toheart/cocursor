@@ -14,6 +14,7 @@ import (
 type DailySummaryRepository interface {
 	Save(summary *domainCursor.DailySummary) error
 	FindByDate(date string) (*domainCursor.DailySummary, error)
+	FindDatesByRange(startDate, endDate string) (map[string]bool, error)
 }
 
 // dailySummaryRepository 每日总结仓储实现
@@ -166,4 +167,30 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 	// 这里简化处理，projects 信息从 summary 文本中解析
 
 	return &summary, nil
+}
+
+// FindDatesByRange 查询日期范围内有日报的日期
+// 返回 map[date]bool，true 表示该日期有日报
+func (r *dailySummaryRepository) FindDatesByRange(startDate, endDate string) (map[string]bool, error) {
+	query := `
+		SELECT date
+		FROM daily_summaries
+		WHERE date >= ? AND date <= ?`
+
+	rows, err := r.db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query daily summaries by date range: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]bool)
+	for rows.Next() {
+		var date string
+		if err := rows.Scan(&date); err != nil {
+			continue
+		}
+		result[date] = true
+	}
+
+	return result, nil
 }

@@ -1,10 +1,22 @@
 {
   "id": "simple-skill",
   "name": "简单技能",
+  "name_i18n": {
+    "zh-CN": "简单技能",
+    "en": "Simple Skill"
+  },
   "description": "只包含 Skill 的插件示例",
+  "description_i18n": {
+    "zh-CN": "只包含 Skill 的插件示例",
+    "en": "A simple plugin example that only contains Skill"
+  },
   "author": "CoCursor Team",
   "version": "1.0.0",
-  "category": "工具",
+  "category": "tools",
+  "category_i18n": {
+    "zh-CN": "工具",
+    "en": "Tools"
+  },
   "skill": {
     "skill_name": "simple-skill"
   }

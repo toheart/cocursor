@@ -126,6 +126,7 @@ func InitDatabase() error {
 		"ALTER TABLE daily_summaries ADD COLUMN code_changes TEXT",
 		"ALTER TABLE daily_summaries ADD COLUMN time_distribution TEXT",
 		"ALTER TABLE daily_summaries ADD COLUMN efficiency_metrics TEXT",
+		"ALTER TABLE workspace_sessions ADD COLUMN token_count INTEGER DEFAULT 0",
 	}
 
 	// 执行迁移（忽略错误，因为字段可能已存在）
@@ -188,6 +189,7 @@ func InitDatabase() error {
 		context_usage_percent REAL DEFAULT 0,
 		is_archived INTEGER DEFAULT 0,
 		created_on_branch TEXT,
+		token_count INTEGER DEFAULT 0,
 		cached_at INTEGER NOT NULL,
 		UNIQUE(workspace_id, composer_id)
 	);`
@@ -225,66 +227,90 @@ func InitDatabase() error {
 		return fmt.Errorf("failed to create workspace_file_metadata table: %w", err)
 	}
 
-	// 创建 rag_message_metadata 表
-	createRAGMessageMetadataTableSQL := `
-	CREATE TABLE IF NOT EXISTS rag_message_metadata (
+	// 创建 rag_knowledge_chunks 表
+	createRAGKnowledgeChunksTableSQL := `
+	CREATE TABLE IF NOT EXISTS rag_knowledge_chunks (
+		id TEXT PRIMARY KEY,
 		session_id TEXT NOT NULL,
-		message_id TEXT NOT NULL,
-		workspace_id TEXT,
-		project_id TEXT,
+		chunk_index INTEGER NOT NULL,
+		project_id TEXT NOT NULL,
 		project_name TEXT,
-		message_type TEXT NOT NULL,
-		message_index INTEGER NOT NULL,
-		turn_index INTEGER,
-		vector_id TEXT NOT NULL,
+		workspace_id TEXT,
+		
+		user_query TEXT NOT NULL,
+		ai_response_core TEXT NOT NULL,
+		vector_text TEXT NOT NULL,
+		
+		tools_used TEXT,
+		files_modified TEXT,
+		code_languages TEXT,
+		has_code INTEGER DEFAULT 0,
+		
+		summary TEXT,
+		main_topic TEXT,
+		tags TEXT,
+		enrichment_status TEXT DEFAULT 'pending',
+		enrichment_error TEXT,
+		
+		timestamp INTEGER NOT NULL,
 		content_hash TEXT NOT NULL,
 		file_path TEXT NOT NULL,
-		file_mtime INTEGER NOT NULL,
 		indexed_at INTEGER NOT NULL,
-		PRIMARY KEY (session_id, message_id)
+		
+		UNIQUE(session_id, chunk_index)
 	);`
 
-	if _, err := db.Exec(createRAGMessageMetadataTableSQL); err != nil {
-		return fmt.Errorf("failed to create rag_message_metadata table: %w", err)
+	if _, err := db.Exec(createRAGKnowledgeChunksTableSQL); err != nil {
+		return fmt.Errorf("failed to create rag_knowledge_chunks table: %w", err)
 	}
 
-	// 创建 rag_turn_metadata 表
-	createRAGTurnMetadataTableSQL := `
-	CREATE TABLE IF NOT EXISTS rag_turn_metadata (
+	// 创建 rag_index_status 表
+	createRAGIndexStatusTableSQL := `
+	CREATE TABLE IF NOT EXISTS rag_index_status (
+		file_path TEXT PRIMARY KEY,
 		session_id TEXT NOT NULL,
-		turn_index INTEGER NOT NULL,
-		workspace_id TEXT,
-		project_id TEXT,
-		project_name TEXT,
-		user_message_ids TEXT NOT NULL,
-		ai_message_ids TEXT NOT NULL,
-		message_count INTEGER NOT NULL,
-		vector_id TEXT NOT NULL,
+		project_id TEXT NOT NULL,
 		content_hash TEXT NOT NULL,
-		file_path TEXT NOT NULL,
+		chunk_count INTEGER DEFAULT 0,
 		file_mtime INTEGER NOT NULL,
-		indexed_at INTEGER NOT NULL,
-		is_incomplete INTEGER DEFAULT 0,
-		PRIMARY KEY (session_id, turn_index)
+		last_indexed_at INTEGER NOT NULL,
+		status TEXT DEFAULT 'indexed'
 	);`
 
-	if _, err := db.Exec(createRAGTurnMetadataTableSQL); err != nil {
-		return fmt.Errorf("failed to create rag_turn_metadata table: %w", err)
+	if _, err := db.Exec(createRAGIndexStatusTableSQL); err != nil {
+		return fmt.Errorf("failed to create rag_index_status table: %w", err)
 	}
 
-	// 创建 RAG 元数据表索引
-	createRAGIndexesSQL := `
-	CREATE INDEX IF NOT EXISTS idx_rag_message_metadata_session ON rag_message_metadata(session_id);
-	CREATE INDEX IF NOT EXISTS idx_rag_message_metadata_project ON rag_message_metadata(project_id);
-	CREATE INDEX IF NOT EXISTS idx_rag_message_metadata_vector ON rag_message_metadata(vector_id);
-	CREATE INDEX IF NOT EXISTS idx_rag_turn_metadata_session ON rag_turn_metadata(session_id);
-	CREATE INDEX IF NOT EXISTS idx_rag_turn_metadata_project ON rag_turn_metadata(project_id);
-	CREATE INDEX IF NOT EXISTS idx_rag_turn_metadata_vector ON rag_turn_metadata(vector_id);
-	CREATE INDEX IF NOT EXISTS idx_rag_turn_metadata_incomplete ON rag_turn_metadata(is_incomplete);
+	// 创建 rag_enrichment_queue 表
+	createRAGEnrichmentQueueTableSQL := `
+	CREATE TABLE IF NOT EXISTS rag_enrichment_queue (
+		chunk_id TEXT PRIMARY KEY,
+		priority INTEGER DEFAULT 0,
+		status TEXT DEFAULT 'pending',
+		retry_count INTEGER DEFAULT 0,
+		max_retries INTEGER DEFAULT 3,
+		created_at INTEGER NOT NULL,
+		next_retry_at INTEGER,
+		last_error TEXT
+	);`
+
+	if _, err := db.Exec(createRAGEnrichmentQueueTableSQL); err != nil {
+		return fmt.Errorf("failed to create rag_enrichment_queue table: %w", err)
+	}
+
+	// 创建新 RAG 表的索引
+	createNewRAGIndexesSQL := `
+	CREATE INDEX IF NOT EXISTS idx_rag_chunks_session ON rag_knowledge_chunks(session_id);
+	CREATE INDEX IF NOT EXISTS idx_rag_chunks_project ON rag_knowledge_chunks(project_id);
+	CREATE INDEX IF NOT EXISTS idx_rag_chunks_enrichment ON rag_knowledge_chunks(enrichment_status);
+	CREATE INDEX IF NOT EXISTS idx_rag_chunks_timestamp ON rag_knowledge_chunks(timestamp);
+	CREATE INDEX IF NOT EXISTS idx_rag_index_status_session ON rag_index_status(session_id);
+	CREATE INDEX IF NOT EXISTS idx_rag_enrichment_status ON rag_enrichment_queue(status);
+	CREATE INDEX IF NOT EXISTS idx_rag_enrichment_retry ON rag_enrichment_queue(status, next_retry_at);
 	`
 
-	if _, err := db.Exec(createRAGIndexesSQL); err != nil {
-		return fmt.Errorf("failed to create RAG indexes: %w", err)
+	if _, err := db.Exec(createNewRAGIndexesSQL); err != nil {
+		return fmt.Errorf("failed to create new RAG indexes: %w", err)
 	}
 
 	return nil

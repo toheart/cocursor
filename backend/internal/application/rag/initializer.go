@@ -16,12 +16,20 @@ import (
 
 // RAGInitializer RAG 服务初始化器
 type RAGInitializer struct {
-	configManager  *infraRAG.ConfigManager
-	sessionService *appCursor.SessionService
-	projectManager *appCursor.ProjectManager
-	ragRepo        domainRAG.RAGRepository
-	qdrantManager  *vector.QdrantManager // 保存 QdrantManager 引用以便管理生命周期
-	logger         *slog.Logger
+	configManager     *infraRAG.ConfigManager
+	sessionService    *appCursor.SessionService
+	projectManager    *appCursor.ProjectManager
+	chunkRepo         domainRAG.ChunkRepository
+	indexStatusRepo   domainRAG.IndexStatusRepository
+	enrichmentQueue   domainRAG.EnrichmentQueueRepository
+	qdrantManager     *vector.QdrantManager  // Qdrant 管理器
+	chunkService      *ChunkService          // 知识片段服务
+	searchService     *SearchService         // 搜索服务
+	enrichmentService *EnrichmentService     // 增强服务
+	embeddingClient   *embedding.Client      // Embedding 客户端
+	llmClient         *LLMClient             // LLM 客户端（可选）
+	initialized       bool                   // 是否已初始化
+	logger            *slog.Logger
 }
 
 // NewRAGInitializer 创建 RAG 初始化器
@@ -29,52 +37,54 @@ func NewRAGInitializer(
 	configManager *infraRAG.ConfigManager,
 	sessionService *appCursor.SessionService,
 	projectManager *appCursor.ProjectManager,
-	ragRepo domainRAG.RAGRepository,
+	chunkRepo domainRAG.ChunkRepository,
+	indexStatusRepo domainRAG.IndexStatusRepository,
+	enrichmentQueue domainRAG.EnrichmentQueueRepository,
 ) *RAGInitializer {
 	return &RAGInitializer{
-		configManager:  configManager,
-		sessionService: sessionService,
-		projectManager: projectManager,
-		ragRepo:        ragRepo,
-		logger:         log.NewModuleLogger("rag", "initializer"),
+		configManager:   configManager,
+		sessionService:  sessionService,
+		projectManager:  projectManager,
+		chunkRepo:       chunkRepo,
+		indexStatusRepo: indexStatusRepo,
+		enrichmentQueue: enrichmentQueue,
+		logger:          log.NewModuleLogger("rag", "initializer"),
 	}
 }
 
 // InitializeServices 初始化 RAG 服务（如果已配置）
-func (i *RAGInitializer) InitializeServices() (*RAGService, *SearchService, *ScanScheduler, *vector.QdrantManager, error) {
+func (i *RAGInitializer) InitializeServices() (*ChunkService, *SearchService, *ScanScheduler, *EnrichmentService, *vector.QdrantManager, error) {
+	// 如果已初始化，直接返回
+	if i.initialized {
+		return i.chunkService, i.searchService, nil, i.enrichmentService, i.qdrantManager, nil
+	}
+
 	config, err := i.configManager.ReadConfig()
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to read config: %w", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
 	// 检查是否已配置 Embedding API
 	if config.EmbeddingAPI.URL == "" || config.EmbeddingAPI.APIKey == "" || config.EmbeddingAPI.Model == "" {
 		// 未配置，返回 nil（服务可选）
-		return nil, nil, nil, nil, nil
-	}
-
-	// 检查是否已配置 LLM Chat API（必需）
-	if config.LLMChatAPI.URL == "" || config.LLMChatAPI.APIKey == "" || config.LLMChatAPI.Model == "" {
-		// LLM Chat API 是必需的，未配置则返回错误
-		return nil, nil, nil, nil, fmt.Errorf("LLM Chat API configuration is required")
+		return nil, nil, nil, nil, nil, nil
 	}
 
 	// 创建 Embedding 客户端
-	embeddingClient := embedding.NewClient(
+	i.embeddingClient = embedding.NewClient(
 		config.EmbeddingAPI.URL,
 		config.EmbeddingAPI.APIKey,
 		config.EmbeddingAPI.Model,
 	)
 
-	// 创建 LLM 客户端（如果配置了 LLM Chat API）
-	var llmClient *LLMClient
+	// 创建 LLM 客户端（可选，用于增强）
 	if config.LLMChatAPI.URL != "" && config.LLMChatAPI.APIKey != "" && config.LLMChatAPI.Model != "" {
-		llmClient = NewLLMClient(
+		i.llmClient = NewLLMClient(
 			config.LLMChatAPI.URL,
 			config.LLMChatAPI.APIKey,
 			config.LLMChatAPI.Model,
 		)
-		i.logger.Info("LLM client initialized",
+		i.logger.Info("LLM client initialized for enrichment",
 			"url", config.LLMChatAPI.URL,
 			"model", config.LLMChatAPI.Model,
 		)
@@ -89,32 +99,31 @@ func (i *RAGInitializer) InitializeServices() (*RAGService, *SearchService, *Sca
 		var err error
 		binaryPath, err = vector.GetQdrantInstallPath()
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to get qdrant install path: %w", err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("failed to get qdrant install path: %w", err)
 		}
 	}
 	if dataPath == "" {
 		var err error
 		dataPath, err = vector.GetQdrantDataPath()
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to get qdrant data path: %w", err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("failed to get qdrant data path: %w", err)
 		}
 	}
 
-	qdrantManager := vector.NewQdrantManager(binaryPath, dataPath)
-	i.qdrantManager = qdrantManager // 保存引用
+	i.qdrantManager = vector.NewQdrantManager(binaryPath, dataPath)
 
 	// 启动 Qdrant（如果二进制文件存在）
 	if _, err := os.Stat(binaryPath); err == nil {
-		if err := qdrantManager.Start(); err != nil {
+		if err := i.qdrantManager.Start(); err != nil {
 			// 记录错误但不阻止初始化
 			i.logger.Warn("Failed to start Qdrant",
 				"error", err,
 			)
 		} else {
 			// 获取向量维度并确保集合存在
-			dimension, err := embeddingClient.GetVectorDimension()
+			dimension, err := i.embeddingClient.GetVectorDimension()
 			if err == nil {
-				if err := qdrantManager.EnsureCollections(uint64(dimension)); err != nil {
+				if err := i.qdrantManager.EnsureCollections(uint64(dimension)); err != nil {
 					i.logger.Warn("Failed to ensure Qdrant collections",
 						"vector_dimension", dimension,
 						"error", err,
@@ -124,21 +133,22 @@ func (i *RAGInitializer) InitializeServices() (*RAGService, *SearchService, *Sca
 		}
 	}
 
-	// 创建 RAG 服务
-	ragService := NewRAGService(
+	// 创建 ChunkService（核心索引服务）
+	i.chunkService = NewChunkService(
 		i.sessionService,
-		embeddingClient,
-		llmClient,
-		qdrantManager,
-		i.ragRepo,
+		i.embeddingClient,
+		i.qdrantManager,
+		i.chunkRepo,
+		i.indexStatusRepo,
+		i.enrichmentQueue,
 		i.projectManager,
 	)
 
 	// 创建搜索服务
-	searchService := NewSearchService(
-		embeddingClient,
-		qdrantManager,
-		i.ragRepo,
+	i.searchService = NewSearchService(
+		i.embeddingClient,
+		i.qdrantManager,
+		i.chunkRepo,
 	)
 
 	// 创建扫描调度器
@@ -150,13 +160,72 @@ func (i *RAGInitializer) InitializeServices() (*RAGService, *SearchService, *Sca
 	}
 
 	scanScheduler := NewScanScheduler(
-		ragService,
+		i.chunkService,
 		i.projectManager,
-		i.ragRepo,
+		i.indexStatusRepo,
 		scanConfig,
 	)
 
-	return ragService, searchService, scanScheduler, qdrantManager, nil
+	// 创建增强服务
+	i.enrichmentService = NewEnrichmentService(
+		i.chunkRepo,
+		i.enrichmentQueue,
+		i.llmClient,
+		i.qdrantManager,
+	)
+
+	// 启动增强服务 Worker
+	i.enrichmentService.StartWorkers()
+
+	i.initialized = true
+	i.logger.Info("RAG services initialized successfully")
+
+	return i.chunkService, i.searchService, scanScheduler, i.enrichmentService, i.qdrantManager, nil
+}
+
+// GetChunkService 获取 ChunkService（延迟初始化时使用）
+func (i *RAGInitializer) GetChunkService() *ChunkService {
+	if i.chunkService != nil {
+		return i.chunkService
+	}
+
+	// 尝试初始化
+	chunkService, _, _, _, _, err := i.InitializeServices()
+	if err != nil {
+		i.logger.Warn("Failed to initialize services", "error", err)
+		return nil
+	}
+	return chunkService
+}
+
+// GetSearchService 获取 SearchService
+func (i *RAGInitializer) GetSearchService() *SearchService {
+	if i.searchService != nil {
+		return i.searchService
+	}
+
+	// 尝试初始化
+	_, searchService, _, _, _, err := i.InitializeServices()
+	if err != nil {
+		i.logger.Warn("Failed to initialize services", "error", err)
+		return nil
+	}
+	return searchService
+}
+
+// GetEnrichmentService 获取 EnrichmentService
+func (i *RAGInitializer) GetEnrichmentService() *EnrichmentService {
+	if i.enrichmentService != nil {
+		return i.enrichmentService
+	}
+
+	// 尝试初始化
+	_, _, _, enrichmentService, _, err := i.InitializeServices()
+	if err != nil {
+		i.logger.Warn("Failed to initialize services", "error", err)
+		return nil
+	}
+	return enrichmentService
 }
 
 // StopQdrant 停止 Qdrant 服务（如果已启动）
@@ -167,7 +236,25 @@ func (i *RAGInitializer) StopQdrant() error {
 	return nil
 }
 
+// StopEnrichmentWorkers 停止增强服务 Worker
+func (i *RAGInitializer) StopEnrichmentWorkers() {
+	if i.enrichmentService != nil {
+		i.enrichmentService.StopWorkers()
+	}
+}
+
+// Shutdown 关闭所有 RAG 服务
+func (i *RAGInitializer) Shutdown() error {
+	i.StopEnrichmentWorkers()
+	return i.StopQdrant()
+}
+
 // GetQdrantManager 获取 Qdrant 管理器（如果已初始化）
 func (i *RAGInitializer) GetQdrantManager() *vector.QdrantManager {
 	return i.qdrantManager
+}
+
+// IsInitialized 检查是否已初始化
+func (i *RAGInitializer) IsInitialized() bool {
+	return i.initialized
 }

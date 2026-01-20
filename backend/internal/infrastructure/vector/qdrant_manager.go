@@ -247,7 +247,10 @@ func (q *QdrantManager) EnsureCollections(vectorSize uint64) error {
 		return fmt.Errorf("qdrant client not initialized")
 	}
 
-	collections := []string{"cursor_sessions_messages", "cursor_sessions_turns"}
+	// 知识片段集合
+	collections := []string{
+		"cursor_knowledge",
+	}
 	ctx := context.Background()
 
 	// 获取现有集合列表
@@ -275,6 +278,7 @@ func (q *QdrantManager) EnsureCollections(vectorSize uint64) error {
 			if err != nil {
 				return fmt.Errorf("failed to create collection %s: %w", collectionName, err)
 			}
+			q.logger.Info("Created collection", "collection", collectionName)
 		}
 	}
 
@@ -287,7 +291,7 @@ func (q *QdrantManager) ClearCollections() error {
 		return fmt.Errorf("qdrant client not initialized")
 	}
 
-	collections := []string{"cursor_sessions_messages", "cursor_sessions_turns"}
+	collections := []string{"cursor_knowledge"}
 	ctx := context.Background()
 
 	// 获取现有集合列表
@@ -517,10 +521,11 @@ func buildDownloadURL(version, osName, arch string) (string, error) {
 			return "", fmt.Errorf("unsupported architecture for Windows: %s", arch)
 		}
 	case "macos":
+		// macOS 使用 tar.gz 格式（不是 zip）
 		if arch == "x86_64" {
-			filename = "qdrant-x86_64-apple-darwin.zip"
+			filename = "qdrant-x86_64-apple-darwin.tar.gz"
 		} else if arch == "arm64" {
-			filename = "qdrant-aarch64-apple-darwin.zip"
+			filename = "qdrant-aarch64-apple-darwin.tar.gz"
 		} else {
 			return "", fmt.Errorf("unsupported architecture for macOS: %s", arch)
 		}

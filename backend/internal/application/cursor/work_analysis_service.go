@@ -2,11 +2,13 @@ package cursor
 
 import (
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
+	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/storage"
 )
 
@@ -16,6 +18,9 @@ type WorkAnalysisService struct {
 	projectManager *ProjectManager
 	sessionRepo    storage.WorkspaceSessionRepository
 	dataMerger     *DataMerger
+	summaryRepo    storage.DailySummaryRepository
+	tokenService   *TokenService
+	logger         *slog.Logger
 }
 
 // NewWorkAnalysisService 创建工作分析服务实例（接受 Repository 作为参数）
@@ -24,12 +29,17 @@ func NewWorkAnalysisService(
 	projectManager *ProjectManager,
 	sessionRepo storage.WorkspaceSessionRepository,
 	dataMerger *DataMerger,
+	summaryRepo storage.DailySummaryRepository,
+	tokenService *TokenService,
 ) *WorkAnalysisService {
 	return &WorkAnalysisService{
 		statsService:   statsService,
 		projectManager: projectManager,
 		sessionRepo:    sessionRepo,
 		dataMerger:     dataMerger,
+		summaryRepo:    summaryRepo,
+		tokenService:   tokenService,
+		logger:         log.NewModuleLogger("cursor", "work_analysis"),
 	}
 }
 
@@ -38,6 +48,11 @@ func NewWorkAnalysisService(
 // endDate: 结束日期 YYYY-MM-DD
 // 返回: WorkAnalysis 和错误
 func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domainCursor.WorkAnalysis, error) {
+	startTime := time.Now()
+	defer func() {
+		s.logger.Debug("GetWorkAnalysis completed", "duration", time.Since(startTime))
+	}()
+
 	// 验证日期格式
 	_, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -159,41 +174,17 @@ func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domai
 	}
 
 	// 获取接受率统计数据（整周汇总）
+	acceptanceStartTime := time.Now()
 	mergedAcceptanceStats, _, err := s.dataMerger.MergeAcceptanceStats(startDate, endDate)
 	if err != nil {
 		// 如果获取失败，设置为 0，不返回错误
 		mergedAcceptanceStats = &domainCursor.DailyAcceptanceStats{}
 	}
+	s.logger.Debug("acceptance stats calculated", "duration", time.Since(acceptanceStartTime))
 
-	// 计算整体接受率
-	// 注意：如果 ComposerSuggestedLines 为 0 但 ComposerAcceptedLines > 0，说明数据异常
-	// 这种情况下，应该只使用有有效建议行数的类型来计算接受率
-	var overallAcceptanceRate float64
-	totalSuggested := mergedAcceptanceStats.TabSuggestedLines + mergedAcceptanceStats.ComposerSuggestedLines
-	totalAccepted := mergedAcceptanceStats.TabAcceptedLines + mergedAcceptanceStats.ComposerAcceptedLines
-
-	// 如果总建议行数 > 0，且接受行数 <= 建议行数，正常计算
-	if totalSuggested > 0 && totalAccepted <= totalSuggested {
-		overallAcceptanceRate = float64(totalAccepted) / float64(totalSuggested) * 100
-	} else if totalSuggested > 0 {
-		// 如果接受行数 > 建议行数，说明数据异常，使用加权平均
-		// 只使用有有效建议行数的类型
-		if mergedAcceptanceStats.TabSuggestedLines > 0 && mergedAcceptanceStats.ComposerSuggestedLines > 0 {
-			// 两个类型都有数据，使用加权平均
-			tabWeight := float64(mergedAcceptanceStats.TabSuggestedLines) / float64(totalSuggested)
-			composerWeight := float64(mergedAcceptanceStats.ComposerSuggestedLines) / float64(totalSuggested)
-			overallAcceptanceRate = mergedAcceptanceStats.TabAcceptanceRate*tabWeight + mergedAcceptanceStats.ComposerAcceptanceRate*composerWeight
-		} else if mergedAcceptanceStats.TabSuggestedLines > 0 {
-			// 只有 Tab 有数据
-			overallAcceptanceRate = mergedAcceptanceStats.TabAcceptanceRate
-		} else if mergedAcceptanceStats.ComposerSuggestedLines > 0 {
-			// 只有 Composer 有数据
-			overallAcceptanceRate = mergedAcceptanceStats.ComposerAcceptanceRate
-		} else {
-			// 都没有有效数据，设为 0
-			overallAcceptanceRate = 0
-		}
-	}
+	// 计算接受率（使用模型方法）
+	mergedAcceptanceStats.CalculateAcceptanceRate()
+	overallAcceptanceRate := mergedAcceptanceStats.GetOverallAcceptanceRate()
 
 	// 构建概览
 	if totalEntropyCount > 0 {
@@ -208,6 +199,42 @@ func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domai
 	// prompts 和 generations 统计已删除（需求不大）
 	analysis.Overview.TotalPrompts = 0
 	analysis.Overview.TotalGenerations = 0
+
+	// 从缓存表获取 Token 汇总（使用 SQL 聚合，性能更好）
+	tokenStartTime := time.Now()
+	dailyTokenMap := make(map[string]int)
+	totalTokens := 0
+
+	// 从 workspace_sessions 表聚合 Token
+	dailyTokenUsage, err := s.sessionRepo.GetDailyTokenUsage(workspaceIDs, startDate, endDate)
+	if err != nil {
+		s.logger.Error("failed to get daily token usage", "error", err)
+	} else {
+		for _, usage := range dailyTokenUsage {
+			dailyTokenMap[usage.Date] = usage.TokenCount
+			totalTokens += usage.TokenCount
+		}
+	}
+	analysis.Overview.TotalTokens = totalTokens
+
+	// 计算趋势：与上一周期对比
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	days := int(end.Sub(start).Hours() / 24)
+	prevEnd := start.AddDate(0, 0, -1)
+	prevStart := prevEnd.AddDate(0, 0, -days)
+	prevStartStr := prevStart.Format("2006-01-02")
+	prevEndStr := prevEnd.Format("2006-01-02")
+
+	prevTotalTokens := 0
+	prevDailyTokenUsage, err := s.sessionRepo.GetDailyTokenUsage(workspaceIDs, prevStartStr, prevEndStr)
+	if err == nil {
+		for _, usage := range prevDailyTokenUsage {
+			prevTotalTokens += usage.TokenCount
+		}
+	}
+	analysis.Overview.TokenTrend = s.calculateTrend(totalTokens, prevTotalTokens)
+	s.logger.Debug("token calculation completed", "duration", time.Since(tokenStartTime), "source", "cache")
 
 	// 统计每日活跃会话数（避免重复计算）
 	dailySessionCountMap := make(map[string]map[string]bool) // date -> composerID -> true
@@ -233,12 +260,20 @@ func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domai
 		}
 	}
 
+	// 查询日报状态
+	dailyReportStatus := make(map[string]bool)
+	if s.summaryRepo != nil {
+		status, err := s.summaryRepo.FindDatesByRange(startDate, endDate)
+		if err == nil {
+			dailyReportStatus = status
+		}
+	}
+
 	// 构建每日详情
 	dailyDetailsMap := make(map[string]*domainCursor.DailyAnalysis)
 
 	// 遍历日期范围，构建每日详情
-	start, _ := time.Parse("2006-01-02", startDate)
-	end, _ := time.Parse("2006-01-02", endDate)
+	// 注意：start 和 end 变量在上面 Token 计算中已定义
 	current := start
 	for !current.After(end) {
 		dateStr := current.Format("2006-01-02")
@@ -260,12 +295,20 @@ func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domai
 			dailySessionCount = len(dailySessionCountMap[dateStr])
 		}
 
+		// 获取日报状态
+		hasDailyReport := dailyReportStatus[dateStr]
+
+		// 获取当日 Token 使用量
+		tokenUsage := dailyTokenMap[dateStr]
+
 		dailyDetailsMap[dateStr] = &domainCursor.DailyAnalysis{
 			Date:           dateStr,
 			LinesAdded:     dailyChanges.LinesAdded,
 			LinesRemoved:   dailyChanges.LinesRemoved,
 			FilesChanged:   dailyChanges.FilesChanged,
 			ActiveSessions: dailySessionCount,
+			TokenUsage:     tokenUsage,
+			HasDailyReport: hasDailyReport,
 		}
 
 		current = current.AddDate(0, 0, 1)
@@ -433,4 +476,22 @@ func (s *WorkAnalysisService) sessionToComposerData(session *storage.WorkspaceSe
 		IsArchived:          session.IsArchived,
 		CreatedOnBranch:     session.CreatedOnBranch,
 	}
+}
+
+// calculateTrend 计算趋势（当前值与上一周期对比）
+func (s *WorkAnalysisService) calculateTrend(current, previous int) string {
+	if previous == 0 {
+		if current > 0 {
+			return "+100%"
+		}
+		return "0%"
+	}
+
+	change := float64(current-previous) / float64(previous) * 100
+	if change > 0 {
+		return fmt.Sprintf("+%.1f%%", change)
+	} else if change < 0 {
+		return fmt.Sprintf("%.1f%%", change)
+	}
+	return "0%"
 }

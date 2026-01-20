@@ -10,6 +10,7 @@ import { WorkflowDetail } from "./components/WorkflowDetail";
 import { RAGSearch } from "./components/RAGSearch";
 import { RAGConfig } from "./components/RAGConfig";
 import { NavigationBar } from "./components/NavigationBar";
+import { TeamList } from "./components/Team";
 import { getVscodeApi } from "./services/api";
 
 // 内部组件：处理初始路由导航
@@ -17,7 +18,7 @@ const RouterContent: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | undefined;
+  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team" | undefined;
 
   useEffect(() => {
     // 获取初始路由
@@ -63,6 +64,7 @@ const RouterContent: React.FC = () => {
         : viewType === "marketplace" ? `${t("navigation.marketplace")} - CoCursor`
         : viewType === "ragSearch" ? `${t("navigation.ragSearch")} - CoCursor`
         : viewType === "workflow" ? `${t("navigation.workflow")} - CoCursor`
+        : viewType === "team" ? `${t("navigation.team")} - CoCursor`
         : `${t("navigation.workAnalysis")} - CoCursor`);
     
     document.title = title;
@@ -130,6 +132,20 @@ const RouterContent: React.FC = () => {
             <Route path="/" element={<WorkflowList />} />
             <Route path="/workflows" element={<WorkflowList />} />
             <Route path="/workflows/:changeId" element={<WorkflowDetail />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewType === "team") {
+    return (
+      <div className="cocursor-router-container">
+        <NavigationBar />
+        <div className="cocursor-router-content">
+          <Routes>
+            <Route path="/" element={<TeamList />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

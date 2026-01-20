@@ -47,13 +47,24 @@ func NewClient(baseURL, apiKey, model string) *Client {
 }
 
 // buildEmbeddingURL 构建 Embedding API URL
-// 如果 baseURL 已经包含 /v1/embeddings 路径，则直接使用；否则拼接 /v1/embeddings
+// 支持多种输入格式，智能拼接 /v1/embeddings 路径
 func buildEmbeddingURL(baseURL string) string {
-	// 检查是否已经包含 /v1/embeddings 路径
+	// 1. 如果已经包含完整路径 /v1/embeddings，直接使用
 	if strings.Contains(baseURL, "/v1/embeddings") {
 		return baseURL
 	}
-	// 如果没有，拼接 /v1/embeddings
+
+	// 2. 如果以 /v1 结尾，只追加 /embeddings
+	if strings.HasSuffix(baseURL, "/v1") {
+		return baseURL + "/embeddings"
+	}
+
+	// 3. 如果以 /v1/ 结尾，追加 embeddings
+	if strings.HasSuffix(baseURL, "/v1/") {
+		return baseURL + "embeddings"
+	}
+
+	// 4. 其他情况，追加完整的 /v1/embeddings
 	return fmt.Sprintf("%s/v1/embeddings", baseURL)
 }
 

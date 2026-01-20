@@ -7,3 +7,4 @@ export * from "./useSessionStorage";
 export * from "./useInterval";
 export * from "./useToast";
 export * from "./useMounted";
+export * from "./useTeamWebSocket";

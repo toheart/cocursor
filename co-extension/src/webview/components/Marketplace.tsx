@@ -18,7 +18,8 @@ import {
 
 // ========== 常量定义 ==========
 
-const CATEGORIES = ["all", "tools", "integration", "ai", "theme", "other"] as const;
+const CATEGORIES = ["all", "productivity", "creative", "design", "tools", "other"] as const;
+const SOURCES = ["all", "builtin", "team_global"] as const;
 const DEBOUNCE_DELAY = 300;
 const SKELETON_COUNT = 6;
 
@@ -26,6 +27,8 @@ interface GetPluginsParams {
   category?: string;
   search?: string;
   installed?: boolean;
+  source?: string;
+  team_id?: string;
 }
 
 interface PluginInstallResponse {
@@ -38,10 +41,11 @@ interface PluginInstallResponse {
 // ========== 主组件 ==========
 
 export const Marketplace: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // ========== 状态 ==========
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedSource, setSelectedSource] = useState<string>("all");
 
   // ========== 自定义 Hooks ==========
   const { showToast, toasts } = useToast();
@@ -50,9 +54,12 @@ export const Marketplace: React.FC = () => {
   // ========== API 请求 ==========
   const fetchPlugins = useCallback(async () => {
     try {
+      const lang = i18n.language; // 获取当前语言
       const params: GetPluginsParams = {
         category: selectedCategory !== "all" ? selectedCategory : undefined,
         search: debouncedSearchQuery || undefined,
+        source: selectedSource !== "all" ? selectedSource : undefined,
+        lang: lang || "zh-CN", // 传递语言参数，默认中文
       };
       console.log("Marketplace: 获取技能列表", params);
       
@@ -60,7 +67,10 @@ export const Marketplace: React.FC = () => {
       const response = await apiService.getPlugins(
         params.category,
         params.search,
-        undefined
+        undefined,
+        params.lang,
+        params.source,
+        params.team_id
       ) as { plugins?: Plugin[]; total?: number };
       
       console.log("Marketplace: API 响应", response);
@@ -88,7 +98,7 @@ export const Marketplace: React.FC = () => {
       console.error("Marketplace: 获取技能列表失败", error);
       throw error;
     }
-  }, [selectedCategory, debouncedSearchQuery]);
+  }, [selectedCategory, debouncedSearchQuery, selectedSource, i18n.language]);
 
   const {
     data: pluginsResponse,
@@ -183,6 +193,8 @@ export const Marketplace: React.FC = () => {
         onSearchChange={setSearchQuery}
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
+        selectedSource={selectedSource}
+        onSourceChange={setSelectedSource}
       />
 
       <ToastContainer toasts={toasts} />
@@ -220,6 +232,8 @@ interface MarketplaceHeaderProps {
   onSearchChange: (value: string) => void;
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
+  selectedSource: string;
+  onSourceChange: (source: string) => void;
 }
 
 const MarketplaceHeader: React.FC<MarketplaceHeaderProps> = ({
@@ -227,6 +241,8 @@ const MarketplaceHeader: React.FC<MarketplaceHeaderProps> = ({
   onSearchChange,
   selectedCategory,
   onCategoryChange,
+  selectedSource,
+  onSourceChange,
 }) => {
   const { t } = useTranslation();
   return (
@@ -248,19 +264,35 @@ const MarketplaceHeader: React.FC<MarketplaceHeaderProps> = ({
           />
         </div>
         
-      <div className="cocursor-marketplace-categories">
-        {CATEGORIES.map((category) => (
-            <button
-              key={category}
-              className={`cocursor-marketplace-category ${
-                selectedCategory === category ? "active" : ""
-              }`}
-              onClick={() => onCategoryChange(category)}
-            >
-              {category === "all" ? t("marketplace.categories.all") : t(`marketplace.categories.${category}`)}
-            </button>
-        ))}
-      </div>
+      <div className="cocursor-marketplace-filters">
+          <div className="cocursor-marketplace-categories">
+            {CATEGORIES.map((category) => (
+              <button
+                key={category}
+                className={`cocursor-marketplace-category ${
+                  selectedCategory === category ? "active" : ""
+                }`}
+                onClick={() => onCategoryChange(category)}
+              >
+                {category === "all" ? t("marketplace.categories.all") : t(`marketplace.categories.${category}`)}
+              </button>
+            ))}
+          </div>
+          
+          <div className="cocursor-marketplace-sources">
+            {SOURCES.map((source) => (
+              <button
+                key={source}
+                className={`cocursor-marketplace-source ${
+                  selectedSource === source ? "active" : ""
+                }`}
+                onClick={() => onSourceChange(source)}
+              >
+                {t(`marketplace.sources.${source}`)}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </>
   );
@@ -297,7 +329,11 @@ const SkeletonContainer: React.FC<SkeletonContainerProps> = ({ count }) => {
   return (
     <div className="cocursor-marketplace-plugins">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="cocursor-marketplace-plugin-skeleton">
+        <div 
+          key={i} 
+          className="cocursor-marketplace-plugin-skeleton"
+          style={{ animationDelay: `${i * 100}ms` }}
+        >
           <div className="cocursor-marketplace-plugin-skeleton-header">
             <div className="cocursor-marketplace-plugin-skeleton-icon"></div>
             <div className="cocursor-marketplace-plugin-skeleton-info">
@@ -305,6 +341,11 @@ const SkeletonContainer: React.FC<SkeletonContainerProps> = ({ count }) => {
               <div className="cocursor-marketplace-plugin-skeleton-meta"></div>
             </div>
             <div className="cocursor-marketplace-plugin-skeleton-button"></div>
+          </div>
+          <div className="cocursor-marketplace-plugin-skeleton-content">
+            <div className="cocursor-marketplace-plugin-skeleton-desc"></div>
+            <div className="cocursor-marketplace-plugin-skeleton-desc"></div>
+            <div className="cocursor-marketplace-plugin-skeleton-desc"></div>
           </div>
         </div>
       ))}
@@ -408,15 +449,17 @@ const PluginCard: React.FC<PluginCardProps> = ({
   onUninstall,
   onToggleExpand,
 }) => {
+  const { t } = useTranslation();
   const usageInstructions: UsageInstruction[] = useMemo(
-    () => generateUsageInstructions(plugin),
-    [plugin]
+    () => generateUsageInstructions(plugin, t),
+    [plugin, t]
   );
 
   return (
     <div 
       className={`cocursor-marketplace-plugin ${plugin.installed ? "installed" : ""}`}
-      style={{ animationDelay: `${index * 80}ms` }}
+      style={{ animationDelay: `${index * 60}ms` }}
+      data-category={plugin.category}
     >
       <PluginCardHeader
         plugin={plugin}
@@ -503,6 +546,28 @@ interface PluginMetaProps {
 }
 
 const PluginMeta: React.FC<PluginMetaProps> = ({ plugin }) => {
+  const { t } = useTranslation();
+  
+  // 获取来源标签
+  const getSourceLabel = () => {
+    if (!plugin.source || plugin.source === "builtin") {
+      return null;
+    }
+    if (plugin.source === "team_global" || plugin.source === "team_project") {
+      return (
+        <span className={`cocursor-marketplace-plugin-source source-team ${plugin.author_online ? "online" : "offline"}`}>
+          {plugin.team_name || t("marketplace.sources.team_global")}
+          {plugin.author_name && ` · ${plugin.author_name}`}
+        </span>
+      );
+    }
+    return (
+      <span className={`cocursor-marketplace-plugin-source source-${plugin.source}`}>
+        {t(`marketplace.sources.${plugin.source}`)}
+      </span>
+    );
+  };
+  
   return (
     <div className="cocursor-marketplace-plugin-meta">
       <span className="cocursor-marketplace-plugin-author">
@@ -517,8 +582,9 @@ const PluginMeta: React.FC<PluginMetaProps> = ({ plugin }) => {
         </span>
       )}
       <span className="cocursor-marketplace-plugin-category">
-        {plugin.category}
+        {plugin.category_display || plugin.category}
       </span>
+      {getSourceLabel()}
     </div>
   );
 };
