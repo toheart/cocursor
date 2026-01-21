@@ -76,7 +76,8 @@
     "noPluginsDesc": "尝试调整搜索条件或筛选器",
     "viewDetails": "查看详情",
     "collapseDetails": "收起详情",
-    "usageInstructions": "使用说明",
+    "skillDescription": "技能说明",
+    "globalTip": "安装技能后，Skill 将自动添加到项目的 AGENTS.md 文件；MCP 配置将添加到 ~/.cursor/mcp.json（需重启 Cursor）；Command 可直接在 Cursor 中使用。",
     "authorOffline": "作者离线",
     "authorOnline": "作者在线",
     "usage": {
@@ -119,141 +120,10 @@
     "referencedFiles": "引用文件",
     "loadMoreMessages": "加载更多消息",
     "noMessages": "暂无消息",
-    "unnamedSession": "未命名会话"
-  },
-  "workflows": {
-    "title": "OpenSpec 工作流",
-    "list": "工作流",
-    "detail": "工作流详情",
-    "notFound": "工作流不存在",
-    "backToList": "返回列表",
-    "loading": "加载中...",
-    "error": "错误",
-    "noWorkflows": "暂无工作流数据",
-    "refresh": "刷新",
-    "status": {
-      "all": "全部状态",
-      "inProgress": "进行中",
-      "completed": "已完成",
-      "paused": "已暂停"
-    },
-    "stage": {
-      "init": "初始化",
-      "proposal": "提案",
-      "apply": "实施",
-      "archive": "归档"
-    },
-    "basicInfo": "基本信息",
-    "workspaceId": "工作区 ID",
-    "changeId": "变更 ID",
-    "startTime": "开始时间",
-    "updateTime": "更新时间",
-    "progressInfo": "进度信息",
-    "taskProgress": "任务进度",
-    "timeSpent": "耗时",
-    "changedFiles": "变更文件",
-    "summary": "工作总结",
-    "metadata": "元数据",
-    "progress": "进度",
-    "tasks": "任务",
-    "onboarding": {
-      "helpSection": {
-        "title": "使用说明",
-        "expand": "展开",
-        "collapse": "折叠"
-      },
-      "skillInstallWarning": {
-        "title": "重要提示",
-        "message": "使用 OpenSpec 工作流前，请先在技能市场安装 \"OpenSpec\" 技能插件。安装后，命令文件会自动安装到工作区的 .cursor/commands/ 目录。"
-      },
-      "workflowDiagram": {
-        "title": "OpenSpec 工作流流程图"
-      },
-      "stages": {
-        "title": "四个阶段详细说明（基于 OpenSpec Skill）",
-        "init": {
-          "name": "init（初始化）",
-          "function": "功能：初始化 OpenSpec 目录结构",
-          "command": "命令：/cocursor-openspec-init",
-          "output": "输出：创建 openspec/ 目录和基础文件"
-        },
-        "proposal": {
-          "name": "proposal（提案）",
-          "function": "功能：创建变更提案，定义要做什么",
-          "command": "命令：/cocursor-openspec-proposal",
-          "output": "输出：",
-          "outputItems": {
-            "proposal": "proposal.md（变更说明）",
-            "tasks": "tasks.md（实施任务列表）",
-            "design": "design.md（技术设计，如需要）",
-            "specDelta": "spec delta 文件（规范变更）"
-          },
-          "mcpTools": "MCP 工具：",
-          "mcpToolsList": {
-            "openspec_list": "openspec_list（获取现有变更和规范）",
-            "openspec_validate": "openspec_validate（验证格式）",
-            "record_openspec_workflow": "record_openspec_workflow（记录状态）"
-          }
-        },
-        "apply": {
-          "name": "apply（实施）",
-          "function": "功能：实施已批准的变更",
-          "command": "命令：/cocursor-openspec-apply",
-          "process": "流程：",
-          "processItems": {
-            "taskOrder": "按 tasks.md 顺序完成任务",
-            "autoUpdate": "每完成一个任务自动更新进度",
-            "autoSummary": "所有任务完成后自动生成工作总结"
-          },
-          "mcpTools": "MCP 工具：",
-          "mcpToolsList": {
-            "openspec_list": "openspec_list（获取变更详情）",
-            "record_openspec_workflow": "record_openspec_workflow（更新进度）",
-            "generate_openspec_workflow_summary": "generate_openspec_workflow_summary（生成总结）"
-          }
-        },
-        "archive": {
-          "name": "archive（归档）",
-          "function": "功能：归档已完成的工作",
-          "command": "命令：/cocursor-openspec-archive",
-          "process": "流程：",
-          "processItems": {
-            "moveDirectory": "将变更目录移动到 archive/",
-            "mergeSpec": "合并 spec delta 到主 spec 文件",
-            "recordState": "记录归档状态"
-          },
-          "mcpTools": "MCP 工具：",
-          "mcpToolsList": {
-            "record_openspec_workflow": "record_openspec_workflow（记录归档状态）"
-          }
-        }
-      },
-      "stateTracking": {
-        "title": "工作流状态跟踪：",
-        "description": "状态自动记录到 ~/.cocursor/cocursor.db 数据库",
-        "includes": "包含信息：",
-        "includesItems": {
-          "stage": "当前阶段（init/proposal/apply/archive）",
-          "status": "状态（in_progress/completed/paused）",
-          "progress": "进度信息（任务完成状态）",
-          "summary": "工作总结（tasks.md 完成后自动生成）"
-        }
-      },
-      "statusExplanation": {
-        "title": "状态说明：",
-        "inProgress": "in_progress（进行中）- 🟡 黄色",
-        "completed": "completed（已完成）- 🟢 绿色",
-        "paused": "paused（已暂停）- ⚪ 灰色"
-      },
-      "usageTips": {
-        "title": "使用提示：",
-        "commandPalette": "使用命令面板（Cmd+Shift+P / Ctrl+Shift+P）执行命令",
-        "mcpTools": "所有操作通过 cocursor MCP 工具执行，返回 JSON 数据",
-        "viewDetail": "点击工作流列表项可查看详细信息",
-        "progressBar": "进度条显示任务完成情况",
-        "viewInUI": "工作流状态可在 UI 中查看（本面板）"
-      }
-    }
+    "unnamedSession": "未命名会话",
+    "lines": "行",
+    "expandCode": "展开",
+    "collapseCode": "收起"
   },
   "workAnalysis": {
     "title": "工作分析",
@@ -274,7 +144,7 @@
       "entropy": "熵值",
       "status": "状态",
       "healthy": "健康",
-      "subHealthy": "亚健康",
+      "sub_healthy": "亚健康",
       "dangerous": "危险",
       "unknown": "未知"
     },
@@ -319,7 +189,8 @@
       "today": "今天",
       "viewReport": "查看日报",
       "generateReport": "生成日报",
-      "noActivity": "无活动"
+      "noActivity": "无活动",
+      "completedChanges": "变更"
     },
     "tokenStats": {
       "title": "Token 统计",
@@ -329,19 +200,77 @@
     "dailyReport": {
       "viewTitle": "工作报告",
       "generateTitle": "生成日报",
-      "generatePrompt": "请在 Cursor 聊天窗口中输入以下命令：",
-      "copyCommand": "复制命令",
-      "copied": "已复制",
-      "afterGenerate": "执行后，日报将自动保存，刷新页面即可查看。",
       "close": "关闭",
-      "notAvailable": "N/A"
+      "notAvailable": "N/A",
+      "checkingSkill": "正在检查技能状态...",
+      "needInstallSkill": "需要安装日报生成技能",
+      "skillDescription": "日报生成功能需要安装「日报生成」技能，该技能可以帮助你：",
+      "skillFeature1": "自动分析当天的对话记录",
+      "skillFeature2": "提取工作内容和技术要点",
+      "skillFeature3": "生成结构化的日报摘要",
+      "viewInMarketplace": "在市场中查看",
+      "installNow": "一键安装",
+      "installing": "安装中...",
+      "usageTitle": "在 Cursor 聊天窗口中，使用以下任意方式：",
+      "method1": "方式一：输入 Slash 命令",
+      "method2": "方式二：直接对话",
+      "nlExample1": "请帮我生成今天的日报",
+      "nlExample2": "总结一下 {{date}} 的工作",
+      "autoRefreshTip": "生成完成后，页面会自动刷新显示日报内容",
+      "understood": "我知道了"
+    }
+  },
+  "dailyReport": {
+    "sessions": "会话",
+    "projects": "项目",
+    "activeTime": "活跃时长",
+    "messages": "消息数",
+    "minutes": "分钟",
+    "hours": "小时",
+    "minutesShort": "分",
+    "hoursShort": "h",
+    "times": "次",
+    "sessionsShort": "个会话",
+    "messagesShort": "条",
+    "files": "文件",
+    "workCategories": "工作分类",
+    "timeDistribution": "时间分布",
+    "codeChanges": "代码变更",
+    "projectDetails": "项目详情",
+    "summary": "工作摘要",
+    "linesAdded": "行新增",
+    "linesRemoved": "行删除",
+    "filesChanged": "文件变更",
+    "workItems": "工作内容",
+    "activeHours": "活跃时段",
+    "relatedSessions": "相关会话",
+    "unnamedSession": "未命名会话",
+    "moreSessions": "更多会话",
+    "saveScreenshot": "保存截图",
+    "copyToClipboard": "复制到剪贴板",
+    "screenshotSaved": "截图已保存",
+    "screenshotCopied": "截图已复制到剪贴板",
+    "screenshotFailed": "截图失败",
+    "category": {
+      "coding": "编码",
+      "problemSolving": "问题排查",
+      "refactoring": "重构",
+      "codeReview": "代码审查",
+      "documentation": "文档编写",
+      "testing": "测试",
+      "requirementsDiscussion": "需求讨论",
+      "other": "其他"
+    },
+    "timeSlot": {
+      "morning": "上午",
+      "afternoon": "下午",
+      "evening": "晚上",
+      "night": "夜间"
     }
   },
   "navigation": {
     "home": "首页",
     "sessionDetail": "会话详情",
-    "workflow": "工作流",
-    "workflowDetail": "工作流详情",
     "workAnalysis": "工作分析",
     "recentSessions": "最近对话",
     "marketplace": "技能市场",
@@ -359,8 +288,6 @@
     "tokenLoading": "加载中...",
     "workAnalysis": "工作分析",
     "openWorkAnalysis": "打开工作分析",
-    "workflow": "OpenSpec 工作流",
-    "openWorkflow": "打开工作流",
     "ragSearch": "RAG 搜索",
     "openRAGSearch": "打开 RAG 搜索",
     "ragConfig": "RAG 配置",
@@ -520,6 +447,78 @@
     "shared": "分享",
     "viewDetail": "查看详情",
     "fetchDailySummaryFailed": "获取日报失败"
+  },
+  "weeklyReport": {
+    "title": "团队周报",
+    "prevWeek": "上一周",
+    "nextWeek": "下一周",
+    "thisWeek": "本周",
+    "projectConfig": "项目配置",
+    "refreshSuccess": "刷新成功",
+    "refreshFailed": "刷新失败",
+    "fetchDetailFailed": "获取详情失败",
+    "loadFailed": "加载失败",
+    "noProjectsConfigured": "暂无配置项目",
+    "noProjectsConfiguredDesc": "请先配置需要追踪的团队项目",
+    "configureProjects": "配置项目",
+    "noData": "暂无数据",
+    "member": "成员",
+    "weekday": {
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    },
+    "less": "少",
+    "more": "多",
+    "hasReport": "有日报",
+    "offline": "离线",
+    "cached": "缓存数据",
+    "noDetailData": "暂无详情数据",
+    "noActivityData": "当日无活动数据",
+    "gitActivity": "Git 活动",
+    "commits": "提交",
+    "linesAdded": "添加行数",
+    "linesRemoved": "删除行数",
+    "files": "个文件",
+    "cursorStats": "Cursor AI 统计",
+    "sessions": "会话数",
+    "tokens": "Token",
+    "aiAdded": "AI 添加",
+    "aiRemoved": "AI 删除",
+    "workItems": "工作内容",
+    "category": {
+      "requirements_discussion": "需求讨论",
+      "coding": "编码",
+      "problem_solving": "问题解决",
+      "refactoring": "重构",
+      "code_review": "代码审查",
+      "documentation": "文档",
+      "testing": "测试",
+      "other": "其他"
+    },
+    "projectConfigDesc": "配置需要追踪的团队项目，系统将收集成员在这些项目上的 Git 提交和 Cursor 活动数据。",
+    "addProject": "添加项目",
+    "projectName": "项目名称",
+    "projectNamePlaceholder": "如 CoCursor 主项目",
+    "projectNameRequired": "请输入项目名称",
+    "repoUrl": "Git 仓库地址",
+    "repoUrlPlaceholder": "如 github.com/org/repo",
+    "repoUrlRequired": "请输入仓库地址",
+    "repoUrlHint": "输入 Git Remote URL，会自动移除协议前缀和 .git 后缀",
+    "add": "添加",
+    "addProjectSuccess": "项目添加成功",
+    "addProjectFailed": "添加项目失败",
+    "configuredProjects": "已配置项目",
+    "removeProjectSuccess": "项目移除成功",
+    "removeProjectFailed": "移除项目失败",
+    "projectSummary": "项目汇总",
+    "added": "添加",
+    "removed": "删除",
+    "contributors": "贡献者"
   },
   "rag": {
       "beta": "Beta",

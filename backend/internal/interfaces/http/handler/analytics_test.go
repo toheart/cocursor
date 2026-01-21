@@ -66,14 +66,11 @@ func TestAnalyticsHandler_WorkAnalysis(t *testing.T) {
 
 	mockGlobalDBReader := infraCursor.NewMockGlobalDBReader()
 	statsService := appCursor.NewStatsService(mockGlobalDBReader)
-	mockGlobalDBReader2 := infraCursor.NewMockGlobalDBReader()
-	dbReader := infraCursor.NewDBReader()
-	dataMerger := appCursor.NewDataMerger(dbReader, mockGlobalDBReader2)
 	// 创建 mock repositories（测试中可能不需要实际数据）
 	sessionRepo := &mockWorkspaceSessionRepository{}
 	summaryRepo := &mockDailySummaryRepository{}
 	tokenService := appCursor.NewTokenService()
-	workAnalysisService := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, dataMerger, summaryRepo, tokenService)
+	workAnalysisService := appCursor.NewWorkAnalysisService(statsService, appCursor.NewProjectManager(), sessionRepo, summaryRepo, tokenService)
 	sessionService := appCursor.NewSessionService(appCursor.NewProjectManager(), sessionRepo)
 	handler := NewAnalyticsHandler(
 		appCursor.NewTokenService(),

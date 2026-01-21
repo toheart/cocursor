@@ -1,11 +1,65 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 import { apiService } from "../services/api";
+
+// 可折叠代码块组件
+interface CollapsibleCodeBlockProps {
+  language: string;
+  code: string;
+  defaultCollapsed?: boolean;
+}
+
+const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({ 
+  language, 
+  code, 
+  defaultCollapsed = true 
+}) => {
+  const { t } = useTranslation();
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const lineCount = code.split('\n').length;
+  // 只有超过 5 行的代码块才默认折叠
+  const shouldCollapse = lineCount > 5;
+  const actualCollapsed = shouldCollapse ? isCollapsed : false;
+
+  // 获取代码预览（前3行）
+  const getPreview = () => {
+    const lines = code.split('\n');
+    return lines.slice(0, 3).join('\n') + (lines.length > 3 ? '\n...' : '');
+  };
+
+  return (
+    <div className={`cocursor-collapsible-code ${actualCollapsed ? 'collapsed' : 'expanded'}`}>
+      {shouldCollapse && (
+        <div 
+          className="cocursor-code-header"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          <span className="cocursor-code-language">{language || 'code'}</span>
+          <span className="cocursor-code-info">
+            {lineCount} {t("sessions.lines")}
+          </span>
+          <span className="cocursor-code-toggle">
+            {actualCollapsed ? '▶ ' + t("sessions.expandCode") : '▼ ' + t("sessions.collapseCode")}
+          </span>
+        </div>
+      )}
+      {actualCollapsed ? (
+        <pre className="cocursor-markdown-code-block cocursor-code-preview" onClick={() => setIsCollapsed(false)}>
+          <code className={`language-${language}`}>{getPreview()}</code>
+        </pre>
+      ) : (
+        <pre className="cocursor-markdown-code-block">
+          <code className={`language-${language}`}>{code}</code>
+        </pre>
+      )}
+    </div>
+  );
+};
 
 interface ToolCall {
   name: string;
@@ -39,12 +93,72 @@ interface SessionDetailData {
 export const SessionDetail: React.FC = () => {
   const { t } = useTranslation();
   const { sessionId } = useParams<{ sessionId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SessionDetailData | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const isMountedRef = React.useRef(true);
   const highlightTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const messageRefs = React.useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // 解析 URL 参数
+  const targetTimestamp = searchParams.get('ts') ? parseInt(searchParams.get('ts')!) : null;
+  const targetTurnIndex = searchParams.get('turn') ? parseInt(searchParams.get('turn')!) : null;
+  const shouldHighlight = searchParams.get('highlight') === 'true';
+
+  // 查找最匹配的消息索引
+  const findTargetMessageIndex = useCallback((messages: Message[]): number | null => {
+    if (!messages || messages.length === 0) return null;
+    
+    // 优先使用 turn index
+    if (targetTurnIndex !== null && targetTurnIndex >= 0 && targetTurnIndex < messages.length) {
+      return targetTurnIndex;
+    }
+    
+    // 使用时间戳匹配
+    if (targetTimestamp) {
+      // 查找时间戳最接近的消息
+      let closestIndex = 0;
+      let closestDiff = Math.abs(messages[0].timestamp - targetTimestamp);
+      
+      for (let i = 1; i < messages.length; i++) {
+        const diff = Math.abs(messages[i].timestamp - targetTimestamp);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestIndex = i;
+        }
+      }
+      
+      // 时间差在 5 分钟内才认为是匹配的
+      if (closestDiff < 5 * 60 * 1000) {
+        return closestIndex;
+      }
+    }
+    
+    return null;
+  }, [targetTimestamp, targetTurnIndex]);
+
+  // 滚动到目标消息并高亮
+  const scrollToAndHighlight = useCallback((index: number) => {
+    const element = messageRefs.current.get(index);
+    if (element) {
+      // 滚动到元素
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // 设置高亮
+      setHighlightedIndex(index);
+      
+      // 3 秒后移除高亮
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedIndex(null);
+      }, 3000);
+    }
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -60,6 +174,19 @@ export const SessionDetail: React.FC = () => {
       }
     };
   }, [sessionId]);
+
+  // 数据加载完成后定位到目标消息
+  useEffect(() => {
+    if (data && shouldHighlight && data.messages) {
+      const targetIndex = findTargetMessageIndex(data.messages);
+      if (targetIndex !== null) {
+        // 延迟执行，确保 DOM 已渲染
+        setTimeout(() => {
+          scrollToAndHighlight(targetIndex);
+        }, 100);
+      }
+    }
+  }, [data, shouldHighlight, findTargetMessageIndex, scrollToAndHighlight]);
 
   const loadSessionDetail = async (): Promise<void> => {
     if (!sessionId || !isMountedRef.current) return;
@@ -282,7 +409,10 @@ export const SessionDetail: React.FC = () => {
                 {data.messages.map((message, index) => (
                   <div
                     key={index}
-                    className={`cocursor-message cocursor-message-${message.type}`}
+                    ref={(el) => {
+                      if (el) messageRefs.current.set(index, el);
+                    }}
+                    className={`cocursor-message cocursor-message-${message.type}${highlightedIndex === index ? ' cocursor-message-highlighted' : ''}`}
                   >
                     <div className="cocursor-message-header">
                       <span className="cocursor-message-type">
@@ -303,9 +433,12 @@ export const SessionDetail: React.FC = () => {
                         </ReactMarkdown>
                       )}
                       {message.code_blocks && Array.isArray(message.code_blocks) && message.code_blocks.map((block, i) => (
-                        <pre key={i} className="cocursor-markdown-code-block">
-                          <code className={`language-${block.language}`}>{block.code}</code>
-                        </pre>
+                        <CollapsibleCodeBlock
+                          key={i}
+                          language={block.language}
+                          code={block.code}
+                          defaultCollapsed={true}
+                        />
                       ))}
                       {message.tools && Array.isArray(message.tools) && message.tools.length > 0 && (
                         <div className="cocursor-message-tools">

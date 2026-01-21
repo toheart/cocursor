@@ -3,14 +3,13 @@ import axios from "axios";
 import FormData from "form-data";
 import { WebviewMessage, ExtensionMessage } from "./types/message";
 
-export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team";
+export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "team";
 
 export class WebviewPanel {
   public static workAnalysisPanel: WebviewPanel | undefined;
   public static recentSessionsPanel: WebviewPanel | undefined;
   public static marketplacePanel: WebviewPanel | undefined;
   public static ragSearchPanel: WebviewPanel | undefined;
-  public static workflowPanel: WebviewPanel | undefined;
   public static teamPanel: WebviewPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
@@ -25,6 +24,37 @@ export class WebviewPanel {
     timestamp: number;
   } | null = null;
   private static readonly CACHE_TTL = 5000; // 5秒缓存
+
+  /**
+   * 通知指定类型的 Webview 刷新数据
+   * @param viewType 要刷新的 Webview 类型，不传则刷新所有已打开的面板
+   * @param dataType 可选的数据类型提示，让 Webview 知道哪类数据需要刷新
+   */
+  public static notifyRefresh(viewType?: WebviewType, dataType?: string): void {
+    const message = {
+      type: "dataUpdated",
+      dataType: dataType || "all"
+    };
+
+    const panels: Array<{ panel: WebviewPanel | undefined; type: WebviewType }> = [
+      { panel: WebviewPanel.workAnalysisPanel, type: "workAnalysis" },
+      { panel: WebviewPanel.recentSessionsPanel, type: "recentSessions" },
+      { panel: WebviewPanel.marketplacePanel, type: "marketplace" },
+      { panel: WebviewPanel.ragSearchPanel, type: "ragSearch" },
+      { panel: WebviewPanel.teamPanel, type: "team" },
+    ];
+
+    for (const { panel, type } of panels) {
+      if (panel && (!viewType || viewType === type)) {
+        try {
+          panel._panel.webview.postMessage(message);
+          console.log(`WebviewPanel: 已发送刷新通知到 ${type} 面板`);
+        } catch (error) {
+          console.error(`WebviewPanel: 发送刷新通知到 ${type} 面板失败:`, error);
+        }
+      }
+    }
+  }
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, viewType: WebviewType, context: vscode.ExtensionContext, route?: string) {
     this._panel = panel;
@@ -47,6 +77,21 @@ export class WebviewPanel {
       (message: WebviewMessage) => {
         console.log("WebviewPanel: 收到消息", message);
         this._handleMessage(message);
+      },
+      null,
+      this._disposables
+    );
+
+    // 监听面板可见性变化，当面板变为可见时通知 Webview 刷新数据
+    this._panel.onDidChangeViewState(
+      (e) => {
+        if (e.webviewPanel.visible) {
+          console.log("WebviewPanel: 面板变为可见，发送刷新通知");
+          this._panel.webview.postMessage({
+            type: "panelBecameVisible",
+            viewType: this._viewType
+          });
+        }
       },
       null,
       this._disposables
@@ -76,8 +121,6 @@ export class WebviewPanel {
       currentPanel = WebviewPanel.marketplacePanel;
     } else if (viewType === "ragSearch") {
       currentPanel = WebviewPanel.ragSearchPanel;
-    } else if (viewType === "workflow") {
-      currentPanel = WebviewPanel.workflowPanel;
     } else if (viewType === "team") {
       currentPanel = WebviewPanel.teamPanel;
     }
@@ -105,14 +148,12 @@ export class WebviewPanel {
       viewType === "recentSessions" ? "最近对话 - CoCursor" :
       viewType === "marketplace" ? "插件市场 - CoCursor" :
       viewType === "ragSearch" ? "RAG 搜索 - CoCursor" :
-      viewType === "workflow" ? "OpenSpec 工作流 - CoCursor" :
       "团队 - CoCursor";
     const panelId = 
       viewType === "workAnalysis" ? "cocursorWorkAnalysis" :
       viewType === "recentSessions" ? "cocursorRecentSessions" :
       viewType === "marketplace" ? "cocursorMarketplace" :
       viewType === "ragSearch" ? "cocursorRAGSearch" :
-      viewType === "workflow" ? "cocursorWorkflow" :
       "cocursorTeam";
     
     const panel = vscode.window.createWebviewPanel(
@@ -140,8 +181,6 @@ export class WebviewPanel {
       WebviewPanel.marketplacePanel = newPanel;
     } else if (viewType === "ragSearch") {
       WebviewPanel.ragSearchPanel = newPanel;
-    } else if (viewType === "workflow") {
-      WebviewPanel.workflowPanel = newPanel;
     } else if (viewType === "team") {
       WebviewPanel.teamPanel = newPanel;
     }
@@ -214,12 +253,6 @@ export class WebviewPanel {
       case "showConfirmDialog":
         this._handleShowConfirmDialog(message.payload as { message: string; confirmText?: string; cancelText?: string });
         break;
-      case "fetchWorkflows":
-        this._handleFetchWorkflows(message.payload as { projectPath?: string; status?: string });
-        break;
-      case "fetchWorkflowDetail":
-        this._handleFetchWorkflowDetail(message.payload as { changeId: string; projectPath?: string });
-        break;
       case "fetchRAGConfig":
         this._handleFetchRAGConfig();
         break;
@@ -273,6 +306,9 @@ export class WebviewPanel {
         break;
       case "openRAGSearch":
         this._handleOpenRAGSearch(message.payload as { route?: string } | undefined);
+        break;
+      case "openMarketplace":
+        this._handleOpenMarketplace(message.payload as { skillId?: string } | undefined);
         break;
       // ========== 团队相关命令 ==========
       case "fetchTeamIdentity":
@@ -365,6 +401,34 @@ export class WebviewPanel {
       case "fetchTeamDailySummaryDetail":
         this._handleFetchTeamDailySummaryDetail(message.payload as { teamId: string; memberId: string; date: string });
         break;
+      // 团队周报相关
+      case "fetchTeamProjectConfig":
+        this._handleFetchTeamProjectConfig(message.payload as { teamId: string });
+        break;
+      case "updateTeamProjectConfig":
+        this._handleUpdateTeamProjectConfig(message.payload as { teamId: string; projects: Array<{ id: string; name: string; repo_url: string }> });
+        break;
+      case "addTeamProject":
+        this._handleAddTeamProject(message.payload as { teamId: string; name: string; repo_url: string });
+        break;
+      case "removeTeamProject":
+        this._handleRemoveTeamProject(message.payload as { teamId: string; projectId: string });
+        break;
+      case "fetchTeamWeeklyReport":
+        this._handleFetchTeamWeeklyReport(message.payload as { teamId: string; weekStart: string });
+        break;
+      case "fetchMemberDailyDetail":
+        this._handleFetchMemberDailyDetail(message.payload as { teamId: string; memberId: string; date: string });
+        break;
+      case "refreshTeamWeeklyStats":
+        this._handleRefreshTeamWeeklyStats(message.payload as { teamId: string; weekStart: string });
+        break;
+      case "saveDailyReportScreenshot":
+        this._handleSaveDailyReportScreenshot(message.payload as { filename: string; data: string });
+        break;
+      case "showMessage":
+        this._handleShowMessage(message.payload as { type: string; message: string });
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
@@ -395,7 +459,6 @@ export class WebviewPanel {
       WebviewPanel.recentSessionsPanel,
       WebviewPanel.marketplacePanel,
       WebviewPanel.ragSearchPanel,
-      WebviewPanel.workflowPanel,
       WebviewPanel.teamPanel
     ].filter(Boolean) as WebviewPanel[];
 
@@ -405,6 +468,51 @@ export class WebviewPanel {
         data: { language }
       });
     });
+  }
+
+  // 处理日报截图保存
+  private async _handleSaveDailyReportScreenshot(payload: { filename: string; data: string }): Promise<void> {
+    try {
+      const { filename, data } = payload;
+      
+      // 让用户选择保存位置
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(filename),
+        filters: {
+          "PNG Images": ["png"]
+        },
+        title: "保存日报截图"
+      });
+
+      if (saveUri) {
+        // 将 base64 数据写入文件
+        const buffer = Buffer.from(data, "base64");
+        await vscode.workspace.fs.writeFile(saveUri, buffer);
+        
+        vscode.window.showInformationMessage(`日报截图已保存到: ${saveUri.fsPath}`);
+      }
+    } catch (error) {
+      console.error("Save screenshot failed:", error);
+      vscode.window.showErrorMessage(`保存截图失败: ${error instanceof Error ? error.message : "未知错误"}`);
+    }
+  }
+
+  // 处理显示消息
+  private _handleShowMessage(payload: { type: string; message: string }): void {
+    const { type, message } = payload;
+    switch (type) {
+      case "info":
+        vscode.window.showInformationMessage(message);
+        break;
+      case "warning":
+        vscode.window.showWarningMessage(message);
+        break;
+      case "error":
+        vscode.window.showErrorMessage(message);
+        break;
+      default:
+        vscode.window.showInformationMessage(message);
+    }
   }
 
   private async _handleFetchChats(): Promise<void> {
@@ -962,72 +1070,6 @@ export class WebviewPanel {
     });
   }
 
-  private async _handleFetchWorkflows(payload: { projectPath?: string; status?: string }): Promise<void> {
-    try {
-      const params = new URLSearchParams();
-      if (payload.projectPath) {
-        params.append("project_path", payload.projectPath);
-      }
-      if (payload.status) {
-        params.append("status", payload.status);
-      }
-
-      const apiUrl = `http://localhost:19960/api/v1/workflows${params.toString() ? `?${params.toString()}` : ""}`;
-      console.log("[WebviewPanel] Fetching workflows from:", apiUrl);
-      const response = await axios.get(apiUrl, { timeout: 10000 });
-
-      console.log("[WebviewPanel] API response:", {
-        code: response.data.code,
-        message: response.data.message,
-        dataType: Array.isArray(response.data.data) ? "array" : typeof response.data.data,
-        dataLength: Array.isArray(response.data.data) ? response.data.data.length : "N/A"
-      });
-
-      if (response.data.code === 0) {
-        const workflows = response.data.data || [];
-        console.log("[WebviewPanel] Sending workflows to frontend:", workflows.length, "items");
-        this._sendMessage({
-          type: "fetchWorkflows-response",
-          data: workflows
-        });
-      } else {
-        throw new Error(response.data.message || "获取工作流列表失败");
-      }
-    } catch (error) {
-      console.error("[WebviewPanel] Error fetching workflows:", error);
-      this._sendMessage({
-        type: "fetchWorkflows-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
-      });
-    }
-  }
-
-  private async _handleFetchWorkflowDetail(payload: { changeId: string; projectPath?: string }): Promise<void> {
-    try {
-      const params = new URLSearchParams();
-      if (payload.projectPath) {
-        params.append("project_path", payload.projectPath);
-      }
-
-      const apiUrl = `http://localhost:19960/api/v1/workflows/${encodeURIComponent(payload.changeId)}${params.toString() ? `?${params.toString()}` : ""}`;
-      const response = await axios.get(apiUrl, { timeout: 10000 });
-
-      if (response.data.code === 0) {
-        this._sendMessage({
-          type: "fetchWorkflowDetail-response",
-          data: response.data.data
-        });
-      } else {
-        throw new Error(response.data.message || "获取工作流详情失败");
-      }
-    } catch (error) {
-      this._sendMessage({
-        type: "fetchWorkflowDetail-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
-      });
-    }
-  }
-
   // ========== RAG 相关处理 ==========
 
   private async _handleFetchRAGConfig(): Promise<void> {
@@ -1270,6 +1312,12 @@ export class WebviewPanel {
   private _handleOpenRAGSearch(payload?: { route?: string }): void {
     const route = payload?.route || "/";
     WebviewPanel.createOrShow(this._extensionUri, "ragSearch", this._context, route);
+  }
+
+  private _handleOpenMarketplace(payload?: { skillId?: string }): void {
+    // 打开技能市场，如果指定了 skillId 则导航到该技能详情页
+    const route = payload?.skillId ? `/plugin/${payload.skillId}` : "/";
+    WebviewPanel.createOrShow(this._extensionUri, "marketplace", this._context, route);
   }
 
   private async _handleUploadQdrantPackage(payload: { filename: string; fileBase64: string }): Promise<void> {
@@ -1968,6 +2016,154 @@ export class WebviewPanel {
     }
   }
 
+  // ===== 团队周报相关处理方法 =====
+
+  private async _handleFetchTeamProjectConfig(payload: { teamId: string }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/project-config`,
+        { timeout: 10000 }
+      );
+      // 项目配置 API 直接返回数据对象
+      this._sendMessage({
+        type: "fetchTeamProjectConfig-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamProjectConfig-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleUpdateTeamProjectConfig(payload: { teamId: string; projects: Array<{ id: string; name: string; repo_url: string }> }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/project-config`,
+        { projects: payload.projects },
+        { timeout: 10000 }
+      );
+      // 更新项目配置 API 直接返回数据对象
+      this._sendMessage({
+        type: "updateTeamProjectConfig-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "updateTeamProjectConfig-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleAddTeamProject(payload: { teamId: string; name: string; repo_url: string }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/project-config/add`,
+        { name: payload.name, repo_url: payload.repo_url },
+        { timeout: 10000 }
+      );
+      // 添加项目 API 直接返回数据对象
+      this._sendMessage({
+        type: "addTeamProject-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "addTeamProject-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleRemoveTeamProject(payload: { teamId: string; projectId: string }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/project-config/remove`,
+        { project_id: payload.projectId },
+        { timeout: 10000 }
+      );
+      // 移除项目 API 直接返回数据对象
+      this._sendMessage({
+        type: "removeTeamProject-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "removeTeamProject-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchTeamWeeklyReport(payload: { teamId: string; weekStart: string }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/weekly-report`,
+        { 
+          params: { week_start: payload.weekStart },
+          timeout: 60000  // 周报可能需要较长时间收集数据
+        }
+      );
+      // 周报 API 直接返回数据对象，不使用 code 包装
+      this._sendMessage({
+        type: "fetchTeamWeeklyReport-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamWeeklyReport-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchMemberDailyDetail(payload: { teamId: string; memberId: string; date: string }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/members/${payload.memberId}/daily-detail`,
+        { 
+          params: { date: payload.date },
+          timeout: 30000 
+        }
+      );
+      // 日详情 API 直接返回数据对象
+      this._sendMessage({
+        type: "fetchMemberDailyDetail-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchMemberDailyDetail-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleRefreshTeamWeeklyStats(payload: { teamId: string; weekStart: string }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/weekly-report/refresh`,
+        null,
+        { 
+          params: { week_start: payload.weekStart },
+          timeout: 120000  // 刷新可能需要较长时间
+        }
+      );
+      // 刷新 API 返回 {success: true}
+      this._sendMessage({
+        type: "refreshTeamWeeklyStats-response",
+        data: response.data
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "refreshTeamWeeklyStats-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
   private _sendMessage(message: ExtensionMessage): void {
     this._panel.webview.postMessage(message);
   }
@@ -2034,8 +2230,6 @@ export class WebviewPanel {
       WebviewPanel.marketplacePanel = undefined;
     } else if (this._viewType === "ragSearch") {
       WebviewPanel.ragSearchPanel = undefined;
-    } else if (this._viewType === "workflow") {
-      WebviewPanel.workflowPanel = undefined;
     } else if (this._viewType === "team") {
       WebviewPanel.teamPanel = undefined;
     }

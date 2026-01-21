@@ -112,7 +112,7 @@ func (c *Client) SummarizeTurn(userText, aiText string) (*rag.TurnSummary, error
 	if err != nil {
 		return nil, fmt.Errorf("LLM API request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := c.readResponseBody(resp)
@@ -180,7 +180,7 @@ func (c *Client) TestConnection() error {
 	if err != nil {
 		return fmt.Errorf("LLM connection test failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := c.readResponseBody(resp)

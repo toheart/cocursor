@@ -3,6 +3,7 @@ package cursor
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -12,12 +13,14 @@ import (
 	"github.com/cocursor/backend/internal/infrastructure/storage"
 )
 
+// readDir 是 os.ReadDir 的封装
+var readDir = os.ReadDir
+
 // WorkAnalysisService 工作分析服务
 type WorkAnalysisService struct {
 	statsService   *StatsService
 	projectManager *ProjectManager
 	sessionRepo    storage.WorkspaceSessionRepository
-	dataMerger     *DataMerger
 	summaryRepo    storage.DailySummaryRepository
 	tokenService   *TokenService
 	logger         *slog.Logger
@@ -28,7 +31,6 @@ func NewWorkAnalysisService(
 	statsService *StatsService,
 	projectManager *ProjectManager,
 	sessionRepo storage.WorkspaceSessionRepository,
-	dataMerger *DataMerger,
 	summaryRepo storage.DailySummaryRepository,
 	tokenService *TokenService,
 ) *WorkAnalysisService {
@@ -36,7 +38,6 @@ func NewWorkAnalysisService(
 		statsService:   statsService,
 		projectManager: projectManager,
 		sessionRepo:    sessionRepo,
-		dataMerger:     dataMerger,
 		summaryRepo:    summaryRepo,
 		tokenService:   tokenService,
 		logger:         log.NewModuleLogger("cursor", "work_analysis"),
@@ -173,27 +174,11 @@ func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domai
 		entropyTrendMap[date] = append(entropyTrendMap[date], entropy)
 	}
 
-	// 获取接受率统计数据（整周汇总）
-	acceptanceStartTime := time.Now()
-	mergedAcceptanceStats, _, err := s.dataMerger.MergeAcceptanceStats(startDate, endDate)
-	if err != nil {
-		// 如果获取失败，设置为 0，不返回错误
-		mergedAcceptanceStats = &domainCursor.DailyAcceptanceStats{}
-	}
-	s.logger.Debug("acceptance stats calculated", "duration", time.Since(acceptanceStartTime))
-
-	// 计算接受率（使用模型方法）
-	mergedAcceptanceStats.CalculateAcceptanceRate()
-	overallAcceptanceRate := mergedAcceptanceStats.GetOverallAcceptanceRate()
-
 	// 构建概览
 	if totalEntropyCount > 0 {
 		analysis.Overview.TotalLinesAdded = s.sumDailyChanges(dailyChangesMap, "added")
 		analysis.Overview.TotalLinesRemoved = s.sumDailyChanges(dailyChangesMap, "removed")
 		analysis.Overview.FilesChanged = len(fileMap)
-		analysis.Overview.AcceptanceRate = overallAcceptanceRate
-		analysis.Overview.TabAcceptanceRate = mergedAcceptanceStats.TabAcceptanceRate
-		analysis.Overview.ComposerAcceptanceRate = mergedAcceptanceStats.ComposerAcceptanceRate
 		analysis.Overview.ActiveSessions = totalEntropyCount
 	}
 	// prompts 和 generations 统计已删除（需求不大）
@@ -301,14 +286,18 @@ func (s *WorkAnalysisService) GetWorkAnalysis(startDate, endDate string) (*domai
 		// 获取当日 Token 使用量
 		tokenUsage := dailyTokenMap[dateStr]
 
+		// 统计当日完成的 OpenSpec 变更数量
+		completedChanges := s.countCompletedChangesOnDate(dateStr)
+
 		dailyDetailsMap[dateStr] = &domainCursor.DailyAnalysis{
-			Date:           dateStr,
-			LinesAdded:     dailyChanges.LinesAdded,
-			LinesRemoved:   dailyChanges.LinesRemoved,
-			FilesChanged:   dailyChanges.FilesChanged,
-			ActiveSessions: dailySessionCount,
-			TokenUsage:     tokenUsage,
-			HasDailyReport: hasDailyReport,
+			Date:             dateStr,
+			LinesAdded:       dailyChanges.LinesAdded,
+			LinesRemoved:     dailyChanges.LinesRemoved,
+			FilesChanged:     dailyChanges.FilesChanged,
+			ActiveSessions:   dailySessionCount,
+			TokenUsage:       tokenUsage,
+			HasDailyReport:   hasDailyReport,
+			CompletedChanges: completedChanges,
 		}
 
 		current = current.AddDate(0, 0, 1)
@@ -494,4 +483,54 @@ func (s *WorkAnalysisService) calculateTrend(current, previous int) string {
 		return fmt.Sprintf("%.1f%%", change)
 	}
 	return "0%"
+}
+
+// countCompletedChangesOnDate 统计指定日期完成的 OpenSpec 变更数量
+// 通过扫描所有项目的 openspec/changes/archive/ 目录下文件的修改时间来判断
+func (s *WorkAnalysisService) countCompletedChangesOnDate(date string) int {
+	count := 0
+	
+	// 解析日期
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return 0
+	}
+	
+	// 遍历所有已注册的项目
+	projects := s.projectManager.ListAllProjects()
+	for _, project := range projects {
+		for _, ws := range project.Workspaces {
+			projectPath := ws.Path
+			
+			// 检查 openspec/changes/archive 目录是否存在
+			archiveDir := projectPath + "/openspec/changes/archive"
+			entries, err := readDir(archiveDir)
+			if err != nil {
+				continue // 目录不存在或无法读取，跳过
+			}
+			
+			// 遍历 archive 下的变更目录
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				
+				// 获取目录的修改时间（代表归档时间）
+				info, err := entry.Info()
+				if err != nil {
+					continue
+				}
+				
+				modTime := info.ModTime()
+				modDate := modTime.Format("2006-01-02")
+				
+				// 如果归档日期与目标日期匹配，计数 +1
+				if modDate == targetDate.Format("2006-01-02") {
+					count++
+				}
+			}
+		}
+	}
+	
+	return count
 }

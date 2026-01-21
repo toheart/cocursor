@@ -561,3 +561,152 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* ========== 搜索结果定位高亮 ========== */
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 122, 204, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 122, 204, 0);
+  }
+}
+
+.cocursor-message-highlighted {
+  animation: highlightPulse 1s ease-out;
+  position: relative;
+}
+
+.cocursor-message-highlighted::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid var(--vscode-focusBorder);
+  border-radius: 20px;
+  pointer-events: none;
+  animation: highlightFade 3s ease-out forwards;
+}
+
+@keyframes highlightFade {
+  0% {
+    opacity: 1;
+    border-color: var(--vscode-focusBorder);
+  }
+  70% {
+    opacity: 1;
+    border-color: var(--vscode-focusBorder);
+  }
+  100% {
+    opacity: 0;
+    border-color: transparent;
+  }
+}
+
+/* ========== 可折叠代码块 ========== */
+.cocursor-collapsible-code {
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-textCodeBlock-background);
+  transition: all 0.2s ease;
+}
+
+.cocursor-collapsible-code:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-code-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.cocursor-code-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-code-language {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vscode-textLink-foreground);
+  padding: 2px 8px;
+  background: rgba(55, 148, 255, 0.1);
+  border-radius: 4px;
+}
+
+.cocursor-code-info {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  flex: 1;
+}
+
+.cocursor-code-toggle {
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.cocursor-code-toggle:hover {
+  background: rgba(55, 148, 255, 0.1);
+}
+
+/* 折叠状态的代码预览 */
+.cocursor-collapsible-code.collapsed .cocursor-code-preview {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  max-height: 80px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.cocursor-collapsible-code.collapsed .cocursor-code-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--vscode-textCodeBlock-background));
+  pointer-events: none;
+}
+
+.cocursor-collapsible-code.collapsed .cocursor-code-preview:hover {
+  opacity: 1;
+}
+
+/* 展开状态的代码块 */
+.cocursor-collapsible-code.expanded .cocursor-markdown-code-block {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+/* 不需要折叠的短代码块 */
+.cocursor-collapsible-code:not(.collapsed):not(.expanded) .cocursor-markdown-code-block {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+}
+

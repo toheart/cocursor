@@ -127,7 +127,7 @@ func (d *TeamSkillDownloader) Download(ctx context.Context, req *DownloadRequest
 	d.setStatusProgress(req.PluginID, 0.7)
 
 	// 清空目标目录（如果存在）
-	os.RemoveAll(localPath)
+	_ = os.RemoveAll(localPath)
 
 	// 解包文件
 	if err := d.fileTransfer.UnpackArchive(data, localPath); err != nil {

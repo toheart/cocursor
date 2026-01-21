@@ -1,0 +1,13 @@
+dir: '{{.InterfaceDir}}/mocks'
+structname: Mock{{.InterfaceName}}
+pkgname: mocks
+template: testify
+template-data:
+  unroll-variadic: true
+packages:
+  github.com/cocursor/backend/internal/application/team:
+    interfaces:
+      HTTPClientInterface: {}
+      ProjectConfigStoreInterface: {}
+      TeamServiceInterface: {}
+      WeeklyStatsStoreInterface: {}

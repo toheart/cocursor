@@ -35,6 +35,6 @@ description: Initialize OpenSpec in the current workspace.
    - Read `AGENTS.md` (if exists)
    - Add OPENSPEC:START/END block if not present
    - Create `AGENTS.md` if not exists
-7. **Call cocursor MCP tool `record_openspec_workflow`** to record: `stage: "init", status: "completed"`
+7. **Call `mcp__cocursor__record_openspec_workflow`** to record: `stage: "init", status: "completed"`
 8. Display success message with next steps
 <!-- OPENSPEC:END -->

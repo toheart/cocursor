@@ -45,7 +45,7 @@ func (m *ConnectionManager) Connect(teamID, endpoint string) error {
 	
 	// 如果已有连接，先关闭
 	if existing, ok := m.clients[teamID]; ok {
-		existing.Close()
+		_ = existing.Close()
 		delete(m.clients, teamID)
 	}
 
@@ -137,7 +137,7 @@ func (m *ConnectionManager) Disconnect(teamID string) error {
 		return nil
 	}
 
-	client.Close()
+	_ = client.Close()
 	delete(m.clients, teamID)
 
 	m.logger.Info("disconnected from team",
@@ -203,7 +203,7 @@ func (m *ConnectionManager) Close() error {
 	defer m.mu.Unlock()
 
 	for teamID, client := range m.clients {
-		client.Close()
+		_ = client.Close()
 		m.logger.Info("closed connection",
 			"team_id", teamID,
 		)

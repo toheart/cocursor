@@ -85,7 +85,7 @@ func (c *WebSocketClient) Connect(ctx context.Context) error {
 
 	// 发送认证
 	if err := c.authenticate(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		c.mu.Lock()
 		c.state = p2p.StateDisconnected
 		c.conn = nil
@@ -138,12 +138,12 @@ func (c *WebSocketClient) authenticate() error {
 	}
 
 	// 等待认证结果
-	c.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_ = c.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	_, message, err := c.conn.ReadMessage()
 	if err != nil {
 		return err
 	}
-	c.conn.SetReadDeadline(time.Time{})
+	_ = c.conn.SetReadDeadline(time.Time{})
 
 	var event p2p.Event
 	if err := json.Unmarshal(message, &event); err != nil {
@@ -324,7 +324,7 @@ func (c *WebSocketClient) Close() error {
 	}
 
 	if c.conn != nil {
-		c.conn.Close()
+		_ = c.conn.Close()
 		c.conn = nil
 	}
 	c.state = p2p.StateDisconnected

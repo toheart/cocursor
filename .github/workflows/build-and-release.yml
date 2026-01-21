@@ -159,12 +159,14 @@ jobs:
         shell: bash
 
       # 构建后端 daemon（带版本信息）
+      # 使用 CGO_ENABLED=0 禁用 CGO，确保生成静态链接的二进制文件
+      # 这样可以避免对 glibc 版本的依赖，提高跨 Linux 发行版的兼容性
       - name: Build backend daemon (Unix-like)
         if: runner.os != 'Windows'
         working-directory: backend
         run: |
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-            -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }}" \
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
+            -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=${{ github.sha }} -extldflags '-static'" \
             -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
           chmod +x ../co-extension/bin/cocursor-${{ matrix.binary_suffix }}
 
@@ -173,7 +175,7 @@ jobs:
         working-directory: backend
         shell: pwsh
         run: |
-          $env:GOOS="${{ matrix.goos }}"; $env:GOARCH="${{ matrix.goarch }}"
+          $env:CGO_ENABLED="0"; $env:GOOS="${{ matrix.goos }}"; $env:GOARCH="${{ matrix.goarch }}"
           $buildTime = (Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ')
           go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildTime=$buildTime -X main.GitCommit=${{ github.sha }}" -o ../co-extension/bin/cocursor-${{ matrix.binary_suffix }} ./cmd/server
 

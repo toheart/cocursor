@@ -561,6 +561,12 @@
   color: #c586c0;
 }
 
+.cocursor-daily-card-icon.changes {
+  background: rgba(78, 201, 176, 0.3);
+  color: var(--vscode-testing-iconPassed);
+  font-weight: bold;
+}
+
 .cocursor-daily-card-metric-content {
   flex: 1;
   min-width: 0;
@@ -745,6 +751,16 @@
   animation: spin 0.8s linear infinite;
 }
 
+.cocursor-loading-spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--vscode-button-foreground);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -838,5 +854,480 @@
   padding: 16px 24px;
   border-top: 1px solid var(--vscode-panel-border);
   background: var(--vscode-sideBar-background);
+}
+
+/* ============================
+   日报展示增强样式
+   ============================ */
+
+/* 头部操作按钮组 */
+.cocursor-work-daily-report-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-btn.icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-foreground);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.cocursor-btn.icon-btn:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-btn.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 日报内容容器 */
+.cocursor-daily-report-content {
+  padding: 20px 24px;
+  max-height: calc(85vh - 180px);
+  overflow-y: auto;
+}
+
+/* 截图模式样式 */
+.cocursor-daily-report-content.screenshot-mode {
+  max-height: none;
+  overflow: visible;
+  padding: 24px;
+  background: var(--vscode-editor-background);
+}
+
+/* 区块标题 */
+.cocursor-daily-report-section {
+  margin-bottom: 24px;
+}
+
+.cocursor-daily-report-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-daily-report-section-title .section-icon {
+  font-size: 18px;
+}
+
+/* 统计卡片网格 */
+.cocursor-daily-report-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 500px) {
+  .cocursor-daily-report-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.cocursor-daily-report-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  transition: transform 0.2s ease;
+}
+
+.cocursor-daily-report-stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.cocursor-daily-report-stat-card .cocursor-daily-report-stat-icon {
+  font-size: 24px;
+}
+
+.cocursor-daily-report-stat-card .cocursor-daily-report-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  line-height: 1;
+}
+
+.cocursor-daily-report-stat-card .cocursor-daily-report-stat-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 工作分类图表 */
+.cocursor-work-categories-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cocursor-work-category-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocursor-work-category-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+  font-size: 13px;
+}
+
+.cocursor-work-category-label .category-icon {
+  font-size: 16px;
+}
+
+.cocursor-work-category-label .category-name {
+  color: var(--vscode-foreground);
+}
+
+.cocursor-work-category-bar-container {
+  flex: 1;
+  height: 20px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cocursor-work-category-bar {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.cocursor-work-category-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+  font-size: 12px;
+  justify-content: flex-end;
+}
+
+.cocursor-work-category-stats .category-percentage {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-work-category-stats .category-count {
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 时间分布网格 */
+.cocursor-time-distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.cocursor-time-slot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-time-slot-card .time-slot-icon {
+  font-size: 24px;
+}
+
+.cocursor-time-slot-card .time-slot-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-time-slot-card .time-slot-range {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-time-slot-card .time-slot-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.cocursor-time-slot-card .time-slot-sessions {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-time-slot-card .time-slot-hours {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 代码变更统计 */
+.cocursor-code-changes-stats {
+  display: flex;
+  gap: 24px;
+  padding: 16px 20px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-code-change-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-code-change-item .change-indicator {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.cocursor-code-change-item.added .change-indicator {
+  color: #4CAF50;
+}
+
+.cocursor-code-change-item.removed .change-indicator {
+  color: #F44336;
+}
+
+.cocursor-code-change-item.files .change-indicator {
+  font-size: 16px;
+}
+
+.cocursor-code-change-item .change-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-code-change-item .change-label {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 项目详情列表 */
+.cocursor-project-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cocursor-project-detail-card {
+  background: var(--vscode-sideBar-background);
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  overflow: hidden;
+}
+
+.cocursor-project-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cocursor-project-detail-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-project-detail-header .project-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-project-detail-header .project-icon {
+  font-size: 18px;
+}
+
+.cocursor-project-detail-header .project-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-detail-header .project-session-count {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-detail-header .expand-icon {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  transition: transform 0.2s ease;
+}
+
+.cocursor-project-detail-header .expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.cocursor-project-detail-content {
+  padding: 0 16px 16px 16px;
+  border-top: 1px solid var(--vscode-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 工作项列表 */
+.cocursor-project-detail-content .project-work-items {
+  margin-top: 12px;
+}
+
+.cocursor-project-detail-content .work-items-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+.cocursor-project-detail-content .work-items-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cocursor-project-detail-content .work-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cocursor-project-detail-content .work-item-category {
+  font-size: 14px;
+}
+
+.cocursor-project-detail-content .work-item-description {
+  color: var(--vscode-foreground);
+  line-height: 1.4;
+}
+
+/* 活跃时段 */
+.cocursor-project-detail-content .project-active-hours {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cocursor-project-detail-content .active-hours-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-detail-content .active-hours-value {
+  color: var(--vscode-textLink-foreground);
+  font-weight: 500;
+}
+
+/* 代码变更 */
+.cocursor-project-detail-content .project-code-changes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.cocursor-project-detail-content .code-changes-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-detail-content .code-changes-added {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.cocursor-project-detail-content .code-changes-removed {
+  color: #F44336;
+  font-weight: 600;
+}
+
+.cocursor-project-detail-content .code-changes-files {
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 会话列表 */
+.cocursor-project-detail-content .project-sessions {
+  margin-top: 4px;
+}
+
+.cocursor-project-detail-content .sessions-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+.cocursor-project-detail-content .sessions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cocursor-project-detail-content .session-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cocursor-project-detail-content .session-name {
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-detail-content .session-meta {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-detail-content .session-more {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+/* 水印 */
+.cocursor-daily-report-watermark {
+  text-align: center;
+  padding: 16px;
+  margin-top: 24px;
+  border-top: 1px solid var(--vscode-panel-border);
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
 }
 

@@ -203,7 +203,7 @@ func (c *Client) embedTextsWithRetry(texts []string, maxRetries int) ([][]float3
 				"max_retries", maxRetries,
 				"status_code", resp.StatusCode,
 			)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		if retry < maxRetries-1 {
 			time.Sleep(time.Duration(retry+1) * time.Second) // 递增延迟

@@ -424,6 +424,39 @@ func (pm *ProjectManager) ListAllProjects() []*domainCursor.ProjectInfo {
 	return projects
 }
 
+// FindProjectByRemoteURL 根据远程 URL 查找项目
+func (pm *ProjectManager) FindProjectByRemoteURL(remoteURL string) (*domainCursor.ProjectInfo, error) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	// 规范化 URL 进行匹配
+	normalizedTarget := normalizeGitURL(remoteURL)
+
+	for _, project := range pm.projects {
+		if project.GitRemoteURL != "" {
+			if normalizeGitURL(project.GitRemoteURL) == normalizedTarget {
+				return project, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("project not found for remote URL: %s", remoteURL)
+}
+
+// normalizeGitURL 规范化 Git URL 用于比较
+func normalizeGitURL(url string) string {
+	normalized := strings.ToLower(url)
+	normalized = strings.TrimSuffix(normalized, ".git")
+	normalized = strings.TrimPrefix(normalized, "https://")
+	normalized = strings.TrimPrefix(normalized, "http://")
+	normalized = strings.TrimPrefix(normalized, "ssh://")
+	if strings.HasPrefix(normalized, "git@") {
+		normalized = strings.TrimPrefix(normalized, "git@")
+		normalized = strings.Replace(normalized, ":", "/", 1)
+	}
+	return normalized
+}
+
 // RegisterWorkspace 注册工作区并更新项目分组
 // 如果工作区已存在，只更新运行时状态；如果不存在，触发增量扫描和分组
 func (pm *ProjectManager) RegisterWorkspace(path string) (*WorkspaceState, error) {

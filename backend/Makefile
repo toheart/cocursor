@@ -199,6 +199,7 @@ endif
 
 # ============================================================================
 # 多平台构建（输出到 extension/bin）
+# 使用 CGO_ENABLED=0 确保静态链接，避免 glibc 版本依赖问题
 # ============================================================================
 
 build-all: wire build-windows build-windows-arm64 build-darwin build-linux
@@ -207,37 +208,37 @@ build-all: wire build-windows build-windows-arm64 build-darwin build-linux
 build-windows:
 	$(call ensure_dir,$(EXT_BIN_DIR))
 ifeq ($(OS),Windows_NT)
-	set GOOS=windows&& set GOARCH=amd64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-amd64.exe ./cmd/server
+	set CGO_ENABLED=0&& set GOOS=windows&& set GOARCH=amd64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-amd64.exe ./cmd/server
 else
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-amd64.exe ./cmd/server
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-amd64.exe ./cmd/server
 endif
 
 build-windows-arm64:
 	$(call ensure_dir,$(EXT_BIN_DIR))
 ifeq ($(OS),Windows_NT)
-	set GOOS=windows&& set GOARCH=arm64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-arm64.exe ./cmd/server
+	set CGO_ENABLED=0&& set GOOS=windows&& set GOARCH=arm64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-arm64.exe ./cmd/server
 else
-	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-arm64.exe ./cmd/server
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-windows-arm64.exe ./cmd/server
 endif
 
 build-darwin:
 	$(call ensure_dir,$(EXT_BIN_DIR))
 ifeq ($(OS),Windows_NT)
-	set GOOS=darwin&& set GOARCH=amd64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-amd64 ./cmd/server
-	set GOOS=darwin&& set GOARCH=arm64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-arm64 ./cmd/server
+	set CGO_ENABLED=0&& set GOOS=darwin&& set GOARCH=amd64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-amd64 ./cmd/server
+	set CGO_ENABLED=0&& set GOOS=darwin&& set GOARCH=arm64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-arm64 ./cmd/server
 else
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-amd64 ./cmd/server
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-arm64 ./cmd/server
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-amd64 ./cmd/server
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-darwin-arm64 ./cmd/server
 endif
 
 build-linux:
 	$(call ensure_dir,$(EXT_BIN_DIR))
 ifeq ($(OS),Windows_NT)
-	set GOOS=linux&& set GOARCH=amd64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-amd64 ./cmd/server
-	set GOOS=linux&& set GOARCH=arm64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-arm64 ./cmd/server
+	set CGO_ENABLED=0&& set GOOS=linux&& set GOARCH=amd64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-amd64 ./cmd/server
+	set CGO_ENABLED=0&& set GOOS=linux&& set GOARCH=arm64&& go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-arm64 ./cmd/server
 else
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-amd64 ./cmd/server
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-arm64 ./cmd/server
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-amd64 ./cmd/server
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(EXT_BIN_DIR)/cocursor-linux-arm64 ./cmd/server
 endif
 
 # ============================================================================

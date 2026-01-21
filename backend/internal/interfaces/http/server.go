@@ -7,12 +7,15 @@ import (
 
 	"log/slog"
 
+	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	appMarketplace "github.com/cocursor/backend/internal/application/marketplace"
 	appTeam "github.com/cocursor/backend/internal/application/team"
+	"github.com/cocursor/backend/internal/infrastructure/git"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
+	p2pHandler "github.com/cocursor/backend/internal/interfaces/p2p/handler"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -29,6 +32,8 @@ type HTTPServer struct {
 	teamComponents   *appTeam.TeamComponents
 	pluginService    *appMarketplace.PluginService
 	dailySummaryRepo storage.DailySummaryRepository
+	sessionRepo      storage.WorkspaceSessionRepository
+	projectManager   *appCursor.ProjectManager
 }
 
 // NewServer 创建 HTTP 服务器
@@ -39,12 +44,13 @@ func NewServer(
 	analyticsHandler *handler.AnalyticsHandler,
 	workspaceHandler *handler.WorkspaceHandler,
 	marketplaceHandler *handler.MarketplaceHandler,
-	workflowHandler *handler.WorkflowHandler,
 	ragHandler *handler.RAGHandler,
 	dailySummaryHandler *handler.DailySummaryHandler,
 	mcpServer *mcp.MCPServer,
 	pluginService *appMarketplace.PluginService,
 	dailySummaryRepo storage.DailySummaryRepository,
+	sessionRepo storage.WorkspaceSessionRepository,
+	projectManager *appCursor.ProjectManager,
 ) *HTTPServer {
 	router := gin.Default()
 
@@ -88,11 +94,6 @@ func NewServer(
 			marketplace.POST("/plugins/:id/uninstall", marketplaceHandler.UninstallPlugin)
 			marketplace.GET("/plugins/:id/status", marketplaceHandler.CheckPluginStatus)
 		}
-
-		// 工作流相关路由
-		api.GET("/workflows", workflowHandler.ListWorkflows)
-		api.GET("/workflows/status", workflowHandler.GetWorkflowStatus)
-		api.GET("/workflows/:change_id", workflowHandler.GetWorkflowDetail)
 
 		// 日报相关路由
 		if dailySummaryHandler != nil {
@@ -156,6 +157,8 @@ func NewServer(
 		logger:           logger,
 		pluginService:    pluginService,
 		dailySummaryRepo: dailySummaryRepo,
+		sessionRepo:      sessionRepo,
+		projectManager:   projectManager,
 	}
 
 	// 尝试初始化团队服务（可选功能，失败不影响主服务）
@@ -254,16 +257,37 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		team.POST("/:id/daily-summaries/share", collaborationHandler.ShareDailySummary)
 		team.GET("/:id/daily-summaries", collaborationHandler.GetDailySummaries)
 		team.GET("/:id/daily-summaries/:member_id", collaborationHandler.GetDailySummaryDetail)
+
+		// 周报功能
+		weeklyReportHandler := handler.NewTeamWeeklyReportHandler(components.WeeklyReportService)
+		team.GET("/:id/project-config", weeklyReportHandler.GetProjectConfig)
+		team.POST("/:id/project-config", weeklyReportHandler.UpdateProjectConfig)
+		team.POST("/:id/project-config/add", weeklyReportHandler.AddProject)
+		team.POST("/:id/project-config/remove", weeklyReportHandler.RemoveProject)
+		team.GET("/:id/weekly-report", weeklyReportHandler.GetWeeklyReport)
+		team.GET("/:id/members/:member_id/daily-detail", weeklyReportHandler.GetMemberDailyDetail)
+		team.POST("/:id/weekly-report/refresh", weeklyReportHandler.RefreshWeeklyStats)
 	}
 
 	// 注册 P2P 路由（所有成员都暴露）
 	p2p := s.router.Group("/p2p")
 	{
-		p2pHandler := handler.NewP2PHandler(components.SkillPublisher)
-		p2p.GET("/health", p2pHandler.Health)
-		p2p.GET("/skills/:id/meta", p2pHandler.GetSkillMeta)
-		p2p.GET("/skills/:id/download", p2pHandler.DownloadSkill)
-		p2p.GET("/daily-summary", p2pHandler.GetDailySummary)
+		skillHandler := handler.NewP2PHandler(components.SkillPublisher)
+		p2p.GET("/health", skillHandler.Health)
+		p2p.GET("/skills/:id/meta", skillHandler.GetSkillMeta)
+		p2p.GET("/skills/:id/download", skillHandler.DownloadSkill)
+		p2p.GET("/daily-summary", skillHandler.GetDailySummary)
+
+		// 周报统计 P2P 接口
+		gitCollector := git.NewStatsCollector()
+		weeklyStatsHandler := p2pHandler.NewWeeklyStatsHandler(
+			gitCollector,
+			s.sessionRepo,
+			s.dailySummaryRepo,
+			s.projectManager,
+		)
+		p2p.GET("/weekly-stats", weeklyStatsHandler.GetWeeklyStats)
+		p2p.GET("/daily-detail", weeklyStatsHandler.GetDailyDetail)
 	}
 }
 

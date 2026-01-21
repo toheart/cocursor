@@ -116,16 +116,6 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
           },
           "graph"
         ),
-        new SidebarItem(
-          t("sidebar.workflow"),
-          vscode.TreeItemCollapsibleState.None,
-          {
-            command: "cocursor.openWorkflows",
-            title: t("sidebar.openWorkflow"),
-            arguments: []
-          },
-          "git-branch"
-        ),
         // 隐藏最近对话功能
         // new SidebarItem(
         //   t("sidebar.recentSessions"),

@@ -88,7 +88,8 @@ type Plugin struct {
 
 // SkillComponent Skill 组件
 type SkillComponent struct {
-	SkillName string `json:"skill_name"` // skill 目录名
+	SkillName   string `json:"skill_name"`             // skill 目录名
+	Description string `json:"description,omitempty"`  // 使用说明（从 SKILL.md frontmatter 读取）
 }
 
 // MCPComponent MCP 组件

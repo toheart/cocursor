@@ -242,7 +242,7 @@ func (m *NetworkManager) CheckPortAvailable(port int) error {
 	if err != nil {
 		return team.ErrPortInUse
 	}
-	listener.Close()
+	_ = listener.Close()
 	return nil
 }
 

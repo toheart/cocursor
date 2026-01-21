@@ -3,27 +3,37 @@ import axios from "axios";
 import { WebviewPanel } from "./webviewPanel";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
 import { DaemonManager } from "./daemon/daemonManager";
+import { ReminderService } from "./reminder/reminderService";
 import { checkAndReportProject } from "./utils/projectReporter";
 import { watchWorkspaceChanges } from "./utils/workspaceDetector";
 import { initI18n } from "./utils/i18n";
+import { Logger } from "./utils/logger";
 
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
 let daemonManager: DaemonManager | null = null;
+let reminderService: ReminderService | null = null;
 let windowStateListener: vscode.Disposable | null = null;
 let activeEditorListener: vscode.Disposable | null = null;
 let statusReportThrottle: NodeJS.Timeout | null = null;
 let lastReportedStatus: { project: string; file: string } | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
+  // 初始化 Logger（优先初始化，确保后续日志可见）
+  Logger.init(context);
+  
+  // 自动显示两个 Output 面板（不抢占焦点）
+  Logger.showMain(true);
+  Logger.showBackend(true);
+  
   // 初始化 i18n
   initI18n(context);
   
-  // 使用多个日志输出，确保能看到
-  console.log("========================================");
-  console.log("CoCursor Extension 已激活！");
-  console.log("Extension URI:", context.extensionUri.toString());
-  console.log("========================================");
+  // 输出扩展激活日志
+  Logger.info("========================================");
+  Logger.info("CoCursor Extension 已激活！");
+  Logger.info(`Extension URI: ${context.extensionUri.toString()}`);
+  Logger.info("========================================");
   
   // 只在首次激活时显示通知
   const isFirstActivation = context.globalState.get<boolean>("cocursor.firstActivation", true);
@@ -74,7 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // 监听工作区变化
   const workspaceWatcher = watchWorkspaceChanges((newPath) => {
-    console.log(`CoCursor: 检测到工作区变化: ${newPath}`);
+    Logger.debug(`检测到工作区变化: ${newPath}`);
     checkAndReportProject();
   });
   context.subscriptions.push(workspaceWatcher);
@@ -92,12 +102,12 @@ export function activate(context: vscode.ExtensionContext): void {
   // 注册命令
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openDashboard", () => {
-      console.log("命令 cocursor.openDashboard 被调用");
+      Logger.debug("命令 cocursor.openDashboard 被调用");
       try {
         WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", context, "/");
-        console.log("WebviewPanel.createOrShow 调用成功");
+        Logger.debug("WebviewPanel.createOrShow 调用成功");
       } catch (error) {
-        console.error("打开工作分析失败:", error);
+        Logger.error(`打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`);
         vscode.window.showErrorMessage(`打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
@@ -105,7 +115,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.refreshTasks", () => {
-      vscode.window.showInformationMessage("刷新任务列表");
+      // 刷新所有 Webview 面板的数据
+      WebviewPanel.notifyRefresh();
+      Logger.debug("已发送刷新通知到所有 Webview 面板");
+    })
+  );
+
+  // 刷新 Webview 数据的命令（支持指定数据类型）
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.refreshWebview", (dataType?: string) => {
+      WebviewPanel.notifyRefresh(undefined, dataType);
+      Logger.debug(`已发送刷新通知 (dataType: ${dataType || "all"})`);
     })
   );
 
@@ -165,12 +185,6 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openRAGSearch", () => {
       WebviewPanel.createOrShow(context.extensionUri, "ragSearch", context, "/");
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("cocursor.openWorkflows", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "workflow", context, "/");
     })
   );
 
@@ -254,7 +268,20 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  console.log("CoCursor: 所有命令已注册完成");
+  // 初始化并启动提醒服务
+  reminderService = new ReminderService(context);
+  reminderService.start();
+
+  // 监听提醒配置变化
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("cocursor.reminder")) {
+        Logger.debug("提醒配置已变更");
+      }
+    })
+  );
+
+  Logger.info("所有命令已注册完成");
 }
 
 // 分享选中的代码到团队
@@ -393,14 +420,14 @@ function throttledReportWorkStatus(editor: vscode.TextEditor): void {
       lastReportedStatus = { project: projectName, file: relativePath };
     } catch (error) {
       // 静默失败
-      console.log("CoCursor: 工作状态上报失败:", error instanceof Error ? error.message : String(error));
+      Logger.debug(`工作状态上报失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, 30000); // 30 秒节流
 }
 
 async function startBackendServer(_context: vscode.ExtensionContext): Promise<void> {
   if (!daemonManager) {
-    console.error("DaemonManager 未初始化");
+    Logger.error("DaemonManager 未初始化");
     return;
   }
 
@@ -408,19 +435,19 @@ async function startBackendServer(_context: vscode.ExtensionContext): Promise<vo
     // 先检查是否已有实例运行
     const isRunning = await daemonManager.isRunning();
     if (isRunning) {
-      console.log("后端服务器已在运行");
+      Logger.info("后端服务器已在运行");
       return;
     }
 
     // 启动后端服务器
     await daemonManager.start();
-    console.log("后端服务器启动成功");
+    Logger.info("后端服务器启动成功");
     
     // 等待服务器完全启动（给一点时间）
     await new Promise((resolve) => setTimeout(resolve, 1000));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`启动后端服务器失败: ${message}`);
+    Logger.error(`启动后端服务器失败: ${message}`);
     vscode.window.showErrorMessage(`启动后端服务器失败: ${message}`);
   }
 }
@@ -430,12 +457,12 @@ async function registerWorkspace(): Promise<void> {
   try {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
-      console.log("CoCursor: 没有打开的工作区，跳过注册");
+      Logger.debug("没有打开的工作区，跳过注册");
       return;
     }
 
     const fsPath = workspaceFolders[0].uri.fsPath;
-    console.log(`CoCursor: 注册工作区: ${fsPath}`);
+    Logger.info(`注册工作区: ${fsPath}`);
 
     // 调用后端 API 注册工作区
     const response = await axios.post(
@@ -445,12 +472,12 @@ async function registerWorkspace(): Promise<void> {
     );
 
     if (response.data.workspaceID) {
-      console.log(`CoCursor: 工作区注册成功，WorkspaceID: ${response.data.workspaceID}`);
+      Logger.info(`工作区注册成功，WorkspaceID: ${response.data.workspaceID}`);
     }
   } catch (error) {
     // 静默失败，不阻塞扩展激活
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`CoCursor: 工作区注册失败（可能后端未启动）: ${message}`);
+    Logger.warn(`工作区注册失败（可能后端未启动）: ${message}`);
   }
 }
 
@@ -463,19 +490,19 @@ async function updateWorkspaceFocus(): Promise<void> {
     }
 
     const fsPath = workspaceFolders[0].uri.fsPath;
-    console.log(`CoCursor: 更新工作区焦点: ${fsPath}`);
+    Logger.debug(`更新工作区焦点: ${fsPath}`);
 
-      // 调用后端 API 更新焦点
-      await axios.post(
-        "http://localhost:19960/api/v1/workspace/focus",
-        { path: fsPath },
-        { timeout: 5000 }
-      );
+    // 调用后端 API 更新焦点
+    await axios.post(
+      "http://localhost:19960/api/v1/workspace/focus",
+      { path: fsPath },
+      { timeout: 5000 }
+    );
       
   } catch (error) {
     // 静默失败
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`CoCursor: 更新工作区焦点失败: ${message}`);
+    Logger.debug(`更新工作区焦点失败: ${message}`);
   }
 }
 
@@ -501,6 +528,12 @@ export function deactivate(): void {
   if (statusReportThrottle) {
     clearTimeout(statusReportThrottle);
     statusReportThrottle = null;
+  }
+
+  // 停止提醒服务
+  if (reminderService) {
+    reminderService.stop();
+    reminderService = null;
   }
 
   // 停止后端服务器

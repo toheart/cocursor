@@ -42,8 +42,14 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 		return fmt.Errorf("failed to marshal work_categories: %w", err)
 	}
 
-	// Projects 信息已经包含在 summary 文本中（Markdown 格式）
-	// 如果需要单独存储和查询 projects，可以创建关联表
+	// 序列化 projects 为 JSON
+	var projectsJSON string
+	if summary.Projects != nil && len(summary.Projects) > 0 {
+		projectsBytes, err := json.Marshal(summary.Projects)
+		if err == nil {
+			projectsJSON = string(projectsBytes)
+		}
+	}
 
 	// 序列化新字段为 JSON
 	var codeChangesJSON, timeDistributionJSON, efficiencyMetricsJSON string
@@ -69,8 +75,8 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 	// 使用 INSERT OR REPLACE 实现 upsert
 	query := `
 		INSERT OR REPLACE INTO daily_summaries 
-		(id, date, summary, language, work_categories, total_sessions, code_changes, time_distribution, efficiency_metrics, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		(id, date, summary, language, work_categories, total_sessions, projects, code_changes, time_distribution, efficiency_metrics, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	now := time.Now()
 	createdAt := summary.CreatedAt
@@ -89,6 +95,7 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 		summary.Language,
 		string(workCategoriesJSON),
 		summary.TotalSessions,
+		projectsJSON,
 		codeChangesJSON,
 		timeDistributionJSON,
 		efficiencyMetricsJSON,
@@ -106,13 +113,13 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 // FindByDate 按日期查询每日总结
 func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySummary, error) {
 	query := `
-		SELECT id, date, summary, language, work_categories, total_sessions, code_changes, time_distribution, efficiency_metrics, created_at, updated_at
+		SELECT id, date, summary, language, work_categories, total_sessions, projects, code_changes, time_distribution, efficiency_metrics, created_at, updated_at
 		FROM daily_summaries
 		WHERE date = ?`
 
 	var summary domainCursor.DailySummary
 	var workCategoriesJSON string
-	var codeChangesJSON, timeDistributionJSON, efficiencyMetricsJSON sql.NullString
+	var projectsJSON, codeChangesJSON, timeDistributionJSON, efficiencyMetricsJSON sql.NullString
 	var createdAt, updatedAt int64
 
 	err := r.db.QueryRow(query, date).Scan(
@@ -122,6 +129,7 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 		&summary.Language,
 		&workCategoriesJSON,
 		&summary.TotalSessions,
+		&projectsJSON,
 		&codeChangesJSON,
 		&timeDistributionJSON,
 		&efficiencyMetricsJSON,
@@ -139,6 +147,13 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 	// 反序列化 work_categories
 	if err := json.Unmarshal([]byte(workCategoriesJSON), &summary.WorkCategories); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal work_categories: %w", err)
+	}
+
+	// 反序列化 projects
+	if projectsJSON.Valid && projectsJSON.String != "" {
+		if err := json.Unmarshal([]byte(projectsJSON.String), &summary.Projects); err != nil {
+			// 忽略反序列化错误，字段可为空
+		}
 	}
 
 	// 反序列化新字段（如果存在）
@@ -161,10 +176,6 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 	// 转换时间戳
 	summary.CreatedAt = time.Unix(createdAt, 0)
 	summary.UpdatedAt = time.Unix(updatedAt, 0)
-
-	// Projects 信息存储在 summary 文本中（Markdown 格式）
-	// 如果需要单独存储和查询，可以创建关联表
-	// 这里简化处理，projects 信息从 summary 文本中解析
 
 	return &summary, nil
 }

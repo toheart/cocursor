@@ -32,6 +32,7 @@ type SyncService struct {
 	onSkillDelete func(teamID, pluginID string)
 	onMemberChange func(teamID string, memberID string, online bool)
 	onTeamDissolved func(teamID string)
+	onProjectConfigUpdate func(teamID string, config *domainTeam.TeamProjectConfig)
 
 	logger *slog.Logger
 }
@@ -71,6 +72,13 @@ func (s *SyncService) SetEventCallbacks(
 	s.onSkillDelete = onSkillDelete
 	s.onMemberChange = onMemberChange
 	s.onTeamDissolved = onTeamDissolved
+}
+
+// SetOnProjectConfigUpdate 设置项目配置更新回调
+func (s *SyncService) SetOnProjectConfigUpdate(callback func(teamID string, config *domainTeam.TeamProjectConfig)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onProjectConfigUpdate = callback
 }
 
 // SyncSkillIndex 从 Leader 同步技能目录
@@ -159,6 +167,8 @@ func (s *SyncService) HandleWebSocketEvent(event *p2p.Event) error {
 		return s.handleMemberOffline(event)
 	case p2p.EventTeamDissolved:
 		return s.handleTeamDissolved(event)
+	case p2p.EventProjectConfigUpdated:
+		return s.handleProjectConfigUpdated(event)
 	default:
 		s.logger.Debug("ignoring unknown event type",
 			"type", event.Type,
@@ -408,6 +418,44 @@ func (s *SyncService) handleTeamDissolved(event *p2p.Event) error {
 
 	if callback != nil {
 		callback(event.TeamID)
+	}
+
+	return nil
+}
+
+// handleProjectConfigUpdated 处理项目配置更新事件
+func (s *SyncService) handleProjectConfigUpdated(event *p2p.Event) error {
+	var payload p2p.ProjectConfigPayload
+	if err := event.ParsePayload(&payload); err != nil {
+		return err
+	}
+
+	s.logger.Info("project config updated event received",
+		"team_id", event.TeamID,
+		"project_count", len(payload.Projects),
+	)
+
+	// 转换为领域模型
+	config := &domainTeam.TeamProjectConfig{
+		TeamID:    event.TeamID,
+		Projects:  make([]domainTeam.ProjectMatcher, len(payload.Projects)),
+		UpdatedAt: payload.UpdatedAt,
+	}
+	for i, p := range payload.Projects {
+		config.Projects[i] = domainTeam.ProjectMatcher{
+			ID:      p.ID,
+			Name:    p.Name,
+			RepoURL: p.RepoURL,
+		}
+	}
+
+	// 触发回调
+	s.mu.RLock()
+	callback := s.onProjectConfigUpdate
+	s.mu.RUnlock()
+
+	if callback != nil {
+		callback(event.TeamID, config)
 	}
 
 	return nil

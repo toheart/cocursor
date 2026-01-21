@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Session, SessionHealth } from "../types";
 import { apiService, getVscodeApi } from "../services/api";
-import { useApi, useMounted, useVisibilityInterval } from "../hooks";
+import { useApi, useMounted, useVisibilityInterval, useDataRefresh } from "../hooks";
 import { shouldWarnAboutEntropy, formatShortDate } from "../utils";
 import { Button, Loading, EmptyState, ErrorState, SessionHealthCard } from "./shared";
 
@@ -63,10 +63,6 @@ export const App: React.FC = () => {
     [navigate]
   );
 
-  const handleWorkflowClick = useCallback(() => {
-    navigate("/workflows");
-  }, [navigate]);
-
   const sendEntropyWarning = useCallback(
     (entropy: number, message: string) => {
       if (!isMounted.current) return;
@@ -106,13 +102,21 @@ export const App: React.FC = () => {
     }
   }, SESSION_HEALTH_POLL_INTERVAL);
 
+  // 监听来自 Extension 的刷新通知
+  useDataRefresh(
+    useCallback(() => {
+      console.log("[App] received refresh notification, reloading data");
+      loadChats();
+      loadSessionHealth();
+    }, [loadChats, loadSessionHealth])
+  );
+
   // ========== 渲染 ==========
   return (
     <div className="cocursor-app">
       <AppHeader onRefresh={loadChats} loading={loading} />
 
       <main className="cocursor-main" style={{ padding: "16px" }}>
-        <QuickActions onWorkflowClick={handleWorkflowClick} />
 
         {sessionHealth && (
           <SessionHealthCard
@@ -173,19 +177,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onRefresh, loading }) => {
       >
         {loading ? t("common.loading") : t("common.refresh")}
       </Button>
-    </div>
-  );
-};
-
-interface QuickActionsProps {
-  onWorkflowClick: () => void;
-}
-
-const QuickActions: React.FC<QuickActionsProps> = ({ onWorkflowClick }) => {
-  const { t } = useTranslation();
-  return (
-    <div style={{ marginBottom: "16px", display: "flex", gap: "12px" }}>
-      <Button onClick={onWorkflowClick}>{t("app.workflowButton")}</Button>
     </div>
   );
 };

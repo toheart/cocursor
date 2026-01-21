@@ -12,6 +12,7 @@ import { SkillPublish } from "./SkillPublish";
 import { ToastContainer } from "../shared/ToastContainer";
 import { CodeShareList } from "./CodeShareNotification";
 import { DailyReportTab } from "./DailyReportTab";
+import { WeeklyReport } from "./WeeklyReport";
 
 interface MemberListProps {
   team: Team;
@@ -22,7 +23,7 @@ interface MemberListProps {
 export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh }) => {
   const { t } = useTranslation();
   const { showToast, toasts } = useToast();
-  const [activeTab, setActiveTab] = useState<"members" | "skills" | "reports">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "skills" | "reports" | "weekly">("members");
   const [showPublish, setShowPublish] = useState(false);
   const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>([]);
   const [memberStatuses, setMemberStatuses] = useState<Record<string, { project: string; file: string }>>({});
@@ -230,6 +231,13 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
           <span className="cocursor-team-detail-tab-icon">📝</span>
           {t("team.dailyReports")}
         </button>
+        <button
+          className={`cocursor-team-detail-tab ${activeTab === "weekly" ? "active" : ""}`}
+          onClick={() => setActiveTab("weekly")}
+        >
+          <span className="cocursor-team-detail-tab-icon">📊</span>
+          {t("weeklyReport.title")}
+        </button>
       </div>
 
       {/* 成员列表 */}
@@ -309,6 +317,11 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
       {/* 日报列表 */}
       {activeTab === "reports" && (
         <DailyReportTab teamId={team.id} onRefresh={onRefresh} />
+      )}
+
+      {/* 周报视图 */}
+      {activeTab === "weekly" && (
+        <WeeklyReport teamId={team.id} isLeader={team.is_leader} />
       )}
 
       {/* 发布技能弹窗 */}

@@ -1,0 +1,23 @@
+{
+  "id": "user-profile",
+  "name": "用户画像",
+  "name_i18n": {
+    "zh-CN": "用户画像",
+    "en": "User Profile"
+  },
+  "description": "从 Cursor 对话历史中生成用户画像，帮助 AI 更好地理解用户的编码风格、技术偏好和沟通习惯",
+  "description_i18n": {
+    "zh-CN": "从 Cursor 对话历史中生成用户画像，帮助 AI 更好地理解用户的编码风格、技术偏好和沟通习惯",
+    "en": "Generate user profile from Cursor chat history to help AI better understand user's coding style, technical preferences, and communication habits"
+  },
+  "author": "CoCursor Team",
+  "version": "1.0.0",
+  "category": "productivity",
+  "category_i18n": {
+    "zh-CN": "生产力",
+    "en": "Productivity"
+  },
+  "skill": {
+    "skill_name": "user-profile"
+  }
+}

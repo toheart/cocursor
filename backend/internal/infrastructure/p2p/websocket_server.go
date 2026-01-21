@@ -76,7 +76,7 @@ func (s *WebSocketServer) HandleConnection(w http.ResponseWriter, r *http.Reques
 // handleAuth 处理认证
 func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string) {
 	// 设置读取超时（10 秒内必须完成认证）
-	wsConn.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_ = wsConn.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 
 	// 读取认证消息
 	_, message, err := wsConn.conn.ReadMessage()
@@ -84,7 +84,7 @@ func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string)
 		s.logger.Warn("failed to read auth message",
 			"error", err,
 		)
-		wsConn.conn.Close()
+		_ = wsConn.conn.Close()
 		return
 	}
 
@@ -95,13 +95,13 @@ func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string)
 			"error", err,
 		)
 		s.sendAuthResult(wsConn, false, "invalid message format")
-		wsConn.conn.Close()
+		_ = wsConn.conn.Close()
 		return
 	}
 
 	if event.Type != p2p.EventAuth {
 		s.sendAuthResult(wsConn, false, "expected auth event")
-		wsConn.conn.Close()
+		_ = wsConn.conn.Close()
 		return
 	}
 
@@ -109,14 +109,14 @@ func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string)
 	var authPayload p2p.AuthPayload
 	if err := event.ParsePayload(&authPayload); err != nil {
 		s.sendAuthResult(wsConn, false, "invalid auth payload")
-		wsConn.conn.Close()
+		_ = wsConn.conn.Close()
 		return
 	}
 
 	// 验证成员（这里简化处理，实际应检查成员列表）
 	if authPayload.MemberID == "" {
 		s.sendAuthResult(wsConn, false, "member_id is required")
-		wsConn.conn.Close()
+		_ = wsConn.conn.Close()
 		return
 	}
 
@@ -127,7 +127,7 @@ func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string)
 	wsConn.authenticated = true
 
 	// 清除读取超时
-	wsConn.conn.SetReadDeadline(time.Time{})
+	_ = wsConn.conn.SetReadDeadline(time.Time{})
 
 	// 发送认证成功
 	s.sendAuthResult(wsConn, true, "")
@@ -137,7 +137,7 @@ func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string)
 	// 如果已有连接，关闭旧连接
 	if oldConn, exists := s.connections[wsConn.memberID]; exists {
 		close(oldConn.done)
-		oldConn.conn.Close()
+		_ = oldConn.conn.Close()
 	}
 	s.connections[wsConn.memberID] = wsConn
 	s.mu.Unlock()
@@ -156,7 +156,7 @@ func (s *WebSocketServer) handleAuth(wsConn *WebSocketConnection, teamID string)
 			Endpoint:   wsConn.endpoint,
 			IsOnline:   true,
 		})
-		s.eventHandler.HandleEvent(onlineEvent)
+		_ = s.eventHandler.HandleEvent(onlineEvent)
 	}
 
 	// 启动读写协程
@@ -171,7 +171,7 @@ func (s *WebSocketServer) sendAuthResult(wsConn *WebSocketConnection, success bo
 		Error:   errMsg,
 	})
 	data, _ := json.Marshal(event)
-	wsConn.conn.WriteMessage(websocket.TextMessage, data)
+	_ = wsConn.conn.WriteMessage(websocket.TextMessage, data)
 }
 
 // readPump 读取消息
@@ -226,7 +226,7 @@ func (s *WebSocketServer) readPump(wsConn *WebSocketConnection, teamID string) {
 
 		// 交给事件处理器
 		if s.eventHandler != nil {
-			s.eventHandler.HandleEvent(&event)
+			_ = s.eventHandler.HandleEvent(&event)
 		}
 	}
 }

@@ -164,6 +164,13 @@ Usage notes:
 <location>global</location>
 </skill>
 
+<skill>
+<name>user-profile</name>
+<description>Generate personalized user profile from Cursor chat history to help AI understand user's coding style, technical preferences, and communication habits. Use this skill when users want to create or update their profile, or when they say "let Cursor know me better", "analyze my habits", "generate my profile", "分析我的画像", "更新用户画像". Profile is saved as Cursor Rule for auto-loading.</description>
+<path>/Users/xibaobao/.claude/skills/user-profile/SKILL.md</path>
+<location>global</location>
+</skill>
+
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>

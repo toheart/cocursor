@@ -5,11 +5,11 @@ description: Aggregate daily summaries to generate comprehensive weekly work rep
 
 # Weekly Summary Skill
 
-> **Important Note**: This skill is provided by the **cocursor project** and requires calling related tools through the cocursor MCP server.
+> **MCP Server Dependency**: This skill requires the `cocursor` MCP server.
 > 
-> - This skill depends on MCP tools: `get_daily_summaries_range`, `save_weekly_summary`
-> - Ensure the cocursor daemon is running and the MCP server is properly configured
-> - Invocation: `Bash("openskills read weekly-summary")`
+> Available tools (use full names when calling):
+> - `mcp__cocursor__get_daily_summaries_range` - Batch fetch daily summaries within date range
+> - `mcp__cocursor__save_weekly_summary` - Save weekly report
 
 Aggregate daily summaries to generate weekly work reports focused on **accomplishments and progress**.
 
@@ -27,7 +27,7 @@ Aggregate daily summaries to generate weekly work reports focused on **accomplis
 
 ### Step 2: Batch Fetch Daily Summaries
 
-Call `get_daily_summaries_range` MCP tool:
+Call `mcp__cocursor__get_daily_summaries_range`:
 
 **Parameters:**
 - `start_date`: Week start date (YYYY-MM-DD)
@@ -61,7 +61,7 @@ Generate Markdown-formatted weekly report, structure in [references/report-templ
 
 ### Step 5: Save Weekly Report
 
-Call `save_weekly_summary` MCP tool:
+Call `mcp__cocursor__save_weekly_summary`:
 
 **Parameters:**
 - `week_start`: Week start date (YYYY-MM-DD)
@@ -92,7 +92,7 @@ See [references/report-examples.md](references/report-examples.md).
 3. **Missing data handling**: Days without daily summaries are handled gracefully, noted in report
 4. **Language**: Auto-match based on dominant language in daily summaries
 
-## MCP Tools
+## MCP Tool Reference
 
-- `get_daily_summaries_range(start_date, end_date)`: Batch fetch daily summaries within date range
-- `save_weekly_summary(week_start, week_end, summary, ...)`: Save weekly report
+- `mcp__cocursor__get_daily_summaries_range(start_date, end_date)`: Batch fetch daily summaries within date range
+- `mcp__cocursor__save_weekly_summary(week_start, week_end, summary, ...)`: Save weekly report

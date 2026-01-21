@@ -14,34 +14,36 @@ Use the `/cocursor-openspec-init` command to initialize the OpenSpec directory s
 
 ### 2. Create Proposal (Proposal)
 Use the `/cocursor-openspec-proposal` command to create a change proposal. This command will:
-- Call cocursor MCP tool `openspec_list` to get existing changes and specs
+- Call `mcp__cocursor__openspec_list` to get existing changes and specs
 - Create proposal.md, tasks.md, design.md (if needed)
 - Create spec delta files
-- Call cocursor MCP tool `openspec_validate` to validate format
-- Call cocursor MCP tool `record_openspec_workflow` to record state
+- Call `mcp__cocursor__openspec_validate` to validate format
+- Call `mcp__cocursor__record_openspec_workflow` to record state
 
 ### 3. Apply Changes (Apply)
 Use the `/cocursor-openspec-apply` command to implement approved changes. This command will:
-- Call cocursor MCP tool `openspec_list` to get change details
+- Call `mcp__cocursor__openspec_list` to get change details
 - Complete tasks in tasks.md in order
-- Call `record_openspec_workflow` to update progress after each task completion
-- Automatically call `generate_openspec_workflow_summary` to generate work summary when all tasks are completed
+- Call `mcp__cocursor__record_openspec_workflow` to update progress after each task completion
+- Automatically call `mcp__cocursor__generate_openspec_workflow_summary` to generate work summary when all tasks are completed
 
 ### 4. Archive Changes (Archive)
 Use the `/cocursor-openspec-archive` command to archive deployed changes. This command will:
 - Move change directory to archive/
 - Merge spec deltas into main spec files
-- Call `record_openspec_workflow` to record archive state
+- Call `mcp__cocursor__record_openspec_workflow` to record archive state
 
 ## Cocursor MCP Tools
 
-All OpenSpec operations are performed through cocursor MCP tools:
+> **MCP Server Dependency**: This skill requires the `cocursor` MCP server.
 
-- `openspec_list` - List changes and specs (returns JSON format)
-- `openspec_validate` - Validate change format
-- `record_openspec_workflow` - Record workflow state (automatically detects tasks.md completion)
-- `generate_openspec_workflow_summary` - Generate work summary
-- `get_openspec_workflow_status` - Get workflow status
+All OpenSpec operations are performed through cocursor MCP tools (use full names when calling):
+
+- `mcp__cocursor__openspec_list` - List changes and specs (returns JSON format)
+- `mcp__cocursor__openspec_validate` - Validate change format
+- `mcp__cocursor__record_openspec_workflow` - Record workflow state (automatically detects tasks.md completion)
+- `mcp__cocursor__generate_openspec_workflow_summary` - Generate work summary
+- `mcp__cocursor__get_openspec_workflow_status` - Get workflow status
 
 ## Workflow State Tracking
 

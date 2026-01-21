@@ -1,6 +1,7 @@
 // API 服务 - 通过 Extension 代理调用后端 API
 
 import { ExtensionMessage } from "../../types/message";
+import type { TeamProjectConfig, ProjectMatcher, TeamWeeklyView, MemberDailyDetail } from "../types";
 
 // VS Code API 单例管理器（每个 webview 实例只能获取一次）
 let vscodeApiInstance: ReturnType<typeof acquireVsCodeApi> | null = null;
@@ -123,16 +124,6 @@ class ApiService {
   // 检查插件状态
   async checkPluginStatus(id: string): Promise<unknown> {
     return this.postMessage("checkPluginStatus", { id });
-  }
-
-  // 获取工作流列表
-  async getWorkflows(projectPath?: string, status?: string): Promise<unknown> {
-    return this.postMessage("fetchWorkflows", { projectPath, status });
-  }
-
-  // 获取工作流详情
-  async getWorkflowDetail(changeId: string, projectPath?: string): Promise<unknown> {
-    return this.postMessage("fetchWorkflowDetail", { changeId, projectPath });
   }
 
   // ========== RAG 相关 API ==========
@@ -402,11 +393,106 @@ class ApiService {
   async getDailySummary(date: string): Promise<DailySummary | null> {
     return this.postMessage("fetchDailySummary", { date }) as Promise<DailySummary | null>;
   }
+
+  // ========== 团队周报相关 API ==========
+
+  // 获取团队项目配置
+  async getTeamProjectConfig(teamId: string): Promise<TeamProjectConfig> {
+    return this.postMessage("fetchTeamProjectConfig", { teamId }) as Promise<TeamProjectConfig>;
+  }
+
+  // 更新团队项目配置
+  async updateTeamProjectConfig(teamId: string, projects: ProjectMatcher[]): Promise<unknown> {
+    return this.postMessage("updateTeamProjectConfig", { teamId, projects });
+  }
+
+  // 添加团队项目
+  async addTeamProject(teamId: string, project: { name: string; repo_url: string }): Promise<ProjectMatcher> {
+    return this.postMessage("addTeamProject", { teamId, ...project }) as Promise<ProjectMatcher>;
+  }
+
+  // 移除团队项目
+  async removeTeamProject(teamId: string, projectId: string): Promise<unknown> {
+    return this.postMessage("removeTeamProject", { teamId, projectId });
+  }
+
+  // 获取团队周报
+  async getTeamWeeklyReport(teamId: string, weekStart: string): Promise<TeamWeeklyView> {
+    return this.postMessage("fetchTeamWeeklyReport", { teamId, weekStart }) as Promise<TeamWeeklyView>;
+  }
+
+  // 获取成员日详情
+  async getMemberDailyDetail(teamId: string, memberId: string, date: string): Promise<MemberDailyDetail> {
+    return this.postMessage("fetchMemberDailyDetail", { teamId, memberId, date }) as Promise<MemberDailyDetail>;
+  }
+
+  // 刷新团队周统计
+  async refreshTeamWeeklyStats(teamId: string, weekStart: string): Promise<unknown> {
+    return this.postMessage("refreshTeamWeeklyStats", { teamId, weekStart });
+  }
 }
 
 // 日报状态响应类型
 export interface DailyReportStatusResponse {
   statuses: Record<string, boolean>;
+}
+
+// 工作分类统计
+export interface WorkCategories {
+  requirements_discussion: number; // 需求讨论
+  coding: number; // 编码
+  problem_solving: number; // 问题排查
+  refactoring: number; // 重构
+  code_review: number; // 代码审查
+  documentation: number; // 文档编写
+  testing: number; // 测试
+  other: number; // 其他
+}
+
+// 时段统计
+export interface TimeSlotStats {
+  sessions: number; // 会话数
+  hours: number; // 总时长（小时）
+}
+
+// 时间分布汇总
+export interface TimeDistributionSummary {
+  morning: TimeSlotStats; // 上午（9-12）
+  afternoon: TimeSlotStats; // 下午（14-18）
+  evening: TimeSlotStats; // 晚上（19-22）
+  night: TimeSlotStats; // 夜间（22-2）
+}
+
+// 效率指标汇总
+export interface EfficiencyMetricsSummary {
+  avg_session_duration: number; // 平均会话时长（分钟）
+  avg_messages_per_session: number; // 平均消息数
+  total_active_time: number; // 总活跃时长（小时）
+}
+
+// 代码变更统计
+export interface CodeChangeSummary {
+  lines_added: number; // 新增行数
+  lines_removed: number; // 删除行数
+  files_changed: number; // 变更文件数
+}
+
+// 工作项
+export interface WorkItem {
+  category: string; // 工作类型
+  description: string; // 工作描述
+  session_id: string; // 关联的会话ID
+}
+
+// 会话摘要（用于每日总结）
+export interface DailySessionSummary {
+  session_id: string;
+  name: string;
+  project_name: string;
+  created_at: number;
+  updated_at: number;
+  message_count: number;
+  duration: number; // 持续时长（毫秒）
 }
 
 // 项目摘要类型
@@ -415,6 +501,11 @@ export interface ProjectSummary {
   project_path: string;
   workspace_id: string;
   session_count: number;
+  // 详细信息
+  work_items?: WorkItem[];
+  sessions?: DailySessionSummary[];
+  code_changes?: CodeChangeSummary;
+  active_hours?: number[];
 }
 
 // 日报类型
@@ -425,6 +516,11 @@ export interface DailySummary {
   language: string;
   total_sessions: number;
   projects?: ProjectSummary[];
+  // 结构化统计数据
+  work_categories?: WorkCategories;
+  code_changes?: CodeChangeSummary;
+  time_distribution?: TimeDistributionSummary;
+  efficiency_metrics?: EfficiencyMetricsSummary;
   created_at?: string;
   updated_at?: string;
 }

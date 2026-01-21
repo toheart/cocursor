@@ -13,6 +13,7 @@ type TeamComponents struct {
 	TeamService          *TeamService
 	SyncService          *SyncService
 	CollaborationService *CollaborationService
+	WeeklyReportService  *WeeklyReportService
 	SkillPublisher       *marketplace.TeamSkillPublisher
 	SkillDownloader      *marketplace.TeamSkillDownloader
 	SkillLoader          *marketplace.TeamSkillLoader
@@ -60,12 +61,16 @@ func (f *TeamFactory) Initialize(port int, version string, dailySummaryRepo stor
 	// 创建协作服务
 	collaborationService := NewCollaborationService(teamService, dailySummaryRepo)
 
+	// 创建周报服务
+	weeklyReportService := NewWeeklyReportService(teamService)
+
 	f.logger.Info("team components initialized successfully")
 
 	return &TeamComponents{
 		TeamService:          teamService,
 		SyncService:          syncService,
 		CollaborationService: collaborationService,
+		WeeklyReportService:  weeklyReportService,
 		SkillPublisher:       skillPublisher,
 		SkillDownloader:      skillDownloader,
 		SkillLoader:          skillLoader,

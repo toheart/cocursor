@@ -66,43 +66,47 @@
 /* ========== RAG 搜索 ========== */
 
 .cocursor-rag-search {
-  padding: 16px 20px;
+  padding: 20px 24px;
   max-width: 1200px;
   margin: 0 auto;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .cocursor-rag-search-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-search-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--vscode-foreground);
+  letter-spacing: -0.3px;
 }
 
+/* 搜索框容器 - 增强视觉效果 */
 .cocursor-rag-search-box {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: stretch;
+  position: relative;
 }
 
 .cocursor-rag-search-input {
   flex: 1;
-  padding: 8px 12px;
+  padding: 12px 16px;
   font-size: 14px;
   border: 1px solid var(--vscode-input-border);
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
 }
 
@@ -112,51 +116,64 @@
 
 .cocursor-rag-search-input:focus {
   border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.15);
 }
 
 .cocursor-rag-search-button {
-  padding: 8px 16px;
-  background-color: var(--vscode-button-background);
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--vscode-button-background) 0%, #1177bb 100%);
   color: var(--vscode-button-foreground);
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .cocursor-rag-search-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
+  background: linear-gradient(135deg, #1177bb 0%, var(--vscode-button-background) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+}
+
+.cocursor-rag-search-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .cocursor-rag-search-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  background: var(--vscode-button-secondaryBackground);
 }
 
 /* ========== 项目过滤器 ========== */
 
 .cocursor-rag-project-filter {
-  margin-bottom: 16px;
-  padding: 12px;
-  background-color: var(--vscode-sideBar-background);
-  border-radius: 6px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--vscode-sideBar-background) 0%, rgba(37, 37, 38, 0.8) 100%);
+  border-radius: 10px;
   border: 1px solid var(--vscode-panel-border);
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .cocursor-rag-project-filter-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .cocursor-rag-project-filter-label {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .cocursor-rag-project-filter-clear {
@@ -165,19 +182,20 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 3px;
-  transition: background-color 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .cocursor-rag-project-filter-clear:hover {
   background-color: var(--vscode-list-hoverBackground);
+  text-decoration: underline;
 }
 
 .cocursor-rag-project-filter-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .cocursor-rag-project-filter-loading,
@@ -185,31 +203,36 @@
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
   font-style: italic;
+  padding: 8px 0;
 }
 
 .cocursor-rag-project-filter-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-size: 12px;
   background-color: var(--vscode-input-background);
   color: var(--vscode-foreground);
   border: 1px solid var(--vscode-input-border);
-  border-radius: 14px;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cocursor-rag-project-filter-item:hover {
   background-color: var(--vscode-list-hoverBackground);
   border-color: var(--vscode-focusBorder);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .cocursor-rag-project-filter-item.selected {
-  background-color: var(--vscode-button-background);
+  background: linear-gradient(135deg, var(--vscode-button-background) 0%, #1177bb 100%);
   color: var(--vscode-button-foreground);
-  border-color: var(--vscode-button-background);
+  border-color: transparent;
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 122, 204, 0.3);
 }
 
 .cocursor-rag-project-filter-name {
@@ -217,112 +240,185 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .cocursor-rag-project-filter-count {
   font-size: 10px;
-  padding: 1px 5px;
+  padding: 2px 6px;
   background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  min-width: 18px;
+  border-radius: 10px;
+  min-width: 20px;
   text-align: center;
+  font-weight: 600;
 }
 
 .cocursor-rag-project-filter-item.selected .cocursor-rag-project-filter-count {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.25);
 }
 
 .cocursor-rag-project-filter-selected {
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--vscode-panel-border);
   font-size: 11px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-textLink-foreground);
+  font-weight: 500;
 }
 
 /* ========== RAG 搜索结果 ========== */
 
 .cocursor-rag-results {
-  margin-top: 16px;
+  margin-top: 20px;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .cocursor-rag-results-header {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background-color: var(--vscode-sideBar-background);
-  border-radius: 4px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: linear-gradient(90deg, var(--vscode-sideBar-background) 0%, transparent 100%);
+  border-radius: 8px;
   color: var(--vscode-foreground);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-rag-results-header::before {
+  content: "📋";
+  font-size: 14px;
 }
 
 .cocursor-rag-results-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
+/* 搜索结果卡片 - staggered 入场动画 */
 .cocursor-rag-result-item {
-  padding: 16px 20px;
+  padding: 18px 22px;
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
+  border-radius: 10px;
   background-color: var(--vscode-editor-background);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideIn 0.35s ease-out backwards;
+  position: relative;
+  overflow: hidden;
 }
+
+/* Staggered animation delays */
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(1) { animation-delay: 0s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(2) { animation-delay: 0.05s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(3) { animation-delay: 0.1s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(4) { animation-delay: 0.15s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(5) { animation-delay: 0.2s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(6) { animation-delay: 0.25s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(7) { animation-delay: 0.3s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(8) { animation-delay: 0.35s; }
+.cocursor-rag-results-list .cocursor-rag-result-item:nth-child(n+9) { animation-delay: 0.4s; }
 
 .cocursor-rag-result-item:hover {
   border-color: var(--vscode-focusBorder);
   background-color: var(--vscode-list-hoverBackground);
+  transform: translateX(4px);
+  box-shadow: -4px 0 0 var(--vscode-focusBorder), 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 高分结果的视觉强调 */
+.cocursor-rag-result-item[data-score="high"] {
+  border-left: 4px solid #10b981;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 15%);
+}
+
+.cocursor-rag-result-item[data-score="medium"] {
+  border-left: 4px solid #f59e0b;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.03) 0%, transparent 15%);
+}
+
+.cocursor-rag-result-item[data-score="low"] {
+  border-left: 4px solid var(--vscode-panel-border);
 }
 
 .cocursor-rag-result-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
-  gap: 12px;
+  margin-bottom: 12px;
+  gap: 16px;
 }
 
 .cocursor-rag-result-header > div:first-child {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .cocursor-rag-result-project {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--vscode-textLink-foreground);
   font-size: 14px;
   flex-shrink: 0;
+  letter-spacing: -0.2px;
 }
 
 .cocursor-rag-result-meta {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .cocursor-rag-result-score {
   font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+/* 分数等级颜色 */
+.cocursor-rag-result-score.score-high {
+  color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.cocursor-rag-result-score.score-medium {
+  color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.cocursor-rag-result-score.score-low {
+  color: var(--vscode-descriptionForeground);
+  background-color: rgba(150, 150, 150, 0.1);
+  border: 1px solid rgba(150, 150, 150, 0.2);
+}
+
+/* 默认分数样式（兼容未添加 class 的情况） */
+.cocursor-rag-result-score:not(.score-high):not(.score-medium):not(.score-low) {
   color: var(--vscode-terminal-ansiGreen);
-  font-weight: 500;
-  padding: 2px 6px;
   background-color: rgba(137, 209, 133, 0.1);
-  border-radius: 3px;
 }
 
 .cocursor-rag-result-content {
   font-size: 13px;
   color: var(--vscode-foreground);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .cocursor-rag-result-turn {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .cocursor-rag-result-turn-label {
@@ -331,142 +427,257 @@
 }
 
 .cocursor-rag-result-expand-button {
-  margin-top: 12px;
-  padding: 6px 12px;
+  margin-top: 14px;
+  padding: 8px 16px;
   font-size: 12px;
   background-color: transparent;
-  border: 1px solid var(--vscode-button-border);
-  color: var(--vscode-foreground);
-  border-radius: 4px;
+  border: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-textLink-foreground);
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cocursor-rag-result-expand-button::before {
+  content: "👁";
+  font-size: 11px;
 }
 
 .cocursor-rag-result-expand-button:hover {
   background-color: var(--vscode-button-secondaryBackground);
   border-color: var(--vscode-focusBorder);
+  transform: translateY(-1px);
+}
+
+.cocursor-rag-result-expand-button:active {
+  transform: translateY(0);
 }
 
 .cocursor-rag-result-expanded {
-  margin-top: 12px;
-  padding: 12px;
-  background-color: var(--vscode-sideBar-background);
-  border-radius: 6px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--vscode-sideBar-background) 0%, rgba(37, 37, 38, 0.7) 100%);
+  border-radius: 8px;
   border-left: 3px solid var(--vscode-focusBorder);
+  animation: fadeInUp 0.25s ease-out;
 }
 
 .cocursor-rag-result-expanded-title {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   margin-bottom: 8px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .cocursor-rag-result-expanded-content {
   font-size: 13px;
   color: var(--vscode-foreground);
-  line-height: 1.5;
-  padding: 8px 0;
+  line-height: 1.6;
+  padding: 10px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .cocursor-rag-result-summary-topic {
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 700;
+  margin-bottom: 6px;
   color: var(--vscode-foreground);
   font-size: 15px;
+  letter-spacing: -0.2px;
+  line-height: 1.4;
 }
 
 .cocursor-rag-result-summary-text {
-  font-size: 14px;
-  margin-bottom: 8px;
+  font-size: 13px;
+  margin-bottom: 10px;
   color: var(--vscode-foreground);
-  line-height: 1.5;
+  line-height: 1.6;
+  opacity: 0.9;
 }
 
 .cocursor-rag-result-tags {
-  margin-top: 8px;
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .cocursor-rag-result-tag {
   display: inline-block;
-  padding: 2px 8px;
-  margin: 2px;
-  background-color: rgba(55, 148, 255, 0.1);
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, rgba(55, 148, 255, 0.12) 0%, rgba(55, 148, 255, 0.06) 100%);
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--vscode-textLink-foreground);
-  border: 1px solid rgba(55, 148, 255, 0.2);
+  border: 1px solid rgba(55, 148, 255, 0.25);
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-result-tag:hover {
+  background: rgba(55, 148, 255, 0.2);
+  transform: scale(1.02);
 }
 
 /* 增强状态和代码标记 */
 .cocursor-rag-enriched-badge,
 .cocursor-rag-code-badge {
   margin-left: 6px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .cocursor-rag-enriched-badge {
-  background-color: rgba(76, 175, 80, 0.15);
-  color: var(--vscode-testing-iconPassed, #4caf50);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(76, 175, 80, 0.1) 100%);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 .cocursor-rag-code-badge {
-  background-color: rgba(156, 39, 176, 0.15);
-  color: var(--vscode-textPreformat-foreground, #9c27b0);
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.2) 0%, rgba(156, 39, 176, 0.1) 100%);
+  color: #ba68c8;
+  border: 1px solid rgba(156, 39, 176, 0.3);
 }
 
 /* 工具和文件标签 */
 .cocursor-rag-result-tools,
 .cocursor-rag-result-files {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .cocursor-rag-tools-label,
 .cocursor-rag-files-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  margin-right: 4px;
+  margin-right: 2px;
+  font-weight: 500;
 }
 
 .cocursor-rag-tool-tag,
 .cocursor-rag-file-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  background-color: rgba(255, 152, 0, 0.15);
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 11px;
-  color: var(--vscode-charts-orange, #ff9800);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cocursor-rag-tool-tag {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.08) 100%);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.25);
+}
+
+.cocursor-rag-tool-tag:hover {
+  background: rgba(255, 152, 0, 0.25);
 }
 
 .cocursor-rag-file-tag {
-  background-color: rgba(33, 150, 243, 0.15);
-  color: var(--vscode-textLink-foreground, #2196f3);
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.15) 0%, rgba(33, 150, 243, 0.08) 100%);
+  color: #42a5f5;
+  border: 1px solid rgba(33, 150, 243, 0.25);
+}
+
+.cocursor-rag-file-tag:hover {
+  background: rgba(33, 150, 243, 0.25);
+}
+
+.cocursor-rag-file-tag::before {
+  content: "📄";
+  font-size: 10px;
+  margin-right: 4px;
 }
 
 /* 空状态 */
 .cocursor-rag-empty {
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 24px;
   color: var(--vscode-descriptionForeground);
-  font-size: 13px;
-  background-color: var(--vscode-sideBar-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
+  font-size: 14px;
+  background: linear-gradient(135deg, var(--vscode-sideBar-background) 0%, var(--vscode-editor-background) 100%);
+  border: 1px dashed var(--vscode-panel-border);
+  border-radius: 12px;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .cocursor-rag-empty::before {
   content: "🔍";
   display: block;
-  font-size: 32px;
-  margin-bottom: 12px;
-  opacity: 0.5;
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* 搜索结果为空的提示文字 */
+.cocursor-rag-empty-text {
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+}
+
+/* 关键点列表样式优化 */
+.cocursor-rag-result-key-points {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+}
+
+.cocursor-rag-result-key-points strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cocursor-rag-result-key-points ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.cocursor-rag-result-key-points li {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+  margin-bottom: 4px;
+}
+
+/* 消息样式 */
+.cocursor-rag-result-message {
+  padding: 8px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cocursor-rag-result-message strong {
+  color: var(--vscode-textLink-foreground);
+  margin-right: 6px;
+}
+
+/* 展开列表项 */
+.cocursor-rag-result-expanded-list {
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  opacity: 0.9;
 }
 
 /* ========================================== */

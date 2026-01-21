@@ -188,9 +188,20 @@ export const RAGSearch: React.FC = () => {
     });
   }, []);
 
-  // 跳转到会话详情
-  const handleResultClick = useCallback((sessionId: string) => {
-    navigate(`/sessions/${sessionId}`);
+  // 跳转到会话详情，带上定位信息
+  const handleResultClick = useCallback((sessionId: string, timestamp?: number, turnIndex?: number) => {
+    // 构建 URL 参数用于定位
+    const params = new URLSearchParams();
+    if (timestamp) {
+      params.set('ts', timestamp.toString());
+    }
+    if (turnIndex !== undefined) {
+      params.set('turn', turnIndex.toString());
+    }
+    params.set('highlight', 'true');
+    
+    const queryString = params.toString();
+    navigate(`/sessions/${sessionId}${queryString ? `?${queryString}` : ''}`);
   }, [navigate]);
 
   // 解析 summary JSON 字符串
@@ -209,6 +220,13 @@ export const RAGSearch: React.FC = () => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
     return date.toLocaleString();
+  }, []);
+
+  // 根据分数获取等级
+  const getScoreLevel = useCallback((score: number): "high" | "medium" | "low" => {
+    if (score >= 0.7) return "high";
+    if (score >= 0.4) return "medium";
+    return "low";
   }, []);
 
   return (
@@ -327,12 +345,14 @@ export const RAGSearch: React.FC = () => {
               if (isChunkResult(result)) {
                 const resultId = `chunk-${result.chunk_id}`;
                 const isExpanded = expandedResults.has(resultId);
+                const scoreLevel = getScoreLevel(result.score);
 
                 return (
                   <div
                     key={resultId}
                     className="cocursor-rag-result-item"
-                    onClick={() => handleResultClick(result.session_id)}
+                    data-score={scoreLevel}
+                    onClick={() => handleResultClick(result.session_id, result.timestamp, result.turn_index)}
                   >
                     <div className="cocursor-rag-result-header">
                       <div>
@@ -353,7 +373,7 @@ export const RAGSearch: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <div className="cocursor-rag-result-score">
+                      <div className={`cocursor-rag-result-score score-${scoreLevel}`}>
                         {t("rag.search.score")}: {(result.score * 100).toFixed(1)}%
                       </div>
                     </div>
@@ -440,12 +460,14 @@ export const RAGSearch: React.FC = () => {
               const resultId = `${legacyResult.session_id}-${legacyResult.type}-${index}`;
               const isExpanded = expandedResults.has(resultId);
               const isTurn = legacyResult.type === "turn";
+              const scoreLevel = getScoreLevel(legacyResult.score);
 
               return (
                 <div
                   key={resultId}
                   className="cocursor-rag-result-item"
-                  onClick={() => handleResultClick(legacyResult.session_id)}
+                  data-score={scoreLevel}
+                  onClick={() => handleResultClick(legacyResult.session_id, legacyResult.timestamp, legacyResult.turn_index)}
                 >
                   <div className="cocursor-rag-result-header">
                     <div>
@@ -456,7 +478,7 @@ export const RAGSearch: React.FC = () => {
                         {formatTime(legacyResult.timestamp)}
                       </span>
                     </div>
-                    <div className="cocursor-rag-result-score">
+                    <div className={`cocursor-rag-result-score score-${scoreLevel}`}>
                       {t("rag.search.score")}: {(legacyResult.score * 100).toFixed(1)}%
                     </div>
                   </div>

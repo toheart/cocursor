@@ -5,8 +5,6 @@ import { WorkAnalysis } from "./components/WorkAnalysis";
 import { SessionList } from "./components/SessionList";
 import { SessionDetail } from "./components/SessionDetail";
 import { Marketplace } from "./components/Marketplace";
-import { WorkflowList } from "./components/WorkflowList";
-import { WorkflowDetail } from "./components/WorkflowDetail";
 import { RAGSearch } from "./components/RAGSearch";
 import { RAGConfig } from "./components/RAGConfig";
 import { NavigationBar } from "./components/NavigationBar";
@@ -18,7 +16,7 @@ const RouterContent: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team" | undefined;
+  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "team" | undefined;
 
   useEffect(() => {
     // 获取初始路由
@@ -58,12 +56,9 @@ const RouterContent: React.FC = () => {
     const title = titles[location.pathname] || 
       (location.pathname.startsWith("/sessions/") 
         ? `${t("navigation.sessionDetail")} - CoCursor`
-        : location.pathname.startsWith("/workflows/")
-        ? `${t("navigation.workflowDetail")} - CoCursor`
         : viewType === "recentSessions" ? `${t("navigation.recentSessions")} - CoCursor` 
         : viewType === "marketplace" ? `${t("navigation.marketplace")} - CoCursor`
         : viewType === "ragSearch" ? `${t("navigation.ragSearch")} - CoCursor`
-        : viewType === "workflow" ? `${t("navigation.workflow")} - CoCursor`
         : viewType === "team" ? `${t("navigation.team")} - CoCursor`
         : `${t("navigation.workAnalysis")} - CoCursor`);
     
@@ -116,22 +111,7 @@ const RouterContent: React.FC = () => {
           <Routes>
             <Route path="/" element={<RAGSearch />} />
             <Route path="/config" element={<RAGConfig />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </div>
-    );
-  }
-
-  if (viewType === "workflow") {
-    return (
-      <div className="cocursor-router-container">
-        <NavigationBar />
-        <div className="cocursor-router-content">
-          <Routes>
-            <Route path="/" element={<WorkflowList />} />
-            <Route path="/workflows" element={<WorkflowList />} />
-            <Route path="/workflows/:changeId" element={<WorkflowDetail />} />
+            <Route path="/sessions/:sessionId" element={<SessionDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

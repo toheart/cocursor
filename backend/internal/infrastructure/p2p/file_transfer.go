@@ -68,11 +68,12 @@ func (t *FileTransfer) PackDirectory(dirPath string) ([]byte, string, error) {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
 
 			if _, err := io.Copy(tarWriter, file); err != nil {
+				_ = file.Close()
 				return err
 			}
+			_ = file.Close()
 		}
 
 		return nil
@@ -137,10 +138,10 @@ func (t *FileTransfer) UnpackArchive(data []byte, destDir string) error {
 			}
 
 			if _, err := io.Copy(file, tarReader); err != nil {
-				file.Close()
+				_ = file.Close()
 				return fmt.Errorf("failed to write file: %w", err)
 			}
-			file.Close()
+			_ = file.Close()
 
 			// 设置文件权限
 			if err := os.Chmod(targetPath, os.FileMode(header.Mode)); err != nil {

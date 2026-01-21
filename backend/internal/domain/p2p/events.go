@@ -39,6 +39,9 @@ const (
 	EventCodeShared          EventType = "code_shared"           // 代码片段分享
 	EventMemberStatusChanged EventType = "member_status_changed" // 成员工作状态变更
 	EventDailySummaryShared  EventType = "daily_summary_shared"  // 日报分享
+
+	// 周报相关事件
+	EventProjectConfigUpdated EventType = "project_config_updated" // 项目配置更新
 )
 
 // Event WebSocket 事件
@@ -188,4 +191,17 @@ type DailySummarySharedPayload struct {
 	TotalSessions int       `json:"total_sessions"` // 会话总数
 	ProjectCount  int       `json:"project_count"`  // 项目数量
 	SharedAt      time.Time `json:"shared_at"`      // 分享时间
+}
+
+// ProjectConfigPayload 项目配置事件数据
+type ProjectConfigPayload struct {
+	Projects  []ProjectMatcherPayload `json:"projects"`   // 项目列表
+	UpdatedAt time.Time               `json:"updated_at"` // 更新时间
+}
+
+// ProjectMatcherPayload 项目匹配规则
+type ProjectMatcherPayload struct {
+	ID      string `json:"id"`       // 规则 ID
+	Name    string `json:"name"`     // 显示名称
+	RepoURL string `json:"repo_url"` // Git Remote URL
 }

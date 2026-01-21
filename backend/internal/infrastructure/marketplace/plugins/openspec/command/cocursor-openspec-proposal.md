@@ -14,7 +14,7 @@ description: Scaffold a new OpenSpec change and validate strictly.
 
 **Steps**
 1. Review `openspec/project.md` to understand project context.
-2. **Call cocursor MCP tool `openspec_list`** with parameters:
+2. **Call `mcp__cocursor__openspec_list`** with parameters:
    - `project_path`: current workspace path (get from context or ask user)
    - `type`: "all"
    This will return current changes and specs in JSON format. Note any gaps that require clarification.
@@ -24,13 +24,13 @@ description: Scaffold a new OpenSpec change and validate strictly.
 6. Capture architectural reasoning in `design.md` when the solution spans multiple systems, introduces new patterns, or demands trade-off discussion before committing to specs.
 7. Draft spec deltas in `changes/<id>/specs/<capability>/spec.md` (one folder per capability) using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement and cross-reference related capabilities when relevant.
 8. Draft `tasks.md` as an ordered list of small, verifiable work items that deliver user-visible progress, include validation (tests, tooling), and highlight dependencies or parallelizable work.
-9. **Call cocursor MCP tool `openspec_validate`** with parameters:
+9. **Call `mcp__cocursor__openspec_validate`** with parameters:
    - `project_path`: current workspace path
    - `change_id`: the change ID created
    - `strict`: true
    This will return validation results in JSON format.
 10. If validation fails, fix issues based on the validation errors and re-validate until all issues are resolved.
-11. **Call cocursor MCP tool `record_openspec_workflow`** to record state:
+11. **Call `mcp__cocursor__record_openspec_workflow`** to record state:
     - `project_path`: current workspace path
     - `change_id`: the change ID
     - `stage`: "proposal"
@@ -41,7 +41,7 @@ description: Scaffold a new OpenSpec change and validate strictly.
     - Wait for user confirmation before proceeding
 
 **Reference**
-- Use **cocursor MCP tool `openspec_list`** with `type: "specs"` to search existing requirements when validation fails.
+- Use **`mcp__cocursor__openspec_list`** with `type: "specs"` to search existing requirements when validation fails.
 - Search existing requirements with `rg -n "Requirement:|Scenario:" openspec/specs` before writing new ones.
 - Explore the codebase with `rg <keyword>`, `ls`, or direct file reads so proposals align with current implementation realities.
 <!-- OPENSPEC:END -->

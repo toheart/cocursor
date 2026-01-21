@@ -7,14 +7,10 @@ import { useTranslation } from "react-i18next";
 import { apiService } from "../services/api";
 import { 
   Plugin, 
-  PageResponse, 
-  UsageInstruction 
+  PageResponse
 } from "../types";
 import { useApi, useDebounce, useToast } from "../hooks";
-import { 
-  generateUsageInstructions, 
-  getComponentIcon 
-} from "../utils/pluginUtils";
+import { getComponentIcon } from "../utils/pluginUtils";
 
 // ========== 常量定义 ==========
 
@@ -289,12 +285,31 @@ const MarketplaceHeader: React.FC<MarketplaceHeaderProps> = ({
   onSourceChange,
 }) => {
   const { t } = useTranslation();
+  const [showTip, setShowTip] = useState(true);
+  
   return (
     <>
       <div className="cocursor-marketplace-hero">
         <h1 className="cocursor-marketplace-title">{t("marketplace.title")}</h1>
         <p className="cocursor-marketplace-subtitle">{t("marketplace.subtitle")}</p>
       </div>
+      
+      {/* 全局使用说明提示 */}
+      {showTip && (
+        <div className="cocursor-marketplace-tip">
+          <div className="cocursor-marketplace-tip-content">
+            <span className="cocursor-marketplace-tip-icon">💡</span>
+            <span>{t("marketplace.globalTip")}</span>
+          </div>
+          <button 
+            className="cocursor-marketplace-tip-close"
+            onClick={() => setShowTip(false)}
+            title={t("common.close")}
+          >
+            ×
+          </button>
+        </div>
+      )}
       
       <div className="cocursor-marketplace-header">
         <div className="cocursor-marketplace-search-wrapper">
@@ -493,12 +508,6 @@ const PluginCard: React.FC<PluginCardProps> = ({
   onUninstall,
   onToggleExpand,
 }) => {
-  const { t } = useTranslation();
-  const usageInstructions: UsageInstruction[] = useMemo(
-    () => generateUsageInstructions(plugin, t),
-    [plugin, t]
-  );
-
   return (
     <div 
       className={`cocursor-marketplace-plugin ${plugin.installed ? "installed" : ""}`}
@@ -515,7 +524,6 @@ const PluginCard: React.FC<PluginCardProps> = ({
       <PluginCardContent
         plugin={plugin}
         isExpanded={isExpanded}
-        usageInstructions={usageInstructions}
         onToggleExpand={onToggleExpand}
       />
     </div>
@@ -714,24 +722,24 @@ const PluginComponents: React.FC<PluginComponentsProps> = ({ plugin }) => {
 interface PluginCardContentProps {
   plugin: Plugin;
   isExpanded: boolean;
-  usageInstructions: UsageInstruction[];
   onToggleExpand: (pluginId: string) => void;
 }
 
 const PluginCardContent: React.FC<PluginCardContentProps> = ({
   plugin,
   isExpanded,
-  usageInstructions,
   onToggleExpand,
 }) => {
   const { t } = useTranslation();
+  const hasSkillDescription = !!plugin.skill?.description;
+  
   return (
     <div className="cocursor-marketplace-plugin-content">
       <div className={`cocursor-marketplace-plugin-description-preview ${isExpanded ? "expanded" : ""}`}>
         <p>{plugin.description}</p>
       </div>
       
-      {usageInstructions.length > 0 && (
+      {hasSkillDescription && (
         <>
           <button
             className="cocursor-marketplace-plugin-expand-button"
@@ -752,40 +760,16 @@ const PluginCardContent: React.FC<PluginCardContentProps> = ({
 
           {isExpanded && (
             <div className="cocursor-marketplace-plugin-expanded-content">
-              <div className="cocursor-marketplace-plugin-usage-section">
-                <h4 className="cocursor-marketplace-plugin-section-title">{t("marketplace.usageInstructions")}</h4>
-                <div className="cocursor-marketplace-plugin-usage-list">
-                  {usageInstructions.map((instruction, idx) => (
-                    <UsageItem key={idx} instruction={instruction} />
-                  ))}
-                </div>
+              <div className="cocursor-marketplace-plugin-skill-description">
+                <h4 className="cocursor-marketplace-plugin-section-title">{t("marketplace.skillDescription")}</h4>
+                <p className="cocursor-marketplace-plugin-skill-description-text">
+                  {plugin.skill!.description}
+                </p>
               </div>
             </div>
           )}
         </>
       )}
-    </div>
-  );
-};
-
-interface UsageItemProps {
-  instruction: UsageInstruction;
-}
-
-const UsageItem: React.FC<UsageItemProps> = ({ instruction }) => {
-  return (
-    <div className="cocursor-marketplace-plugin-usage-item">
-      <div className="cocursor-marketplace-plugin-usage-icon">
-        {getComponentIcon(instruction.type)}
-      </div>
-      <div className="cocursor-marketplace-plugin-usage-content">
-        <div className="cocursor-marketplace-plugin-usage-title">
-          {instruction.title}
-        </div>
-        <div className="cocursor-marketplace-plugin-usage-description">
-          {instruction.description}
-        </div>
-      </div>
     </div>
   );
 };

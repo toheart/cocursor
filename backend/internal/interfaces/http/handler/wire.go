@@ -10,7 +10,6 @@ var ProviderSet = wire.NewSet(
 	NewAnalyticsHandler,
 	NewWorkspaceHandler,
 	NewMarketplaceHandler,
-	NewWorkflowHandler,
 	NewRAGHandler,
 	NewDailySummaryHandler,
 )

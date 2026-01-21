@@ -81,6 +81,7 @@ export interface Plugin {
   installed_version?: string;
   skill?: {
     skill_name: string;
+    description?: string; // SKILL.md 中的使用说明
   };
   mcp?: {
     server_name: string;
@@ -181,32 +182,6 @@ export interface ProjectOption {
   project_name: string;
 }
 
-// ========== 工作流相关 ==========
-
-export interface Workflow {
-  id: string;
-  title: string;
-  description: string;
-  status: "pending" | "approved" | "rejected" | "implemented" | "archived";
-  createdAt: number;
-  updatedAt: number;
-  changeId: string;
-}
-
-export interface WorkflowDetail extends Workflow {
-  tasks: WorkflowTask[];
-  spec: string;
-  implementationNotes?: string;
-}
-
-export interface WorkflowTask {
-  id: string;
-  title: string;
-  description: string;
-  status: "pending" | "in_progress" | "completed";
-  assignee?: string;
-}
-
 // ========== 状态管理 ==========
 
 export interface LoadingState {
@@ -265,6 +240,7 @@ export interface ChunkSearchResult {
   has_code: boolean;
   timestamp: number;
   is_enriched: boolean;
+  turn_index?: number;  // 用于定位到具体消息
 }
 
 // 知识片段详情
@@ -445,6 +421,141 @@ export interface SkillMetadata {
   version: string;
   category: string;
   author: string;
+}
+
+// ========== 团队周报相关 ==========
+
+// 团队项目配置
+export interface TeamProjectConfig {
+  team_id: string;
+  projects: ProjectMatcher[];
+  updated_at: string;
+}
+
+// 项目匹配规则
+export interface ProjectMatcher {
+  id: string;       // 规则 ID (UUID)
+  name: string;     // 显示名称
+  repo_url: string; // Git Remote URL
+}
+
+// 成员周统计数据
+export interface MemberWeeklyStats {
+  member_id: string;
+  member_name: string;
+  week_start: string;     // YYYY-MM-DD
+  daily_stats: MemberDailyStats[];
+  updated_at: string;
+}
+
+// 成员每日统计
+export interface MemberDailyStats {
+  date: string;           // YYYY-MM-DD
+  git_stats?: GitDailyStats;
+  cursor_stats?: CursorDailyStats;
+  work_items?: WorkItemSummary[];
+  has_report: boolean;
+}
+
+// Git 每日统计
+export interface GitDailyStats {
+  total_commits: number;
+  total_added: number;
+  total_removed: number;
+  projects: ProjectGitStats[];
+}
+
+// 项目 Git 统计
+export interface ProjectGitStats {
+  project_name: string;
+  repo_url: string;
+  commits: number;
+  lines_added: number;
+  lines_removed: number;
+  commit_messages: CommitSummary[];
+}
+
+// 提交摘要
+export interface CommitSummary {
+  hash: string;
+  message: string;
+  time: string;
+  files_count: number;
+}
+
+// Cursor 每日统计
+export interface CursorDailyStats {
+  session_count: number;
+  tokens_used: number;
+  lines_added: number;
+  lines_removed: number;
+}
+
+// 工作条目摘要
+export interface WorkItemSummary {
+  project: string;
+  category: string;
+  description: string;
+}
+
+// 团队周视图
+export interface TeamWeeklyView {
+  team_id: string;
+  week_start: string;     // 周一日期
+  week_end: string;       // 周日日期
+  calendar: TeamDayColumn[];
+  project_summary: ProjectWeekStats[];
+  updated_at: string;
+}
+
+// 日历中的一天
+export interface TeamDayColumn {
+  date: string;           // YYYY-MM-DD
+  day_of_week: number;    // 1=周一...7=周日
+  members: MemberDayCell[];
+}
+
+// 日历格子（一个成员一天的数据）
+export interface MemberDayCell {
+  member_id: string;
+  member_name: string;
+  activity_level: number;  // 0-4
+  commits: number;
+  lines_changed: number;
+  has_report: boolean;
+  is_online: boolean;
+}
+
+// 项目周统计
+export interface ProjectWeekStats {
+  project_name: string;
+  repo_url: string;
+  total_commits: number;
+  total_added: number;
+  total_removed: number;
+  contributors: ContributorStats[];
+}
+
+// 贡献者统计
+export interface ContributorStats {
+  member_id: string;
+  member_name: string;
+  commits: number;
+  lines_added: number;
+  lines_removed: number;
+}
+
+// 成员日详情
+export interface MemberDailyDetail {
+  member_id: string;
+  member_name: string;
+  date: string;
+  git_stats?: GitDailyStats;
+  cursor_stats?: CursorDailyStats;
+  work_items?: WorkItemSummary[];
+  has_report: boolean;
+  is_online: boolean;
+  is_cached: boolean;
 }
 
 // ========== VSCode 相关 ==========

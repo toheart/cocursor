@@ -13,7 +13,7 @@ export const NavigationBar: React.FC = () => {
   const { t, i18n: i18nInstance } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "workflow" | "team" | undefined;
+  const viewType = (window as any).__VIEW_TYPE__ as "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "team" | undefined;
   const [currentLanguage, setCurrentLanguage] = useState<string>(i18nInstance.language);
 
   // 根据路径生成面包屑
@@ -31,13 +31,6 @@ export const NavigationBar: React.FC = () => {
 
     if (path.startsWith("/sessions/")) {
       crumbs.push({ label: t("navigation.sessionDetail"), path: path });
-    } else if (viewType === "workflow") {
-      if (path.startsWith("/workflows/") && path !== "/workflows") {
-        // 工作流页面已经添加了首页，不再重复添加工作流根路径
-        crumbs.push({ label: t("navigation.workflowDetail"), path: path });
-      } else if (path === "/workflows") {
-        crumbs.push({ label: t("navigation.workflow"), path: "/" });
-      }
     } else if (viewType === "ragSearch") {
       if (path === "/config") {
         crumbs.push({ label: t("navigation.ragConfig"), path: path });
@@ -111,12 +104,6 @@ export const NavigationBar: React.FC = () => {
     if (viewType === "ragSearch") {
       if (path === "/config") return t("navigation.ragConfig");
       return t("navigation.ragSearch");
-    }
-    if (viewType === "workflow") {
-      if (path.startsWith("/workflows/") && path !== "/workflows") {
-        return t("navigation.workflowDetail");
-      }
-      return t("navigation.workflow");
     }
     if (viewType === "team") {
       return t("navigation.team");

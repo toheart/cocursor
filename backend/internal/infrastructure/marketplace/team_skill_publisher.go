@@ -568,7 +568,7 @@ func (p *TeamSkillPublisher) copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	// 确保目标目录存在
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
@@ -579,7 +579,7 @@ func (p *TeamSkillPublisher) copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err

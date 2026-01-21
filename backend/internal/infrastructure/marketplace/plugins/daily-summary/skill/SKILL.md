@@ -5,12 +5,14 @@ description: Automatically summarize Cursor chat records to generate daily work 
 
 # Daily Summary Skill
 
-> **Important Note**: This skill is provided by the **cocursor project** and requires calling related tools through the cocursor MCP server.
+> **MCP Server Dependency**: This skill requires the `cocursor` MCP server.
 > 
-> - This skill depends on tools provided by the cocursor MCP server: `get_daily_sessions`, `get_session_content`, `save_daily_summary`, `get_daily_summary`
-> - Ensure the cocursor daemon is running and the MCP server is properly configured
-> - The skill is installed via the cocursor plugin system to `~/.claude/skills/daily-summary/`
-> - Invocation: `Bash("openskills read daily-summary")`
+> Available tools (use full names when calling):
+> - `mcp__cocursor__get_daily_conversations` - Get all conversations for a date (recommended)
+> - `mcp__cocursor__get_daily_sessions` - Get session list for a date
+> - `mcp__cocursor__get_session_content` - Get content of a specific session
+> - `mcp__cocursor__save_daily_summary` - Save generated summary
+> - `mcp__cocursor__get_daily_summary` - Query saved summary
 
 Automatically summarize Cursor chat records to generate daily work reports.
 
@@ -32,7 +34,7 @@ Automatically summarize Cursor chat records to generate daily work reports.
 ## Workflow
 
 ### Option 1: Get All Conversations at Once (Recommended)
-Use the `get_daily_conversations` MCP tool to get all session conversations for a specified date in one call:
+Call `mcp__cocursor__get_daily_conversations` to get all session conversations for a specified date in one call:
 - Parameter: `date` (optional, format: YYYY-MM-DD, defaults to today)
 - Returns: All conversations grouped by project, including full message content
 - **Advantage**: Single MCP call, more efficient than calling `get_session_content` multiple times
@@ -40,14 +42,14 @@ Use the `get_daily_conversations` MCP tool to get all session conversations for 
 ### Option 2: Get Session List Then Read Content (Alternative)
 If you only need session metadata first:
 
-1. Use the `get_daily_sessions` MCP tool to get the session list:
+1. Call `mcp__cocursor__get_daily_sessions` to get the session list:
    - Parameter: `date` (optional, format: YYYY-MM-DD, defaults to today)
    - Returns: Session list grouped by project (metadata only, no message content)
 
-2. Call the `get_session_content` MCP tool for each session (only if needed):
+2. Call `mcp__cocursor__get_session_content` for each session (only if needed):
    - Parameter: `session_id` (required)
    - Returns: Plain text message list (filtered to exclude tool calls and code blocks)
-   - **Note**: This requires multiple MCP calls, less efficient than `get_daily_conversations`
+   - **Note**: This requires multiple MCP calls, less efficient than `mcp__cocursor__get_daily_conversations`
 
 ### 3. Analyze and Generate Summary
 Analyze all conversation content and generate a Markdown-formatted summary.
@@ -145,7 +147,7 @@ Analyze all conversation content and generate a Markdown-formatted summary.
 ```
 
 ### 4. Save Summary
-Use the `save_daily_summary` MCP tool to save the summary:
+Call `mcp__cocursor__save_daily_summary` to save the summary:
 
 **Parameters:**
 - `date`: Date (YYYY-MM-DD)
@@ -216,7 +218,7 @@ When enabled, the skill can analyze git commits to complement session records.
 **Decision Point**: Ask user or check command parameters (`--with-git` / `--no-git`)
 
 **Quick Overview:**
-- Extract active projects from `get_daily_sessions` result
+- Extract active projects from `mcp__cocursor__get_daily_sessions` result
 - Quick check: Verify git repository and commits today
 - Full analysis: Get commit details only for projects with commits
 - Match commits with sessions using time window (±2 hours default)
@@ -273,10 +275,10 @@ See [references/summary-examples.md](references/summary-examples.md) for complet
 
 ## MCP Tool Reference
 
-- `get_daily_conversations(date?)`: **Recommended** - Get all session conversations for specified date in one call (includes full message content)
-- `get_daily_sessions(date?)`: Query session list for specified date (metadata only, no message content)
-- `get_session_content(session_id)`: Read plain text content of a single session (use only if you need individual session content after getting session list)
-- `save_daily_summary(date, summary, language, projects, categories, total_sessions, code_changes?, time_distribution?, efficiency_metrics?)`: Save summary
-- `get_daily_summary(date)`: Query historical summary (optional)
+- `mcp__cocursor__get_daily_conversations(date?)`: **Recommended** - Get all session conversations for specified date in one call (includes full message content)
+- `mcp__cocursor__get_daily_sessions(date?)`: Query session list for specified date (metadata only, no message content)
+- `mcp__cocursor__get_session_content(session_id)`: Read plain text content of a single session (use only if you need individual session content after getting session list)
+- `mcp__cocursor__save_daily_summary(date, summary, language, projects, categories, total_sessions, code_changes?, time_distribution?, efficiency_metrics?)`: Save summary
+- `mcp__cocursor__get_daily_summary(date)`: Query historical summary (optional)
 
-**Performance Tip**: Always prefer `get_daily_conversations` over multiple `get_session_content` calls. It's more efficient and reduces MCP round trips.
+**Performance Tip**: Always prefer `mcp__cocursor__get_daily_conversations` over multiple `mcp__cocursor__get_session_content` calls. It's more efficient and reduces MCP round trips.

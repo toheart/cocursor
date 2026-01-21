@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { spawn, ChildProcess } from "child_process";
 import axios, { AxiosInstance } from "axios";
+import { Logger } from "../utils/logger";
 
 /**
  * DaemonManager 负责启动和管理后端进程
@@ -27,40 +28,48 @@ export class DaemonManager {
    */
   async start(): Promise<void> {
     if (this.process && !this.process.killed) {
-      console.log("后端进程已在运行");
+      Logger.backendInfo("后端进程已在运行");
       return;
     }
 
     try {
       const binaryPath = this.findBinary();
       if (!binaryPath) {
+        // 同时输出到两个通道，确保用户能看到
+        Logger.error("找不到后端二进制文件");
+        Logger.backendError("找不到后端二进制文件，请检查安装");
         throw new Error("找不到后端二进制文件");
       }
 
-      console.log(`启动后端进程: ${binaryPath}`);
+      Logger.backendInfo(`启动后端进程: ${binaryPath}`);
       this.process = spawn(binaryPath, [], {
         detached: false,
         stdio: "pipe",
       });
 
-      // 处理进程输出
+      // 处理进程输出（解析 slog 格式）
       this.process.stdout?.on("data", (data) => {
-        console.log(`[后端] ${data.toString().trim()}`);
+        Logger.backendStdout(data.toString());
       });
 
       this.process.stderr?.on("data", (data) => {
-        console.error(`[后端错误] ${data.toString().trim()}`);
+        Logger.backendStderr(data.toString());
       });
 
       // 处理进程退出
       this.process.on("exit", (code, signal) => {
-        console.log(`后端进程退出: code=${code}, signal=${signal}`);
+        if (code === 0) {
+          Logger.backendInfo(`后端进程正常退出: code=${code}, signal=${signal}`);
+        } else {
+          Logger.backendWarn(`后端进程异常退出: code=${code}, signal=${signal}`);
+        }
         this.process = null;
         this.stopHeartbeat();
       });
 
       this.process.on("error", (error) => {
-        console.error(`启动后端进程失败: ${error.message}`);
+        Logger.error(`启动后端进程失败: ${error.message}`);
+        Logger.backendError(`启动后端进程失败: ${error.message}`);
         vscode.window.showErrorMessage(
           `启动后端服务器失败: ${error.message}`
         );
@@ -76,7 +85,8 @@ export class DaemonManager {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : String(error);
-      console.error(`启动后端服务器失败: ${message}`);
+      Logger.error(`启动后端服务器失败: ${message}`);
+      Logger.backendError(`启动后端服务器失败: ${message}`);
       vscode.window.showErrorMessage(`启动后端服务器失败: ${message}`);
       throw error;
     }
@@ -89,7 +99,7 @@ export class DaemonManager {
     this.stopHeartbeat();
 
     if (this.process && !this.process.killed) {
-      console.log("停止后端进程");
+      Logger.backendInfo("停止后端进程");
       // Windows 上使用 taskkill，Unix 上使用 kill
       if (process.platform === "win32") {
         // Windows: 终止进程树
@@ -125,7 +135,7 @@ export class DaemonManager {
       `cocursor${ext}`
     );
     if (fs.existsSync(devPath)) {
-      console.log(`找到开发环境二进制: ${devPath}`);
+      Logger.backendDebug(`找到开发环境二进制: ${devPath}`);
       return devPath;
     }
 
@@ -150,7 +160,7 @@ export class DaemonManager {
     );
 
     if (fs.existsSync(prodPath)) {
-      console.log(`找到生产环境二进制: ${prodPath}`);
+      Logger.backendDebug(`找到生产环境二进制: ${prodPath}`);
       return prodPath;
     }
 
@@ -166,15 +176,15 @@ export class DaemonManager {
       for (const name of possibleNames) {
         const fullPath = path.join(binDir, name);
         if (fs.existsSync(fullPath)) {
-          console.log(`找到二进制文件: ${fullPath}`);
+          Logger.backendDebug(`找到二进制文件: ${fullPath}`);
           return fullPath;
         }
       }
     }
 
-    console.error("找不到后端二进制文件");
-    console.error(`开发路径: ${devPath}`);
-    console.error(`生产路径: ${prodPath}`);
+    Logger.backendError("找不到后端二进制文件");
+    Logger.backendError(`开发路径: ${devPath}`);
+    Logger.backendError(`生产路径: ${prodPath}`);
     return null;
   }
 
@@ -186,7 +196,7 @@ export class DaemonManager {
       return; // 已经在运行
     }
 
-    console.log("开始心跳检测");
+    Logger.backendDebug("开始心跳检测");
     this.heartbeatTimer = setInterval(async () => {
       await this.checkHealth();
     }, this.healthCheckInterval);
@@ -199,7 +209,7 @@ export class DaemonManager {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
-      console.log("停止心跳检测");
+      Logger.backendDebug("停止心跳检测");
     }
   }
 
@@ -210,10 +220,11 @@ export class DaemonManager {
     try {
       const response = await this.axiosInstance.get(this.healthCheckUrl);
       if (response.status === 200) {
-        console.log("后端健康检查成功");
+        Logger.backendTrace("后端健康检查成功");
       }
     } catch (error) {
-      console.warn("后端健康检查失败:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      Logger.backendWarn(`后端健康检查失败: ${message}`);
       // 如果进程已退出，清理资源
       if (this.process && this.process.killed) {
         this.stopHeartbeat();

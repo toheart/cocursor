@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	appRAG "github.com/cocursor/backend/internal/application/rag"
 	infraStorage "github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -15,16 +16,16 @@ type MCPServer struct {
 	handler        http.Handler
 	projectManager *appCursor.ProjectManager
 	summaryRepo    infraStorage.DailySummaryRepository
-	workflowRepo   infraStorage.OpenSpecWorkflowRepository
 	sessionRepo    infraStorage.WorkspaceSessionRepository
+	ragInitializer *appRAG.RAGInitializer
 }
 
 // NewServer 创建 MCP 服务器
 func NewServer(
 	projectManager *appCursor.ProjectManager,
 	summaryRepo infraStorage.DailySummaryRepository,
-	workflowRepo infraStorage.OpenSpecWorkflowRepository,
 	sessionRepo infraStorage.WorkspaceSessionRepository,
+	ragInitializer *appRAG.RAGInitializer,
 ) *MCPServer {
 	// 创建 MCP 服务器实例
 	server := mcp.NewServer(
@@ -58,8 +59,8 @@ func NewServer(
 		server:         server,
 		projectManager: projectManager,
 		summaryRepo:    summaryRepo,
-		workflowRepo:   workflowRepo,
 		sessionRepo:    sessionRepo,
+		ragInitializer: ragInitializer,
 	}
 
 	// 注册新工具：get_daily_sessions
@@ -114,33 +115,59 @@ Returns: success status, summary ID, and message.`,
 		Description: "Validate OpenSpec change format. Parameters: project_path (string, required) - project path; change_id (string, required) - change ID; strict (bool, optional) - strict mode. Returns: valid status, errors list, warnings list, and change ID.",
 	}, openspecValidateTool)
 
-	// 注册 OpenSpec 工具：record_openspec_workflow
+	// 注册 RAG 工具：search_history
 	mcp.AddTool(server, &mcp.Tool{
-		Name: "record_openspec_workflow",
-		Description: `Record OpenSpec workflow status. Only records proposal and apply stages (init stage is skipped).
+		Name: "search_history",
+		Description: `Search through historical AI conversations in the current project to find relevant context and solutions.
+
+Use this tool when you need to:
+- Find previous discussions about similar problems or code patterns in this project
+- Look up how a similar issue was solved before
+- Retrieve context from past conversations about specific topics, files, or technologies
+
 Parameters:
-- project_path (string, required): Project path, e.g., D:/code/cocursor
-- change_id (string, required): Change ID
-- stage (string, required): Stage, must be one of: "proposal" or "apply" (init and archive are not recorded)
-- status (string, required): Status, must be one of: "in_progress", "completed", or "paused"
-- metadata (object, optional): Metadata object (not a string) including task progress. Must be a JSON object with string keys and any value types. Example: {"tasks_completed": 5, "tasks_total": 10, "progress": 0.5}
+- query (string, required): Natural language description of what you're looking for. Be specific about the problem, technology, or concept.
+- project_path (string, required): Current project path, e.g., /Users/xxx/code/myproject
+- limit (int, optional): Maximum number of results to return (1-10, default: 3)
 
-Workflow transitions from proposal to apply are tracked. If stage is apply and tasks.md is completed, will automatically generate work summary.
+Returns: List of relevant conversations with summaries, topics, tags, and time info.
 
-Returns: success status and message.`,
-	}, mcpServer.recordOpenSpecWorkflowTool)
+Example queries:
+- "How to implement pagination in Go API"
+- "Fix React useEffect memory leak"
+- "Database connection pooling configuration"`,
+	}, mcpServer.searchHistoryTool)
 
-	// 注册 OpenSpec 工具：generate_openspec_workflow_summary
+	// 注册 User Profile 工具：get_user_messages_for_profile
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "generate_openspec_workflow_summary",
-		Description: "Generate OpenSpec workflow work summary. Parameters: project_path (string, required) - project path; change_id (string, required) - change ID. Returns: change ID, stage, summary, completed tasks count, total tasks count, changed files list, and time spent.",
-	}, mcpServer.generateOpenSpecWorkflowSummaryTool)
+		Name: "get_user_messages_for_profile",
+		Description: `Get user messages from chat history for profile analysis. Only extracts user messages (not AI responses).
+Parameters:
+- scope (string, required): 'global' for all projects or 'project' for specific project
+- project_path (string, optional): Project path (required when scope is 'project')
+- days_back (int, optional): Number of days to analyze, defaults to 30
+- recent_sessions (int, optional): Number of recent sessions to fully extract, defaults to 10
+- sampling_rate (float, optional): Sampling rate for historical sessions (0-1), defaults to 0.3
+- max_historical_msgs (int, optional): Maximum historical messages, defaults to 200
 
-	// 注册 OpenSpec 工具：get_openspec_workflow_status
+Returns: user messages (recent and historical), statistics (time/project distribution), existing profile, and metadata for idempotency check.`,
+	}, mcpServer.getUserMessagesForProfileTool)
+
+	// 注册 User Profile 工具：save_user_profile
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_openspec_workflow_status",
-		Description: "Get OpenSpec workflow status. Parameters: project_path (string, optional) - project path; status (string, optional) - status filter: in_progress|completed|paused. Returns: workflow status items list, including change ID, stage, status, progress, updated timestamp, and summary.",
-	}, mcpServer.getOpenSpecWorkflowStatusTool)
+		Name: "save_user_profile",
+		Description: `Save user profile to local filesystem.
+Parameters:
+- scope (string, required): 'global' or 'project'
+- project_path (string, optional): Project path (required when scope is 'project')
+- content (string, required): Profile content in Markdown format (without YAML frontmatter)
+- language (string, optional): Language for frontmatter description, use 'zh' for Chinese or 'en' for English. Should match stats.primary_language from get_user_messages_for_profile result.
+
+For project scope, the profile is saved to {project}/.cursor/rules/user-profile.mdc with YAML frontmatter (alwaysApply: true) and .gitignore is automatically updated.
+For global scope, the profile is saved to ~/.cocursor/profiles/global.md.
+
+Returns: success status, file path, git_ignored flag, and message.`,
+	}, mcpServer.saveUserProfileTool)
 
 	// 创建 SSE Handler
 	handler := mcp.NewSSEHandler(

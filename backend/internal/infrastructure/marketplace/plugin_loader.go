@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	domainMarketplace "github.com/cocursor/backend/internal/domain/marketplace"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed plugins
@@ -82,6 +84,21 @@ func (l *PluginLoader) LoadPlugin(pluginID string) (*domainMarketplace.Plugin, e
 	// 验证插件数据
 	if err := plugin.Validate(); err != nil {
 		return nil, fmt.Errorf("plugin validation failed: %w", err)
+	}
+
+	// 读取 SKILL.md 的 description 字段
+	skillMDPath := "plugins/" + pluginID + "/skill/SKILL.md"
+	if skillData, err := pluginsFS.ReadFile(skillMDPath); err == nil {
+		if desc := parseSkillDescription(skillData); desc != "" {
+			plugin.Skill.Description = desc
+		}
+	}
+
+	// 合并已安装状态
+	state, err := l.stateManager.ReadState()
+	if err == nil && state.IsInstalled(pluginID) {
+		plugin.Installed = true
+		plugin.InstalledVersion = state.GetInstalledVersion(pluginID)
 	}
 
 	return &plugin, nil
@@ -218,4 +235,25 @@ func (l *PluginLoader) ExtractEnvVars(headers map[string]string) []string {
 	}
 
 	return envVars
+}
+
+// parseSkillDescription 从 SKILL.md 内容中解析 description 字段
+func parseSkillDescription(skillContent []byte) string {
+	content := string(skillContent)
+
+	// 查找 frontmatter（--- 之间的内容）
+	frontmatterRegex := regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---`)
+	matches := frontmatterRegex.FindStringSubmatch(content)
+	if len(matches) < 2 {
+		return ""
+	}
+
+	var metadata struct {
+		Description string `yaml:"description"`
+	}
+	if err := yaml.Unmarshal([]byte(matches[1]), &metadata); err != nil {
+		return ""
+	}
+
+	return metadata.Description
 }

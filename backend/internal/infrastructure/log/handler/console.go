@@ -77,7 +77,7 @@ func (h *ConsoleHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	// 格式化日志
-	fmt.Fprintf(h.out, "%s%s%s %s%s %s\n",
+	_, _ = fmt.Fprintf(h.out, "%s%s%s %s%s %s\n",
 		levelColor, level, colorReset,
 		timestamp,
 		modulePrefix,
@@ -90,7 +90,7 @@ func (h *ConsoleHandler) Handle(ctx context.Context, r slog.Record) error {
 		if a.Key == "module" || a.Key == "component" {
 			return true
 		}
-		fmt.Fprintf(h.out, "  %s=%v\n", a.Key, a.Value)
+		_, _ = fmt.Fprintf(h.out, "  %s=%v\n", a.Key, a.Value)
 		return true
 	})
 

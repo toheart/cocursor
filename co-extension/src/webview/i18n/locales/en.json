@@ -76,7 +76,8 @@
     "noPluginsDesc": "Try adjusting search criteria or filters",
     "viewDetails": "View Details",
     "collapseDetails": "Collapse Details",
-    "usageInstructions": "Usage Instructions",
+    "skillDescription": "Skill Description",
+    "globalTip": "After installation: Skills are added to project's AGENTS.md; MCP configs are added to ~/.cursor/mcp.json (restart Cursor required); Commands can be used directly in Cursor.",
     "authorOffline": "Author Offline",
     "authorOnline": "Author Online",
     "usage": {
@@ -119,141 +120,10 @@
     "referencedFiles": "Referenced Files",
     "loadMoreMessages": "Load More Messages",
     "noMessages": "No messages",
-    "unnamedSession": "Unnamed Session"
-  },
-  "workflows": {
-    "title": "OpenSpec Workflow",
-    "list": "Workflows",
-    "detail": "Workflow Detail",
-    "notFound": "Workflow not found",
-    "backToList": "Back to List",
-    "loading": "Loading...",
-    "error": "Error",
-    "noWorkflows": "No workflow data",
-    "refresh": "Refresh",
-    "status": {
-      "all": "All Status",
-      "inProgress": "In Progress",
-      "completed": "Completed",
-      "paused": "Paused"
-    },
-    "stage": {
-      "init": "Init",
-      "proposal": "Proposal",
-      "apply": "Apply",
-      "archive": "Archive"
-    },
-    "basicInfo": "Basic Information",
-    "workspaceId": "Workspace ID",
-    "changeId": "Change ID",
-    "startTime": "Start Time",
-    "updateTime": "Update Time",
-    "progressInfo": "Progress Information",
-    "taskProgress": "Task Progress",
-    "timeSpent": "Time Spent",
-    "changedFiles": "Changed Files",
-    "summary": "Summary",
-    "metadata": "Metadata",
-    "progress": "Progress",
-    "tasks": "tasks",
-    "onboarding": {
-      "helpSection": {
-        "title": "Usage Instructions",
-        "expand": "Expand",
-        "collapse": "Collapse"
-      },
-      "skillInstallWarning": {
-        "title": "Important Notice",
-        "message": "Before using OpenSpec workflows, please install the \"OpenSpec\" skill plugin from the marketplace. After installation, command files will be automatically installed to the workspace's .cursor/commands/ directory."
-      },
-      "workflowDiagram": {
-        "title": "OpenSpec Workflow Diagram"
-      },
-      "stages": {
-        "title": "Four Stages Detailed Explanation (Based on OpenSpec Skill)",
-        "init": {
-          "name": "init (Initialize)",
-          "function": "Function: Initialize OpenSpec directory structure",
-          "command": "Command: /cocursor-openspec-init",
-          "output": "Output: Create openspec/ directory and base files"
-        },
-        "proposal": {
-          "name": "proposal (Proposal)",
-          "function": "Function: Create change proposal, define what to do",
-          "command": "Command: /cocursor-openspec-proposal",
-          "output": "Output:",
-          "outputItems": {
-            "proposal": "proposal.md (change description)",
-            "tasks": "tasks.md (implementation task list)",
-            "design": "design.md (technical design, if needed)",
-            "specDelta": "spec delta files (specification changes)"
-          },
-          "mcpTools": "MCP Tools:",
-          "mcpToolsList": {
-            "openspec_list": "openspec_list (get existing changes and specs)",
-            "openspec_validate": "openspec_validate (validate format)",
-            "record_openspec_workflow": "record_openspec_workflow (record state)"
-          }
-        },
-        "apply": {
-          "name": "apply (Apply)",
-          "function": "Function: Implement approved changes",
-          "command": "Command: /cocursor-openspec-apply",
-          "process": "Process:",
-          "processItems": {
-            "taskOrder": "Complete tasks in tasks.md order",
-            "autoUpdate": "Automatically update progress after each task completion",
-            "autoSummary": "Automatically generate work summary after all tasks are completed"
-          },
-          "mcpTools": "MCP Tools:",
-          "mcpToolsList": {
-            "openspec_list": "openspec_list (get change details)",
-            "record_openspec_workflow": "record_openspec_workflow (update progress)",
-            "generate_openspec_workflow_summary": "generate_openspec_workflow_summary (generate summary)"
-          }
-        },
-        "archive": {
-          "name": "archive (Archive)",
-          "function": "Function: Archive completed work",
-          "command": "Command: /cocursor-openspec-archive",
-          "process": "Process:",
-          "processItems": {
-            "moveDirectory": "Move change directory to archive/",
-            "mergeSpec": "Merge spec delta to main spec files",
-            "recordState": "Record archive state"
-          },
-          "mcpTools": "MCP Tools:",
-          "mcpToolsList": {
-            "record_openspec_workflow": "record_openspec_workflow (record archive state)"
-          }
-        }
-      },
-      "stateTracking": {
-        "title": "Workflow State Tracking:",
-        "description": "State is automatically recorded to ~/.cocursor/cocursor.db database",
-        "includes": "Includes:",
-        "includesItems": {
-          "stage": "Current stage (init/proposal/apply/archive)",
-          "status": "Status (in_progress/completed/paused)",
-          "progress": "Progress information (task completion status)",
-          "summary": "Work summary (automatically generated after tasks.md completion)"
-        }
-      },
-      "statusExplanation": {
-        "title": "Status Explanation:",
-        "inProgress": "in_progress (In Progress) - 🟡 Yellow",
-        "completed": "completed (Completed) - 🟢 Green",
-        "paused": "paused (Paused) - ⚪ Gray"
-      },
-      "usageTips": {
-        "title": "Usage Tips:",
-        "commandPalette": "Use command palette (Cmd+Shift+P / Ctrl+Shift+P) to execute commands",
-        "mcpTools": "All operations are performed through cocursor MCP tools, returning JSON data",
-        "viewDetail": "Click workflow list item to view detailed information",
-        "progressBar": "Progress bar shows task completion status",
-        "viewInUI": "Workflow state can be viewed in UI (this panel)"
-      }
-    }
+    "unnamedSession": "Unnamed Session",
+    "lines": "lines",
+    "expandCode": "Expand",
+    "collapseCode": "Collapse"
   },
   "workAnalysis": {
     "title": "Work Analysis",
@@ -274,7 +144,7 @@
       "entropy": "Entropy",
       "status": "Status",
       "healthy": "Healthy",
-      "subHealthy": "Sub-Healthy",
+      "sub_healthy": "Sub-Healthy",
       "dangerous": "Dangerous",
       "unknown": "Unknown"
     },
@@ -319,7 +189,8 @@
       "today": "Today",
       "viewReport": "View Report",
       "generateReport": "Generate Report",
-      "noActivity": "No Activity"
+      "noActivity": "No Activity",
+      "completedChanges": "Changes"
     },
     "tokenStats": {
       "title": "Token Stats",
@@ -329,19 +200,77 @@
     "dailyReport": {
       "viewTitle": "Work Report",
       "generateTitle": "Generate Report",
-      "generatePrompt": "Enter the following command in Cursor chat:",
-      "copyCommand": "Copy Command",
-      "copied": "Copied",
-      "afterGenerate": "After execution, the report will be saved automatically. Refresh to view.",
       "close": "Close",
-      "notAvailable": "N/A"
+      "notAvailable": "N/A",
+      "checkingSkill": "Checking skill status...",
+      "needInstallSkill": "Daily Report Skill Required",
+      "skillDescription": "The daily report feature requires the \"Daily Summary\" skill. This skill helps you:",
+      "skillFeature1": "Automatically analyze your chat sessions",
+      "skillFeature2": "Extract work content and technical highlights",
+      "skillFeature3": "Generate structured daily summaries",
+      "viewInMarketplace": "View in Marketplace",
+      "installNow": "Install Now",
+      "installing": "Installing...",
+      "usageTitle": "In Cursor chat, use either of these methods:",
+      "method1": "Method 1: Slash Command",
+      "method2": "Method 2: Natural Language",
+      "nlExample1": "Please generate today's daily report",
+      "nlExample2": "Summarize my work on {{date}}",
+      "autoRefreshTip": "After generation, the page will automatically refresh to show your report",
+      "understood": "Got it"
+    }
+  },
+  "dailyReport": {
+    "sessions": "Sessions",
+    "projects": "Projects",
+    "activeTime": "Active Time",
+    "messages": "Messages",
+    "minutes": " min",
+    "hours": " hrs",
+    "minutesShort": "m",
+    "hoursShort": "h",
+    "times": "",
+    "sessionsShort": " sessions",
+    "messagesShort": " msgs",
+    "files": "files",
+    "workCategories": "Work Categories",
+    "timeDistribution": "Time Distribution",
+    "codeChanges": "Code Changes",
+    "projectDetails": "Project Details",
+    "summary": "Summary",
+    "linesAdded": "lines added",
+    "linesRemoved": "lines removed",
+    "filesChanged": "files changed",
+    "workItems": "Work Items",
+    "activeHours": "Active Hours",
+    "relatedSessions": "Related Sessions",
+    "unnamedSession": "Unnamed Session",
+    "moreSessions": "more sessions",
+    "saveScreenshot": "Save Screenshot",
+    "copyToClipboard": "Copy to Clipboard",
+    "screenshotSaved": "Screenshot saved",
+    "screenshotCopied": "Screenshot copied to clipboard",
+    "screenshotFailed": "Screenshot failed",
+    "category": {
+      "coding": "Coding",
+      "problemSolving": "Problem Solving",
+      "refactoring": "Refactoring",
+      "codeReview": "Code Review",
+      "documentation": "Documentation",
+      "testing": "Testing",
+      "requirementsDiscussion": "Requirements",
+      "other": "Other"
+    },
+    "timeSlot": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "night": "Night"
     }
   },
   "navigation": {
     "home": "Home",
     "sessionDetail": "Session Detail",
-    "workflow": "Workflow",
-    "workflowDetail": "Workflow Detail",
     "workAnalysis": "Work Analysis",
     "recentSessions": "Recent Sessions",
     "marketplace": "Skills Market",
@@ -359,8 +288,6 @@
     "tokenLoading": "Loading...",
     "workAnalysis": "Work Analysis",
     "openWorkAnalysis": "Open Work Analysis",
-    "workflow": "OpenSpec Workflow",
-    "openWorkflow": "Open Workflow",
     "ragSearch": "RAG Search",
     "openRAGSearch": "Open RAG Search",
     "ragConfig": "RAG Config",
@@ -520,6 +447,78 @@
     "shared": "shared",
     "viewDetail": "View Detail",
     "fetchDailySummaryFailed": "Failed to fetch daily report"
+  },
+  "weeklyReport": {
+    "title": "Team Weekly Report",
+    "prevWeek": "Previous Week",
+    "nextWeek": "Next Week",
+    "thisWeek": "This Week",
+    "projectConfig": "Project Config",
+    "refreshSuccess": "Refresh successful",
+    "refreshFailed": "Refresh failed",
+    "fetchDetailFailed": "Failed to fetch details",
+    "loadFailed": "Failed to load",
+    "noProjectsConfigured": "No Projects Configured",
+    "noProjectsConfiguredDesc": "Please configure team projects to track",
+    "configureProjects": "Configure Projects",
+    "noData": "No Data",
+    "member": "Member",
+    "weekday": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "less": "Less",
+    "more": "More",
+    "hasReport": "Has Report",
+    "offline": "Offline",
+    "cached": "Cached",
+    "noDetailData": "No detail data",
+    "noActivityData": "No activity data for this day",
+    "gitActivity": "Git Activity",
+    "commits": "commits",
+    "linesAdded": "Added",
+    "linesRemoved": "Removed",
+    "files": "files",
+    "cursorStats": "Cursor AI Stats",
+    "sessions": "Sessions",
+    "tokens": "Tokens",
+    "aiAdded": "AI Added",
+    "aiRemoved": "AI Removed",
+    "workItems": "Work Items",
+    "category": {
+      "requirements_discussion": "Requirements",
+      "coding": "Coding",
+      "problem_solving": "Problem Solving",
+      "refactoring": "Refactoring",
+      "code_review": "Code Review",
+      "documentation": "Documentation",
+      "testing": "Testing",
+      "other": "Other"
+    },
+    "projectConfigDesc": "Configure team projects to track. The system will collect members' Git commits and Cursor activities on these projects.",
+    "addProject": "Add Project",
+    "projectName": "Project Name",
+    "projectNamePlaceholder": "e.g., CoCursor Main",
+    "projectNameRequired": "Please enter project name",
+    "repoUrl": "Git Repository URL",
+    "repoUrlPlaceholder": "e.g., github.com/org/repo",
+    "repoUrlRequired": "Please enter repository URL",
+    "repoUrlHint": "Enter Git Remote URL, protocol prefix and .git suffix will be removed automatically",
+    "add": "Add",
+    "addProjectSuccess": "Project added",
+    "addProjectFailed": "Failed to add project",
+    "configuredProjects": "Configured Projects",
+    "removeProjectSuccess": "Project removed",
+    "removeProjectFailed": "Failed to remove project",
+    "projectSummary": "Project Summary",
+    "added": "Added",
+    "removed": "Removed",
+    "contributors": "Contributors"
   },
   "rag": {
     "beta": "Beta",

@@ -8,13 +8,23 @@ import (
 	"github.com/cocursor/backend/internal/infrastructure/log"
 )
 
+// WeeklyStatsProvider 周报统计提供者接口
+// 避免循环导入，由 interfaces/p2p/handler.WeeklyStatsHandler 实现
+type WeeklyStatsProvider interface {
+	// GetWeeklyStats 获取周统计数据
+	GetWeeklyStats(c *gin.Context)
+	// GetDailyDetail 获取日详情数据
+	GetDailyDetail(c *gin.Context)
+}
+
 // P2PHTTPServer P2P HTTP 服务
 // 提供技能下载等 P2P 接口
 type P2PHTTPServer struct {
-	router       *gin.Engine
-	skillProvider SkillProvider
-	healthInfo   *HealthInfo
-	logger       *slog.Logger
+	router              *gin.Engine
+	skillProvider       SkillProvider
+	weeklyStatsProvider WeeklyStatsProvider
+	healthInfo          *HealthInfo
+	logger              *slog.Logger
 }
 
 // SkillProvider 技能提供者接口
@@ -63,6 +73,21 @@ func (s *P2PHTTPServer) registerRoutes() {
 		p2p.GET("/health", s.handleHealth)
 		p2p.GET("/skills/:id/meta", s.handleSkillMeta)
 		p2p.GET("/skills/:id/download", s.handleSkillDownload)
+
+		// 周报统计路由（由 WeeklyStatsHandler 处理）
+		// 这些路由需要在设置 WeeklyStatsHandler 后才可用
+	}
+}
+
+// registerWeeklyStatsRoutes 注册周报统计路由
+func (s *P2PHTTPServer) registerWeeklyStatsRoutes() {
+	if s.weeklyStatsProvider == nil {
+		return
+	}
+	p2p := s.router.Group("/p2p")
+	{
+		p2p.GET("/weekly-stats", s.weeklyStatsProvider.GetWeeklyStats)
+		p2p.GET("/daily-detail", s.weeklyStatsProvider.GetDailyDetail)
 	}
 }
 
@@ -138,4 +163,11 @@ func (s *P2PHTTPServer) UpdateHealthInfo(info *HealthInfo) {
 // SetSkillProvider 设置技能提供者
 func (s *P2PHTTPServer) SetSkillProvider(provider SkillProvider) {
 	s.skillProvider = provider
+}
+
+// SetWeeklyStatsProvider 设置周报统计提供者并注册路由
+func (s *P2PHTTPServer) SetWeeklyStatsProvider(provider WeeklyStatsProvider) {
+	s.weeklyStatsProvider = provider
+	s.registerWeeklyStatsRoutes()
+	s.logger.Info("weekly stats provider registered")
 }

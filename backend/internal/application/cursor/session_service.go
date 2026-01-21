@@ -519,14 +519,6 @@ func (s *SessionService) combineMessages(
 	return messages
 }
 
-// min 辅助函数
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // extractCodeBlocks 从文本中提取代码块
 // 支持 Markdown 格式：```language\ncode\n```
 func (s *SessionService) extractCodeBlocks(text string) []*domainCursor.CodeBlock {
@@ -579,237 +571,10 @@ func (s *SessionService) extractCodeBlocks(text string) []*domainCursor.CodeBloc
 
 // parseTranscript 解析 agent-transcripts 文件内容
 // baseTimestamp: 会话创建时间戳（毫秒），用于计算消息的相对时间
+// 重构后使用 transcriptParser 状态机实现，降低认知复杂度
 func (s *SessionService) parseTranscript(content string, baseTimestamp int64) ([]*domainCursor.Message, error) {
-	var messages []*domainCursor.Message
-	lines := strings.Split(content, "\n")
-
-	var currentRole string
-	var currentText strings.Builder
-	var currentTools []*domainCursor.ToolCall
-	var messageIndex int
-
-	// 保存当前消息到列表
-	saveMessage := func() {
-		if currentRole == "" || currentText.Len() == 0 {
-			return
-		}
-
-		text := strings.TrimSpace(currentText.String())
-		if text == "" {
-			return
-		}
-
-		text = s.filterMessageText(text)
-		if text == "" {
-			return
-		}
-
-		timestamp := baseTimestamp + int64(messageIndex*1000) // 每条消息间隔1秒
-		msg := &domainCursor.Message{
-			Type:      getMessageType(currentRole),
-			Text:      text,
-			Timestamp: timestamp,
-		}
-
-		if msg.Type == domainCursor.MessageTypeAI {
-			msg.CodeBlocks = s.extractCodeBlocks(text)
-			// 将工具调用附加到AI消息
-			if len(currentTools) > 0 {
-				msg.Tools = make([]*domainCursor.ToolCall, len(currentTools))
-				copy(msg.Tools, currentTools)
-			}
-		}
-
-		messages = append(messages, msg)
-		messageIndex++
-		currentTools = nil // 重置工具调用列表
-	}
-
-	// 跳过标签内容（如 <think>...</think>）
-	skipTagContent := func(lines []string, i int, openTag, closeTag string) int {
-		for j := i + 1; j < len(lines); j++ {
-			if strings.Contains(lines[j], closeTag) {
-				return j
-			}
-		}
-		return len(lines) - 1
-	}
-
-	// 提取标签内容（如 <user_query>...</user_query>）
-	extractTagContent := func(lines []string, i int, openTag, closeTag string) (string, int) {
-		line := lines[i]
-		startIdx := strings.Index(line, openTag)
-		if startIdx == -1 {
-			return "", i
-		}
-
-		contentStart := startIdx + len(openTag)
-		endIdx := strings.Index(line[contentStart:], closeTag)
-
-		if endIdx != -1 {
-			// 在同一行
-			return strings.TrimSpace(line[contentStart : contentStart+endIdx]), i
-		}
-
-		// 跨行提取
-		var content strings.Builder
-		content.WriteString(line[contentStart:])
-		for j := i + 1; j < len(lines); j++ {
-			if strings.Contains(lines[j], closeTag) {
-				content.WriteString(strings.TrimSuffix(lines[j], closeTag))
-				return strings.TrimSpace(content.String()), j
-			}
-			if j > i+1 {
-				content.WriteString("\n")
-			}
-			content.WriteString(lines[j])
-		}
-		return strings.TrimSpace(content.String()), len(lines) - 1
-	}
-
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-
-		// 检测角色标记
-		if line == "user:" {
-			saveMessage()
-			currentRole = "user"
-			currentText.Reset()
-			currentTools = nil
-			continue
-		}
-
-		if line == "assistant:" {
-			saveMessage()
-			currentRole = "assistant"
-			currentText.Reset()
-			currentTools = nil
-			continue
-		}
-
-		// 提取工具调用信息（只在assistant消息中）
-		if strings.HasPrefix(line, "[Tool call]") && currentRole == "assistant" {
-			toolName := strings.TrimSpace(strings.TrimPrefix(line, "[Tool call]"))
-			if toolName == "" {
-				continue
-			}
-
-			// 解析工具参数（从下一行开始，直到空行或下一个标记）
-			args := make(map[string]string)
-			var currentArgKey string
-			var currentArgValue strings.Builder
-
-			for j := i + 1; j < len(lines); j++ {
-				nextLine := lines[j]
-				// 遇到空行、下一个工具调用、工具结果或消息开始，停止
-				if nextLine == "" || strings.HasPrefix(nextLine, "[Tool call]") ||
-					strings.HasPrefix(nextLine, "[Tool result]") ||
-					nextLine == "user:" || nextLine == "assistant:" {
-					// 保存最后一个参数
-					if currentArgKey != "" {
-						args[currentArgKey] = strings.TrimSpace(currentArgValue.String())
-					}
-					i = j - 1
-					break
-				}
-
-				// 检查是否是新的参数（以非空格开头，且包含冒号）
-				trimmed := strings.TrimSpace(nextLine)
-				if strings.Contains(trimmed, ":") && !strings.HasPrefix(nextLine, " ") && !strings.HasPrefix(nextLine, "\t") {
-					// 保存上一个参数
-					if currentArgKey != "" {
-						args[currentArgKey] = strings.TrimSpace(currentArgValue.String())
-						currentArgValue.Reset()
-					}
-					// 解析新参数
-					parts := strings.SplitN(trimmed, ":", 2)
-					if len(parts) == 2 {
-						currentArgKey = strings.TrimSpace(parts[0])
-						currentArgValue.WriteString(strings.TrimSpace(parts[1]))
-					}
-				} else if currentArgKey != "" {
-					// 继续累积当前参数的值（可能是多行）
-					if currentArgValue.Len() > 0 {
-						currentArgValue.WriteString(" ")
-					}
-					currentArgValue.WriteString(trimmed)
-				} else if strings.Contains(trimmed, "=") {
-					// 尝试解析 key=value 格式
-					parts := strings.SplitN(trimmed, "=", 2)
-					if len(parts) == 2 {
-						key := strings.TrimSpace(parts[0])
-						value := strings.TrimSpace(parts[1])
-						if key != "" {
-							args[key] = value
-						}
-					}
-				}
-
-				if j == len(lines)-1 {
-					// 保存最后一个参数
-					if currentArgKey != "" {
-						args[currentArgKey] = strings.TrimSpace(currentArgValue.String())
-					}
-					i = j
-				}
-			}
-
-			// 创建工具调用对象
-			toolCall := &domainCursor.ToolCall{
-				Name:      toolName,
-				Arguments: args,
-			}
-			currentTools = append(currentTools, toolCall)
-			continue
-		}
-
-		// 跳过工具结果（不解析结果内容，只跳过）
-		if strings.HasPrefix(line, "[Tool result]") {
-			for j := i + 1; j < len(lines); j++ {
-				nextLine := lines[j]
-				if nextLine == "" || strings.HasPrefix(nextLine, "[Tool call]") ||
-					strings.HasPrefix(nextLine, "[Tool result]") ||
-					nextLine == "user:" || nextLine == "assistant:" {
-					i = j - 1
-					break
-				}
-				if j == len(lines)-1 {
-					i = j
-				}
-			}
-			continue
-		}
-
-		// 提取 user_query 内容
-		if strings.Contains(line, "<user_query>") {
-			content, newI := extractTagContent(lines, i, "<user_query>", "</user_query>")
-			if content != "" {
-				currentText.WriteString(content)
-			}
-			i = newI
-			continue
-		}
-
-		// 跳过 <think> 标签及其内容
-		if strings.Contains(line, "<think>") {
-			i = skipTagContent(lines, i, "<think>", "</think>")
-			continue
-		}
-
-		// 累积当前消息的文本
-		if currentRole != "" {
-			if currentText.Len() > 0 {
-				currentText.WriteString("\n")
-			}
-			currentText.WriteString(line)
-		}
-	}
-
-	// 保存最后一条消息
-	saveMessage()
-
-	log.Printf("[parseTranscript] 解析了 %d 条消息", len(messages))
-	return messages, nil
+	parser := newTranscriptParser(s, content, baseTimestamp)
+	return parser.parse()
 }
 
 // getMessageType 将角色转换为消息类型
@@ -985,7 +750,7 @@ func (s *SessionService) removeCodeBlocksFromText(text string) string {
 	return text
 }
 
-// filterSystemInfo 过滤系统信息（如 git_status、文件列表等）
+// filterSystemInfo 过滤系统信息（如 git_status、文件列表、附件等）
 func (s *SessionService) filterSystemInfo(text string) string {
 	if text == "" {
 		return text
@@ -994,6 +759,26 @@ func (s *SessionService) filterSystemInfo(text string) string {
 	// 移除 <git_status>...</git_status> 标签及其内容
 	gitStatusRegex := regexp.MustCompile("(?i)(?s)<git_status>.*?</git_status>")
 	text = gitStatusRegex.ReplaceAllString(text, "")
+	
+	// 移除 <attached_files>...</attached_files> 标签及其内容（包含用户选中的代码、diff 等）
+	attachedFilesRegex := regexp.MustCompile("(?i)(?s)<attached_files>.*?</attached_files>")
+	text = attachedFilesRegex.ReplaceAllString(text, "")
+	
+	// 移除 <agent_skills>...</agent_skills> 标签及其内容
+	agentSkillsRegex := regexp.MustCompile("(?i)(?s)<agent_skills>.*?</agent_skills>")
+	text = agentSkillsRegex.ReplaceAllString(text, "")
+	
+	// 移除 <code_selection ...>...</code_selection> 标签及其内容
+	codeSelectionRegex := regexp.MustCompile("(?i)(?s)<code_selection[^>]*>.*?</code_selection>")
+	text = codeSelectionRegex.ReplaceAllString(text, "")
+	
+	// 移除 <terminal_selection ...>...</terminal_selection> 标签及其内容
+	terminalSelectionRegex := regexp.MustCompile("(?i)(?s)<terminal_selection[^>]*>.*?</terminal_selection>")
+	text = terminalSelectionRegex.ReplaceAllString(text, "")
+	
+	// 移除 [Image] 标记（图片占位符）
+	imageTagRegex := regexp.MustCompile(`\[Image\](\s*\n)?`)
+	text = imageTagRegex.ReplaceAllString(text, "")
 	
 	// 移除其他常见的系统信息标签
 	systemTags := []string{

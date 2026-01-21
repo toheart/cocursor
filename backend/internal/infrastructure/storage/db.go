@@ -126,6 +126,7 @@ func InitDatabase() error {
 		"ALTER TABLE daily_summaries ADD COLUMN code_changes TEXT",
 		"ALTER TABLE daily_summaries ADD COLUMN time_distribution TEXT",
 		"ALTER TABLE daily_summaries ADD COLUMN efficiency_metrics TEXT",
+		"ALTER TABLE daily_summaries ADD COLUMN projects TEXT",
 		"ALTER TABLE workspace_sessions ADD COLUMN token_count INTEGER DEFAULT 0",
 	}
 
@@ -140,35 +141,6 @@ func InitDatabase() error {
 
 	if _, err := db.Exec(createIndexSQL); err != nil {
 		return fmt.Errorf("failed to create index: %w", err)
-	}
-
-	// 创建 openspec_workflows 表
-	createOpenSpecTableSQL := `
-	CREATE TABLE IF NOT EXISTS openspec_workflows (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		workspace_id TEXT NOT NULL,
-		project_path TEXT NOT NULL,
-		change_id TEXT NOT NULL,
-		stage TEXT NOT NULL,
-		status TEXT NOT NULL,
-		started_at INTEGER NOT NULL,
-		updated_at INTEGER NOT NULL,
-		metadata TEXT,
-		summary TEXT,
-		UNIQUE(workspace_id, change_id)
-	);`
-
-	if _, err := db.Exec(createOpenSpecTableSQL); err != nil {
-		return fmt.Errorf("failed to create openspec_workflows table: %w", err)
-	}
-
-	// 创建索引
-	createOpenSpecIndexSQL := `
-	CREATE INDEX IF NOT EXISTS idx_openspec_workspace_change ON openspec_workflows(workspace_id, change_id);
-	CREATE INDEX IF NOT EXISTS idx_openspec_status ON openspec_workflows(status);`
-
-	if _, err := db.Exec(createOpenSpecIndexSQL); err != nil {
-		return fmt.Errorf("failed to create openspec_workflows indexes: %w", err)
 	}
 
 	// 创建 workspace_sessions 表

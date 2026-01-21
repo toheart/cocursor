@@ -1,0 +1,862 @@
+/**
+ * 周报组件样式
+ */
+
+/* ===== 周报主容器 ===== */
+.cocursor-weekly-report {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+}
+
+/* ===== 头部操作栏 ===== */
+.cocursor-weekly-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-report-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocursor-weekly-report-week-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-weekly-report-week-range {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  min-width: 140px;
+  text-align: center;
+}
+
+.cocursor-weekly-report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== 周报内容区 ===== */
+.cocursor-weekly-report-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ===== 日历视图 ===== */
+.cocursor-weekly-calendar {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cocursor-weekly-calendar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-weekly-calendar-empty .cocursor-empty-icon {
+  font-size: 32px;
+}
+
+/* 表头 */
+.cocursor-weekly-calendar-header {
+  display: grid;
+  grid-template-columns: 140px repeat(7, 1fr);
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-calendar-header-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-weekly-calendar-header-cell.corner {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-weekly-calendar-header-cell.today {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.cocursor-weekly-calendar-weekday {
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.cocursor-weekly-calendar-date {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* 表体 */
+.cocursor-weekly-calendar-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.cocursor-weekly-calendar-row {
+  display: grid;
+  grid-template-columns: 140px repeat(7, 1fr);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-calendar-row:last-child {
+  border-bottom: none;
+}
+
+/* 成员列 */
+.cocursor-weekly-calendar-member-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--vscode-sideBar-background);
+  border-right: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-calendar-member-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.cocursor-weekly-calendar-member-name {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 日历格子 */
+.cocursor-weekly-calendar-cell {
+  position: relative;
+  min-height: 48px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-calendar-cell:last-child {
+  border-right: none;
+}
+
+.cocursor-weekly-calendar-cell:hover {
+  transform: scale(1.05);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cocursor-weekly-calendar-cell.today {
+  border: 2px solid var(--vscode-button-background);
+}
+
+/* 活跃度颜色（类似 GitHub 贡献热力图） */
+.cocursor-weekly-calendar-cell.activity-none {
+  background: var(--vscode-editor-background);
+}
+
+.cocursor-weekly-calendar-cell.activity-low {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.cocursor-weekly-calendar-cell.activity-medium {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+.cocursor-weekly-calendar-cell.activity-high {
+  background: rgba(34, 197, 94, 0.6);
+}
+
+.cocursor-weekly-calendar-cell.activity-very-high {
+  background: rgba(34, 197, 94, 0.9);
+}
+
+/* 提交数 */
+.cocursor-weekly-calendar-commits {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-weekly-calendar-cell.activity-high .cocursor-weekly-calendar-commits,
+.cocursor-weekly-calendar-cell.activity-very-high .cocursor-weekly-calendar-commits {
+  color: white;
+}
+
+/* 状态图标 */
+.cocursor-weekly-calendar-icons {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  display: flex;
+  gap: 2px;
+  font-size: 10px;
+}
+
+.cocursor-weekly-calendar-icon.report {
+  opacity: 0.8;
+}
+
+.cocursor-weekly-calendar-icon.offline {
+  font-size: 6px;
+  opacity: 0.5;
+}
+
+/* 图例 */
+.cocursor-weekly-calendar-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--vscode-sideBar-background);
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-calendar-legend-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0 4px;
+}
+
+.cocursor-weekly-calendar-legend-item {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.cocursor-weekly-calendar-legend-item.activity-none {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-weekly-calendar-legend-item.activity-low {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.cocursor-weekly-calendar-legend-item.activity-medium {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+.cocursor-weekly-calendar-legend-item.activity-high {
+  background: rgba(34, 197, 94, 0.6);
+}
+
+.cocursor-weekly-calendar-legend-item.activity-very-high {
+  background: rgba(34, 197, 94, 0.9);
+}
+
+/* ===== 成员日详情弹窗 ===== */
+.cocursor-member-day-detail-modal {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+.cocursor-member-day-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocursor-member-day-detail-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.cocursor-member-day-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cocursor-member-day-detail-info h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.cocursor-member-day-detail-date {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-member-day-detail-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cocursor-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.cocursor-badge.online {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.cocursor-badge.offline {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+}
+
+.cocursor-badge.cached {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.cocursor-badge.report {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.cocursor-member-day-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cocursor-member-day-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cocursor-member-day-detail-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-section-icon {
+  font-size: 16px;
+}
+
+/* 统计数值 */
+.cocursor-member-day-detail-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cocursor-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 8px;
+  min-width: 80px;
+}
+
+.cocursor-stat-item .cocursor-stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-stat-item.positive .cocursor-stat-value {
+  color: #22c55e;
+}
+
+.cocursor-stat-item.negative .cocursor-stat-value {
+  color: #ef4444;
+}
+
+.cocursor-stat-item .cocursor-stat-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 4px;
+}
+
+/* 项目 Git 详情 */
+.cocursor-member-day-detail-projects {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-project-git-detail {
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cocursor-project-git-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.cocursor-project-git-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-project-git-name {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-git-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-git-lines .positive {
+  color: #22c55e;
+  margin-right: 4px;
+}
+
+.cocursor-project-git-lines .negative {
+  color: #ef4444;
+}
+
+.cocursor-expand-icon {
+  transition: transform 0.2s;
+  font-size: 10px;
+}
+
+.cocursor-expand-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.cocursor-project-git-commits-list {
+  border-top: 1px solid var(--vscode-panel-border);
+  padding: 8px 12px;
+}
+
+.cocursor-commit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.cocursor-commit-hash {
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-textLink-foreground);
+  min-width: 60px;
+}
+
+.cocursor-commit-message {
+  flex: 1;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cocursor-commit-files {
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+/* 工作条目 */
+.cocursor-member-day-detail-work-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-work-item-card {
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.cocursor-work-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cocursor-work-item-category {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: white;
+}
+
+.cocursor-work-item-project {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-work-item-description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+}
+
+/* ===== 项目配置弹窗 ===== */
+.cocursor-project-config-modal {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+.cocursor-project-config-desc {
+  padding: 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.cocursor-project-config-desc p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-config-form {
+  margin-bottom: 20px;
+}
+
+.cocursor-project-config-form h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.cocursor-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cocursor-form-group.flex-grow {
+  flex: 1;
+}
+
+.cocursor-form-group label {
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-form-group input {
+  padding: 6px 10px;
+  border: 1px solid var(--vscode-input-border);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.cocursor-form-hint {
+  margin: 8px 0 0 0;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-project-config-list {
+  margin-top: 16px;
+}
+
+.cocursor-project-config-list h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cocursor-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-project-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+}
+
+.cocursor-project-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cocursor-project-item-name {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-item-url {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 项目统计汇总 ===== */
+.cocursor-project-stats {
+  margin-top: 8px;
+}
+
+.cocursor-project-stats-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cocursor-project-card {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.cocursor-project-card-header {
+  margin-bottom: 12px;
+}
+
+.cocursor-project-card-name {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-card-url {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.cocursor-project-card-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-project-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cocursor-project-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-project-stat.positive .cocursor-project-stat-value {
+  color: #22c55e;
+}
+
+.cocursor-project-stat.negative .cocursor-project-stat-value {
+  color: #ef4444;
+}
+
+.cocursor-project-stat-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 2px;
+}
+
+.cocursor-project-card-contributors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-contributors-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-contributors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cocursor-contributor-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cocursor-contributor-rank {
+  font-weight: 600;
+  width: 20px;
+}
+
+.cocursor-contributor-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cocursor-contributor-name {
+  flex: 1;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cocursor-contributor-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.cocursor-contributor-commits {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-contributor-lines.positive {
+  color: #22c55e;
+}
+
+.cocursor-contributor-lines.negative {
+  color: #ef4444;
+}
+
+/* ===== 按钮样式扩展 ===== */
+.cocursor-btn.icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.cocursor-btn-text.small {
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+.cocursor-btn.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.cocursor-btn.danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.cocursor-btn.small {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* ===== 空状态扩展 ===== */
+.cocursor-team-empty-section.small {
+  padding: 24px;
+}
+
+.cocursor-team-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px;
+  color: var(--vscode-errorForeground);
+}
+
+.cocursor-error-icon {
+  font-size: 32px;
+}

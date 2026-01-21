@@ -260,28 +260,26 @@ type WorkAnalysis struct {
 
 // DailyAnalysis 每日分析详情
 type DailyAnalysis struct {
-	Date           string `json:"date"`             // 日期 YYYY-MM-DD
-	LinesAdded     int    `json:"lines_added"`      // 添加行数
-	LinesRemoved   int    `json:"lines_removed"`    // 删除行数
-	FilesChanged   int    `json:"files_changed"`    // 变更文件数
-	ActiveSessions int    `json:"active_sessions"`  // 活跃会话数
-	TokenUsage     int    `json:"token_usage"`      // 当日 Token 消耗
-	HasDailyReport bool   `json:"has_daily_report"` // 是否有日报
+	Date             string `json:"date"`               // 日期 YYYY-MM-DD
+	LinesAdded       int    `json:"lines_added"`        // 添加行数
+	LinesRemoved     int    `json:"lines_removed"`      // 删除行数
+	FilesChanged     int    `json:"files_changed"`      // 变更文件数
+	ActiveSessions   int    `json:"active_sessions"`    // 活跃会话数
+	TokenUsage       int    `json:"token_usage"`        // 当日 Token 消耗
+	HasDailyReport   bool   `json:"has_daily_report"`   // 是否有日报
+	CompletedChanges int    `json:"completed_changes"`  // 当日完成的 OpenSpec 变更数量
 }
 
 // WorkAnalysisOverview 工作分析概览
 type WorkAnalysisOverview struct {
-	TotalLinesAdded        int     `json:"total_lines_added"`        // 总添加行数
-	TotalLinesRemoved      int     `json:"total_lines_removed"`      // 总删除行数
-	FilesChanged           int     `json:"files_changed"`            // 变更文件数
-	AcceptanceRate         float64 `json:"acceptance_rate"`          // 整体接受率
-	TabAcceptanceRate      float64 `json:"tab_acceptance_rate"`      // Tab 接受率
-	ComposerAcceptanceRate float64 `json:"composer_acceptance_rate"` // Composer 接受率
-	ActiveSessions         int     `json:"active_sessions"`          // 活跃会话数
-	TotalPrompts           int     `json:"total_prompts"`            // 总 Prompts 数（用户输入）
-	TotalGenerations       int     `json:"total_generations"`        // 总 Generations 数（AI 回复）
-	TotalTokens            int     `json:"total_tokens"`             // 周期内总 Token 消耗
-	TokenTrend             string  `json:"token_trend"`              // Token 趋势（与上周期对比）
+	TotalLinesAdded   int    `json:"total_lines_added"`   // 总添加行数
+	TotalLinesRemoved int    `json:"total_lines_removed"` // 总删除行数
+	FilesChanged      int    `json:"files_changed"`       // 变更文件数
+	ActiveSessions    int    `json:"active_sessions"`     // 活跃会话数
+	TotalPrompts      int    `json:"total_prompts"`       // 总 Prompts 数（用户输入）
+	TotalGenerations  int    `json:"total_generations"`   // 总 Generations 数（AI 回复）
+	TotalTokens       int    `json:"total_tokens"`        // 周期内总 Token 消耗
+	TokenTrend        string `json:"token_trend"`         // Token 趋势（与上周期对比）
 }
 
 // DailyCodeChanges 每日代码变更
