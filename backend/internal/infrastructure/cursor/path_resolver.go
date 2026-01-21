@@ -185,14 +185,13 @@ func (p *PathResolver) parseFolderURI(uri string) (string, error) {
 	// Windows 路径格式: file:///d:/code/cocursor -> Path = "/d:/code/cocursor"
 	// macOS/Linux 路径格式: file:///Users/... -> Path = "/Users/..."
 	//
-	// Windows 路径特征: 第二个字符是 ':' (如 "/d:/...")
-	// Unix 路径特征: 以 "/" 开头，第二个字符不是 ':'
-	if len(decodedPath) > 2 && decodedPath[1] == ':' {
+	// Windows 路径特征: 第三个字符是 ':' (如 "/d:/..." 或 "/D:/...")
+	// 索引: 0='/', 1='d', 2=':'
+	// Unix 路径特征: 以 "/" 开头，第三个字符不是 ':'
+	if len(decodedPath) > 2 && decodedPath[0] == '/' && decodedPath[2] == ':' {
 		// Windows 路径: 移除开头的斜杠
 		// file:///d:/code/cocursor -> /d:/code/cocursor -> d:/code/cocursor
-		if len(decodedPath) > 0 && decodedPath[0] == '/' {
-			decodedPath = decodedPath[1:]
-		}
+		decodedPath = decodedPath[1:]
 	}
 	// macOS/Linux 路径: 保留开头的斜杠
 	// file:///Users/... -> /Users/... (保持不变)
@@ -266,4 +265,34 @@ func (p *PathResolver) getUserDataDir() (string, error) {
 		userDataDir = filepath.Join(home, ".config", "Cursor", "User")
 	}
 	return userDataDir, nil
+}
+
+// GetCursorProjectsDir 获取 Cursor 项目目录（存放 agent-transcripts）
+// Windows: %USERPROFILE%\.cursor\projects
+// macOS: ~/.cursor/projects
+// Linux: ~/.cursor/projects
+func (p *PathResolver) GetCursorProjectsDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
+
+	// 检查目录是否存在
+	if _, err := os.Stat(projectsDir); err != nil {
+		return "", fmt.Errorf("cursor projects directory not found at %s: %w", projectsDir, err)
+	}
+
+	return projectsDir, nil
+}
+
+// GetCursorProjectsDirOrDefault 获取 Cursor 项目目录，如果不存在返回默认路径（不报错）
+// 适用于需要容错的场景
+func (p *PathResolver) GetCursorProjectsDirOrDefault() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(homeDir, ".cursor", "projects")
 }

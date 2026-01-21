@@ -168,7 +168,7 @@ cocursor/
 ## 链接
 
 - **GitHub**：https://github.com/toheart/cocursor
-- **VS Code Marketplace**：[待补充]
+- **VS Code Marketplace**：https://marketplace.visualstudio.com/items?itemName=tanglyan-cocursor.cocursor
 - 欢迎关注作者：小唐的技术日志
 ---
 

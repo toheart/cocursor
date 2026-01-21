@@ -108,13 +108,14 @@ func (s *SessionService) GetSessionDetail(sessionID string, limit int) (*domainC
 
 	log.Printf("[GetSessionDetail] 开始查找会话: %s", sessionID)
 
-	// 1. 直接扫描 ~/.cursor/projects/ 下的所有项目目录，查找 transcript 文件
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("无法获取用户目录: %w", err)
+	// 1. 直接扫描 Cursor projects 目录下的所有项目目录，查找 transcript 文件
+	// Windows: %USERPROFILE%\.cursor\projects
+	// macOS/Linux: ~/.cursor/projects
+	projectsDir := s.pathResolver.GetCursorProjectsDirOrDefault()
+	if projectsDir == "" {
+		return nil, fmt.Errorf("无法获取 Cursor projects 目录")
 	}
 
-	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
 	projectEntries, err := os.ReadDir(projectsDir)
 	if err != nil {
 		return nil, fmt.Errorf("无法读取项目目录: %w", err)

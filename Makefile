@@ -1,6 +1,6 @@
 .PHONY: all build build-all build-backend build-frontend test test-backend test-frontend \
         lint lint-backend lint-frontend clean clean-backend clean-frontend \
-        install wire swagger run help ci-test ci-build
+        install wire swagger run help ci-test ci-build download-release
 
 # 默认目标：显示帮助信息
 .DEFAULT_GOAL := help
@@ -51,6 +51,9 @@ help:
 	@echo "CI 目标:"
 	@echo "  ci-test        - CI 测试（后端测试 + 前端 lint）"
 	@echo "  ci-build       - CI 构建（生成 wire + 构建前端）"
+	@echo ""
+	@echo "发布目标:"
+	@echo "  download-release - 下载最新 Release 的 .vsix 文件到当前目录"
 
 # ============================================================================
 # 完整构建
@@ -143,3 +146,15 @@ ci-build: wire
 	@echo "=== CI 构建阶段 ==="
 	$(MAKE) -C co-extension build
 	@echo "✓ CI 构建完成"
+
+# ============================================================================
+# 发布目标
+# ============================================================================
+
+# 下载最新 Release 的 .vsix 文件
+download-release:
+	@echo "=== 下载最新 Release ==="
+	./scripts/download-latest-release.sh .
+	@echo ""
+	@echo "下载的文件可在 Marketplace 管理页面手动上传:"
+	@echo "  https://marketplace.visualstudio.com/manage/publishers/tanglyan-cocursor"

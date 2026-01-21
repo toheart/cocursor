@@ -48,3 +48,6 @@ backend/server
 co-extension/nul
 docs/cocursor-intro-article.md
 docs/cocursor-design-philosophy.md
+
+# Playwright MCP screenshots (browser automation)
+.playwright-mcp/

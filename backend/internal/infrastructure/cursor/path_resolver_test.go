@@ -119,16 +119,16 @@ func TestParseFolderURI_WindowsPathWithLeadingBackslash(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				
+
 				// 规范化路径用于比较（统一使用正斜杠）
 				resultNormalized := filepath.ToSlash(result)
 				expectedNormalized := filepath.ToSlash(tt.expected)
-				
+
 				// 检查路径不应该以单个反斜杠开头（除非是 UNC 路径）
 				if strings.HasPrefix(result, "\\") && !strings.HasPrefix(result, "\\\\") {
 					t.Errorf("路径不应该以单个反斜杠开头: %s", result)
 				}
-				
+
 				// 检查路径匹配（不区分大小写）
 				if !strings.EqualFold(resultNormalized, expectedNormalized) {
 					t.Errorf("路径不匹配: 期望 %s, 得到 %s", expectedNormalized, resultNormalized)
@@ -180,15 +180,89 @@ func TestParseFolderURI_UnixPaths(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				
+
 				// Unix 路径应该保留开头的斜杠
 				if !strings.HasPrefix(result, "/") {
 					t.Errorf("Unix 路径应该以斜杠开头: %s", result)
 				}
-				
+
 				// 检查路径匹配
 				assert.Equal(t, tt.expected, result)
 			}
+		})
+	}
+}
+
+// TestParseFolderURI_WindowsPathDetection 测试 Windows 路径检测逻辑
+// 验证修复：索引 2 是冒号，而不是索引 1
+// 例如："/D:/code/..." 中，索引 0='/', 索引 1='D', 索引 2=':'
+func TestParseFolderURI_WindowsPathDetection(t *testing.T) {
+	resolver := NewPathResolver()
+
+	// 这些测试用例验证路径解析的正确性，不依赖于运行平台
+	tests := []struct {
+		name            string
+		uri             string
+		isWindowsPath   bool // 是否是 Windows 风格的路径
+		expectHasColon  bool // 期望解析后路径包含冒号（Windows 驱动器号）
+		expectNoLeading bool // 期望解析后路径不以 / 开头（Windows 路径）
+	}{
+		{
+			name:            "Windows path file:///D:/code",
+			uri:             "file:///D:/code/project",
+			isWindowsPath:   true,
+			expectHasColon:  true,
+			expectNoLeading: true,
+		},
+		{
+			name:            "Windows path lowercase file:///d:/code",
+			uri:             "file:///d:/code/project",
+			isWindowsPath:   true,
+			expectHasColon:  true,
+			expectNoLeading: true,
+		},
+		{
+			name:            "Windows path URL encoded file:///d%3A/code",
+			uri:             "file:///d%3A/code/project",
+			isWindowsPath:   true,
+			expectHasColon:  true,
+			expectNoLeading: true,
+		},
+		{
+			name:            "Unix path file:///Users/...",
+			uri:             "file:///Users/user/code",
+			isWindowsPath:   false,
+			expectHasColon:  false,
+			expectNoLeading: false, // Unix 路径应保留开头的 /
+		},
+		{
+			name:            "Unix path file:///home/...",
+			uri:             "file:///home/user/code",
+			isWindowsPath:   false,
+			expectHasColon:  false,
+			expectNoLeading: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolver.parseFolderURI(tt.uri)
+			require.NoError(t, err, "URI 解析不应该出错")
+
+			hasColon := strings.Contains(result, ":")
+			startsWithSlash := strings.HasPrefix(result, "/") || strings.HasPrefix(result, "\\")
+
+			if tt.expectHasColon {
+				assert.True(t, hasColon, "Windows 路径应该包含冒号: %s", result)
+			}
+
+			if tt.expectNoLeading {
+				assert.False(t, startsWithSlash, "Windows 路径不应该以斜杠开头: %s", result)
+			} else {
+				assert.True(t, startsWithSlash, "Unix 路径应该以斜杠开头: %s", result)
+			}
+
+			t.Logf("URI: %s -> 解析结果: %s", tt.uri, result)
 		})
 	}
 }
@@ -201,10 +275,10 @@ func TestNormalizePath_CrossPlatform(t *testing.T) {
 	resolver := NewPathResolver()
 
 	tests := []struct {
-		name     string
-		path     string
-		wantErr  bool
-		checkFn  func(t *testing.T, normalized string)
+		name    string
+		path    string
+		wantErr bool
+		checkFn func(t *testing.T, normalized string)
 	}{
 		{
 			name:    "relative path",
@@ -291,13 +365,13 @@ func TestGetWorkspaceIDByPath_PathMatching(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			norm1, err1 := resolver.normalizePath(tt.path1)
 			norm2, err2 := resolver.normalizePath(tt.path2)
-			
+
 			require.NoError(t, err1)
 			require.NoError(t, err2)
-			
+
 			// 使用 EqualFold 进行不区分大小写的比较（Windows 路径不区分大小写）
 			matches := strings.EqualFold(norm1, norm2)
-			
+
 			if matches != tt.shouldMatch {
 				t.Errorf("路径匹配结果不符合预期: %s vs %s, 期望 %v, 得到 %v",
 					norm1, norm2, tt.shouldMatch, matches)

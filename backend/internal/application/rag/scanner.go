@@ -15,6 +15,7 @@ import (
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
 	domainRAG "github.com/cocursor/backend/internal/domain/rag"
+	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 )
 
@@ -23,6 +24,7 @@ type ScanScheduler struct {
 	chunkService    *ChunkService
 	ragInitializer  *RAGInitializer // 用于延迟初始化
 	projectManager  *appCursor.ProjectManager
+	pathResolver    *infraCursor.PathResolver
 	indexStatusRepo domainRAG.IndexStatusRepository
 	config          *ScanConfig
 	mu              sync.RWMutex
@@ -78,6 +80,7 @@ func NewScanScheduler(
 	return &ScanScheduler{
 		chunkService:    chunkService,
 		projectManager:  projectManager,
+		pathResolver:    infraCursor.NewPathResolver(),
 		indexStatusRepo: indexStatusRepo,
 		config:          config,
 		stopChan:        make(chan struct{}),
@@ -135,13 +138,15 @@ func (s *ScanScheduler) UpdateConfig(config *ScanConfig) {
 func (s *ScanScheduler) scanAllFiles() []*FileToUpdate {
 	var allFiles []*FileToUpdate
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		s.logger.Error("Failed to get home directory", "error", err)
+	// 获取 Cursor projects 目录
+	// Windows: %USERPROFILE%\.cursor\projects
+	// macOS/Linux: ~/.cursor/projects
+	projectsDir := s.pathResolver.GetCursorProjectsDirOrDefault()
+	if projectsDir == "" {
+		s.logger.Error("Failed to get Cursor projects directory")
 		return allFiles
 	}
 
-	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
 	entries, err := os.ReadDir(projectsDir)
 	if err != nil {
 		s.logger.Error("Failed to read projects directory", "error", err)

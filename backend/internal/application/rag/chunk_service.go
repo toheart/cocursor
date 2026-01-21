@@ -18,6 +18,7 @@ import (
 
 	domainCursor "github.com/cocursor/backend/internal/application/cursor"
 	domainRAG "github.com/cocursor/backend/internal/domain/rag"
+	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/cocursor/backend/internal/infrastructure/embedding"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/vector"
@@ -34,6 +35,7 @@ type ChunkService struct {
 	indexStatusRepo   domainRAG.IndexStatusRepository
 	enrichmentQueue   domainRAG.EnrichmentQueueRepository
 	projectManager    *domainCursor.ProjectManager
+	pathResolver      *infraCursor.PathResolver
 	contentExtractor  *ContentExtractor
 	logger            *slog.Logger
 }
@@ -56,6 +58,7 @@ func NewChunkService(
 		indexStatusRepo:   indexStatusRepo,
 		enrichmentQueue:   enrichmentQueue,
 		projectManager:    projectManager,
+		pathResolver:      infraCursor.NewPathResolver(),
 		contentExtractor:  NewContentExtractor(),
 		logger:            log.NewModuleLogger("rag", "chunk_service"),
 	}
@@ -406,9 +409,11 @@ func (s *ChunkService) buildChunkPoints(chunks []*domainRAG.KnowledgeChunk, vect
 
 // getProjectInfo 获取项目信息
 func (s *ChunkService) getProjectInfo(sessionID string) (*ProjectInfo, error) {
-	// 从文件路径中提取 projectKey
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
+	// 获取 Cursor projects 目录
+	// Windows: %USERPROFILE%\.cursor\projects
+	// macOS/Linux: ~/.cursor/projects
+	projectsDir := s.pathResolver.GetCursorProjectsDirOrDefault()
+	if projectsDir == "" {
 		return &ProjectInfo{
 			ProjectID:   "unknown",
 			ProjectName: "Unknown",
@@ -416,7 +421,6 @@ func (s *ChunkService) getProjectInfo(sessionID string) (*ProjectInfo, error) {
 		}, nil
 	}
 
-	projectsDir := filepath.Join(homeDir, ".cursor", "projects")
 	entries, err := os.ReadDir(projectsDir)
 	if err != nil {
 		return &ProjectInfo{

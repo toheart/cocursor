@@ -16,7 +16,9 @@ import (
 
 // WatchConfig FileWatcher 配置
 type WatchConfig struct {
-	// SessionDir 会话文件目录（~/.cursor/projects）
+	// SessionDir 会话文件目录
+	// Windows: %USERPROFILE%\.cursor\projects
+	// macOS/Linux: ~/.cursor/projects
 	SessionDir string
 	// WorkspaceDir 工作区目录（workspaceStorage）
 	WorkspaceDir string
@@ -26,12 +28,21 @@ type WatchConfig struct {
 	FullScanThreshold time.Duration
 }
 
+// GetCursorProjectsDir 获取 Cursor projects 目录（跨平台）
+// Windows: %USERPROFILE%\.cursor\projects
+// macOS/Linux: ~/.cursor/projects
+func GetCursorProjectsDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(homeDir, ".cursor", "projects")
+}
+
 // DefaultWatchConfig 返回默认配置
 func DefaultWatchConfig() WatchConfig {
-	homeDir, _ := os.UserHomeDir()
-
 	return WatchConfig{
-		SessionDir:        filepath.Join(homeDir, ".cursor", "projects"),
+		SessionDir:        GetCursorProjectsDir(),
 		WorkspaceDir:      "", // 需要通过 PathResolver 获取
 		DebounceDelay:     1 * time.Minute, // 1 分钟防抖，避免频繁触发
 		FullScanThreshold: 24 * time.Hour,

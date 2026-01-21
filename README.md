@@ -166,7 +166,7 @@ Contributions are welcome! Please read our contributing guidelines before submit
 ## Links
 
 - **GitHub**: https://github.com/toheart/cocursor
-- **VS Code Marketplace**: [Coming Soon]
+- **VS Code Marketplace**: https://marketplace.visualstudio.com/items?itemName=tanglyan-cocursor.cocursor
 
 ---
 
