@@ -1,11 +1,15 @@
 {
   "name": "cocursor",
   "displayName": "CoCursor",
-  "description": "帮助团队成员共享 AI 聊天记录，提升 Cursor 团队协作效率",
+  "description": "Team AI collaboration tool - semantic search of AI conversations, skill marketplace, automated work reports, and P2P team sharing",
   "version": "0.1.0",
-  "publisher": "tanglyan-cocursor",
+  "publisher": "cocursor",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/toheart/cocursor",
+  "bugs": {
+    "url": "https://github.com/toheart/cocursor/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/toheart/cocursor"
@@ -13,15 +17,22 @@
   "icon": "resources/icon.png",
   "keywords": [
     "cursor",
-    "collaboration",
     "ai",
-    "chat",
-    "team"
+    "collaboration",
+    "team",
+    "rag",
+    "semantic-search",
+    "work-report",
+    "skill-sharing",
+    "productivity",
+    "daily-report"
   ],
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
+    "Data Science",
+    "Machine Learning",
     "Other"
   ],
   "activationEvents": [

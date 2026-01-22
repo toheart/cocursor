@@ -1,104 +1,125 @@
-# CoCursor Extension
+# CoCursor
 
-VSCode/Cursor 插件前端，用于分析 Cursor 后台数据并进行团队协作。
+<p align="center">
+  <img src="https://raw.githubusercontent.com/toheart/cocursor/main/co-extension/resources/icon.png" alt="CoCursor Logo" width="128" height="128">
+</p>
 
-## 技术栈
+<p align="center">
+  <strong>Team AI Collaboration Tool for Cursor IDE</strong>
+</p>
 
-- **语言**: TypeScript
-- **框架**: VS Code Extension API + React
-- **构建工具**: esbuild
-- **UI**: VS Code TreeView + React Webview
-- **HTTP 客户端**: Axios（通过 Extension 代理）
+<p align="center">
+  <a href="https://github.com/toheart/cocursor">GitHub</a> •
+  <a href="https://github.com/toheart/cocursor/blob/main/README_CN.md">中文文档</a>
+</p>
 
-## 目录结构
+---
 
-```
-co-extension/
-├── src/
-│   ├── extension.ts              # 插件入口文件
-│   ├── webview/
-│   │   ├── webviewPanel.ts       # Webview 面板管理
-│   │   ├── index.tsx             # React 应用入口
-│   │   ├── index.css             # 样式文件
-│   │   ├── components/
-│   │   │   └── App.tsx            # 主应用组件
-│   │   ├── services/
-│   │   │   └── api.ts             # API 服务（通过 Extension 代理）
-│   │   └── types/
-│   │       └── vscode.d.ts        # VSCode Webview API 类型
-│   └── types/
-│       └── message.ts             # 消息类型定义
-├── dist/                         # 构建输出目录
-│   ├── extension.js              # Extension 构建产物
-│   └── webview/
-│       ├── index.js              # Webview 构建产物
-│       └── index.css             # 样式文件
-├── package.json                  # 插件清单和依赖
-├── tsconfig.json                 # TypeScript 配置
-├── Makefile                      # 构建脚本
-└── .eslintrc.json               # ESLint 配置
-```
+> The efficiency gap between those who can use AI and those who can't is 100x.
 
-## 开发
+CoCursor helps teams collaborate with AI more effectively. Track your work, search past conversations, share skills with teammates, and generate reports automatically — all running locally with complete data privacy.
 
-### 安装依赖
+## Features
 
-```bash
-cd co-extension
-npm install
-```
+### 📊 Work Analysis Dashboard
 
-### 构建
+Track every AI collaboration session automatically.
 
-```bash
-# 开发构建（Extension + Webview）
-make compile-debug
+- **Session Tracking**: Monitor your work sessions in Cursor with detailed statistics
+- **Code Change Analytics**: Track lines added/removed, files changed, and token usage
+- **Time Distribution**: Visualize your productivity patterns with heatmaps
+- **One-Click Reports**: Generate daily/weekly work reports instantly
 
-# 生产构建
-make build
+No more spending 30 minutes writing status updates. AI helps you work and helps you report.
 
-# 监听模式（自动重新构建）
-make watch
-```
+### 🔍 AI Conversation Semantic Search (RAG)
 
-### 运行
+Every question, code snippet, and solution you've discussed with AI is in your Cursor chat history.
 
-在 VSCode 中按 F5 启动调试。
+- **Automatic Indexing**: Index all your Cursor conversations locally
+- **Semantic Search**: Find historical conversations using natural language
+- **Knowledge Retrieval**: "How did I solve that database connection issue?" → Found instantly
+- **Project Filtering**: Search within specific projects
 
-### 命令
+Your AI conversations are no longer one-time use — they become searchable, reusable knowledge.
 
-- `cocursor.openDashboard` - 打开仪表板（React Webview）
-- `cocursor.refreshTasks` - 刷新任务列表
-- `cocursor.addTask` - 添加任务
+### 🛒 Skill Marketplace
 
-## 架构说明
+One person knowing AI isn't enough — the whole team needs to know.
 
-### Extension 层（Node.js 环境）
+- **Browse Skills**: Discover productivity-boosting AI skills
+- **One-Click Install**: Install skills directly to your Cursor configuration
+- **Team Sharing**: Share custom skills with your team via P2P
+- **Built-in Collection**: Curated skills for common development tasks
 
-- 运行在 VSCode Extension Host 中
-- 负责与 VSCode API 交互
-- 管理 Webview 面板生命周期
-- 代理后端 API 调用
+Let the newest member use the most experienced member's AI skills.
 
-### Webview 层（浏览器环境）
+### 👥 Team Collaboration
 
-- 运行在隔离的浏览器环境中
-- 使用 React 构建 UI
-- 通过 `postMessage` 与 Extension 通信
-- 无法直接访问 Node.js API 或后端 API
+Collaborate with your team in real-time.
 
-### 消息通信
+- **P2P Architecture**: Direct peer-to-peer communication within your LAN
+- **Code Sharing**: Share code snippets with team members instantly
+- **Daily Reports**: View team members' work summaries
+- **Skill Publishing**: Publish your AI skills to the team marketplace
 
-Webview 和 Extension 通过 `postMessage` 进行双向通信：
+No server involved — data stays secure within your network.
 
-```typescript
-// Webview -> Extension
-vscode.postMessage({ command: "fetchChats" });
+### ⚡ Daily Summary Reminder
 
-// Extension -> Webview
-webview.postMessage({ type: "fetchChats-response", data: {...} });
-```
+Never forget to summarize your work.
 
-## 代码规范
+- **Smart Reminders**: Get notified before leaving work
+- **Morning Follow-up**: Reminder next morning if you missed yesterday
+- **Configurable Times**: Set your preferred reminder schedule
 
-遵循项目 TypeScript 代码规范，参见 `openspec/specs/typescript-style/spec.md`。
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `CoCursor: Open Dashboard` | Open work analysis dashboard |
+| `CoCursor: Open Sessions` | View recent AI conversation sessions |
+| `CoCursor: Open Marketplace` | Browse and install AI skills |
+| `CoCursor: Share Code to Team` | Share selected code with team members |
+| `CoCursor: Toggle Status Sharing` | Enable/disable work status sharing |
+
+## Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `cocursor.autoStartServer` | `true` | Auto-start the backend daemon |
+| `cocursor.daemon.port` | `19960` | Backend server port |
+| `cocursor.reminder.enabled` | `false` | Enable daily summary reminders |
+| `cocursor.reminder.eveningTime` | `17:50` | Evening reminder time (HH:mm) |
+| `cocursor.reminder.morningTime` | `09:00` | Morning follow-up time (HH:mm) |
+
+## RAG Setup (Optional)
+
+To enable semantic search of your AI conversations:
+
+1. Open CoCursor sidebar → RAG Search → Settings
+2. Configure embedding model (supports local models)
+3. Set up Qdrant vector database (can run locally)
+4. Start indexing your conversations
+
+## Privacy & Security
+
+- **100% Local Execution**: All data processing happens on your machine
+- **No Cloud Services**: Your code and conversations never leave your computer
+- **P2P Team Collaboration**: Direct peer-to-peer communication within your LAN
+- **Open Source**: Fully auditable codebase
+
+## Requirements
+
+- VS Code 1.80.0 or higher / Cursor IDE
+- macOS, Windows, or Linux
+
+## Links
+
+- **GitHub**: https://github.com/toheart/cocursor
+- **Issues**: https://github.com/toheart/cocursor/issues
+- **Releases**: https://github.com/toheart/cocursor/releases
+
+## License
+
+[CoCursor Non-Commercial License](https://github.com/toheart/cocursor/blob/main/co-extension/LICENSE) - Free for non-commercial use only.
