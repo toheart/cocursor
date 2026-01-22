@@ -34,6 +34,7 @@ type HTTPServer struct {
 	dailySummaryRepo storage.DailySummaryRepository
 	sessionRepo      storage.WorkspaceSessionRepository
 	projectManager   *appCursor.ProjectManager
+	shutdownChan     chan struct{} // 用于接收关闭信号
 }
 
 // NewServer 创建 HTTP 服务器
@@ -46,6 +47,7 @@ func NewServer(
 	marketplaceHandler *handler.MarketplaceHandler,
 	ragHandler *handler.RAGHandler,
 	dailySummaryHandler *handler.DailySummaryHandler,
+	weeklySummaryHandler *handler.WeeklySummaryHandler,
 	mcpServer *mcp.MCPServer,
 	pluginService *appMarketplace.PluginService,
 	dailySummaryRepo storage.DailySummaryRepository,
@@ -71,6 +73,7 @@ func NewServer(
 		api.GET("/stats/work-analysis", analyticsHandler.WorkAnalysis)
 		api.GET("/sessions/list", analyticsHandler.SessionList)
 		api.GET("/sessions/:sessionId/detail", analyticsHandler.SessionDetail)
+		api.GET("/sessions/active", analyticsHandler.ActiveSessions)
 
 		// 项目相关路由
 		api.GET("/project/list", projectHandler.ListProjects)
@@ -98,7 +101,26 @@ func NewServer(
 		// 日报相关路由
 		if dailySummaryHandler != nil {
 			api.GET("/daily-summary", dailySummaryHandler.GetDailySummary)
+			api.POST("/daily-summary", dailySummaryHandler.SaveDailySummary)
 			api.GET("/daily-summary/batch-status", dailySummaryHandler.GetBatchStatus)
+			api.GET("/daily-summary/range", dailySummaryHandler.GetDailySummariesRange)
+			api.GET("/sessions/daily", dailySummaryHandler.GetDailySessions)
+			api.GET("/sessions/conversations", dailySummaryHandler.GetDailyConversations)
+		}
+
+		// 周报相关路由
+		if weeklySummaryHandler != nil {
+			api.GET("/weekly-summary", weeklySummaryHandler.GetWeeklySummary)
+			api.POST("/weekly-summary", weeklySummaryHandler.SaveWeeklySummary)
+		}
+
+		// 设置相关路由
+		settingsHandler := handler.NewSettingsHandler()
+		settings := api.Group("/settings")
+		{
+			settings.GET("/cursor-paths", settingsHandler.GetPathStatus)
+			settings.POST("/cursor-paths/validate", settingsHandler.ValidatePath)
+			settings.POST("/cursor-paths", settingsHandler.SetPaths)
 		}
 
 		// RAG 相关路由
@@ -143,6 +165,9 @@ func NewServer(
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	// 创建 shutdown channel
+	shutdownChan := make(chan struct{}, 1)
+
 	// Swagger UI
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -159,7 +184,11 @@ func NewServer(
 		dailySummaryRepo: dailySummaryRepo,
 		sessionRepo:      sessionRepo,
 		projectManager:   projectManager,
+		shutdownChan:     shutdownChan,
 	}
+
+	// 关闭接口（用于 VSCode 插件关闭后端进程）
+	api.POST("/shutdown", server.handleShutdown)
 
 	// 尝试初始化团队服务（可选功能，失败不影响主服务）
 	server.initTeamRoutes(api)
@@ -294,4 +323,27 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 // GetTeamComponents 获取团队组件（如果已初始化）
 func (s *HTTPServer) GetTeamComponents() *appTeam.TeamComponents {
 	return s.teamComponents
+}
+
+// GetShutdownChan 获取关闭信号通道
+func (s *HTTPServer) GetShutdownChan() <-chan struct{} {
+	return s.shutdownChan
+}
+
+// handleShutdown 处理关闭请求
+func (s *HTTPServer) handleShutdown(c *gin.Context) {
+	s.logger.Info("Received shutdown request from API")
+	c.JSON(http.StatusOK, gin.H{"status": "shutting_down"})
+
+	// 在响应发送后触发关闭
+	go func() {
+		// 给响应一点时间发送出去
+		time.Sleep(100 * time.Millisecond)
+		// 发送关闭信号
+		select {
+		case s.shutdownChan <- struct{}{}:
+		default:
+			// 已经有关闭信号在队列中
+		}
+	}()
 }

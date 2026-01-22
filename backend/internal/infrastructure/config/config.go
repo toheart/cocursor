@@ -5,6 +5,7 @@ type Config struct {
 	Server     ServerConfig
 	Database   DatabaseConfig
 	WebSocket  WebSocketConfig
+	Cursor     CursorConfig
 }
 
 // ServerConfig 服务器配置
@@ -24,6 +25,20 @@ type WebSocketConfig struct {
 	WriteBufferSize int
 }
 
+// CursorConfig Cursor 路径配置
+// 用于用户自定义 Cursor 数据目录路径（主要用于 WSL 等特殊环境）
+type CursorConfig struct {
+	// UserDataDir Cursor 用户数据目录
+	// 例如: /mnt/c/Users/xxx/AppData/Roaming/Cursor/User
+	// 留空表示自动检测
+	UserDataDir string
+
+	// ProjectsDir Cursor 项目目录（存放 agent-transcripts）
+	// 例如: /mnt/c/Users/xxx/.cursor/projects
+	// 留空表示自动检测
+	ProjectsDir string
+}
+
 // NewConfig 创建配置（默认值）
 func NewConfig() *Config {
 	return &Config{
@@ -38,6 +53,10 @@ func NewConfig() *Config {
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
+		Cursor: CursorConfig{
+			UserDataDir: "", // 空表示自动检测
+			ProjectsDir: "", // 空表示自动检测
+		},
 	}
 }
 
@@ -49,4 +68,9 @@ func NewDatabaseConfig(cfg *Config) *DatabaseConfig {
 // NewServerConfig 创建服务器配置
 func NewServerConfig(cfg *Config) *ServerConfig {
 	return &cfg.Server
+}
+
+// NewCursorConfig 创建 Cursor 配置
+func NewCursorConfig(cfg *Config) *CursorConfig {
+	return &cfg.Cursor
 }

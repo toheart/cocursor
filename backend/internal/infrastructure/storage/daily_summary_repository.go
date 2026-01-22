@@ -15,6 +15,7 @@ type DailySummaryRepository interface {
 	Save(summary *domainCursor.DailySummary) error
 	FindByDate(date string) (*domainCursor.DailySummary, error)
 	FindDatesByRange(startDate, endDate string) (map[string]bool, error)
+	FindByDateRange(startDate, endDate string) ([]*domainCursor.DailySummary, error)
 }
 
 // dailySummaryRepository 每日总结仓储实现
@@ -204,4 +205,69 @@ func (r *dailySummaryRepository) FindDatesByRange(startDate, endDate string) (ma
 	}
 
 	return result, nil
+}
+
+// FindByDateRange 查询日期范围内的所有日报（完整内容）
+// 用于周报聚合等场景
+func (r *dailySummaryRepository) FindByDateRange(startDate, endDate string) ([]*domainCursor.DailySummary, error) {
+	query := `
+		SELECT id, date, summary, language, work_categories, total_sessions, projects, code_changes, time_distribution, efficiency_metrics, created_at, updated_at
+		FROM daily_summaries
+		WHERE date >= ? AND date <= ?
+		ORDER BY date ASC`
+
+	rows, err := r.db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query daily summaries by date range: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []*domainCursor.DailySummary
+	for rows.Next() {
+		var summary domainCursor.DailySummary
+		var workCategoriesJSON string
+		var projectsJSON, codeChangesJSON, timeDistributionJSON, efficiencyMetricsJSON sql.NullString
+		var createdAt, updatedAt int64
+
+		if err := rows.Scan(
+			&summary.ID,
+			&summary.Date,
+			&summary.Summary,
+			&summary.Language,
+			&workCategoriesJSON,
+			&summary.TotalSessions,
+			&projectsJSON,
+			&codeChangesJSON,
+			&timeDistributionJSON,
+			&efficiencyMetricsJSON,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			continue
+		}
+
+		// 反序列化字段
+		if workCategoriesJSON != "" {
+			json.Unmarshal([]byte(workCategoriesJSON), &summary.WorkCategories)
+		}
+		if projectsJSON.Valid && projectsJSON.String != "" {
+			json.Unmarshal([]byte(projectsJSON.String), &summary.Projects)
+		}
+		if codeChangesJSON.Valid && codeChangesJSON.String != "" {
+			json.Unmarshal([]byte(codeChangesJSON.String), &summary.CodeChanges)
+		}
+		if timeDistributionJSON.Valid && timeDistributionJSON.String != "" {
+			json.Unmarshal([]byte(timeDistributionJSON.String), &summary.TimeDistribution)
+		}
+		if efficiencyMetricsJSON.Valid && efficiencyMetricsJSON.String != "" {
+			json.Unmarshal([]byte(efficiencyMetricsJSON.String), &summary.EfficiencyMetrics)
+		}
+
+		summary.CreatedAt = time.Unix(createdAt, 0)
+		summary.UpdatedAt = time.Unix(updatedAt, 0)
+
+		summaries = append(summaries, &summary)
+	}
+
+	return summaries, nil
 }

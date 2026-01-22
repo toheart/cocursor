@@ -60,11 +60,21 @@ func (m *mockDailySummaryRepositoryForHandler) FindDatesByRange(startDate, endDa
 	return result, nil
 }
 
+func (m *mockDailySummaryRepositoryForHandler) FindByDateRange(startDate, endDate string) ([]*domainCursor.DailySummary, error) {
+	var result []*domainCursor.DailySummary
+	for date, summary := range m.summaries {
+		if date >= startDate && date <= endDate {
+			result = append(result, summary)
+		}
+	}
+	return result, nil
+}
+
 func TestDailySummaryHandler_GetBatchStatus(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockRepo := newMockDailySummaryRepositoryForHandler()
-	handler := NewDailySummaryHandler(mockRepo)
+	handler := NewDailySummaryHandler(mockRepo, nil)
 
 	tests := []struct {
 		name           string
@@ -149,7 +159,7 @@ func TestDailySummaryHandler_GetDailySummary(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockRepo := newMockDailySummaryRepositoryForHandler()
-	handler := NewDailySummaryHandler(mockRepo)
+	handler := NewDailySummaryHandler(mockRepo, nil)
 
 	tests := []struct {
 		name           string

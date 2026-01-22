@@ -7,11 +7,10 @@ import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
 import { Team, TeamMember, TeamSkillEntry, CodeSnippet } from "../../types";
 import { useApi, useToast, useTeamWebSocket } from "../../hooks";
-import { TeamEvent, CodeSharedEvent, MemberStatusChangedEvent, DailySummarySharedEvent } from "../../services/teamWebSocket";
+import { TeamEvent, CodeSharedEvent, MemberStatusChangedEvent } from "../../services/teamWebSocket";
 import { SkillPublish } from "./SkillPublish";
 import { ToastContainer } from "../shared/ToastContainer";
 import { CodeShareList } from "./CodeShareNotification";
-import { DailyReportTab } from "./DailyReportTab";
 import { WeeklyReport } from "./WeeklyReport";
 
 interface MemberListProps {
@@ -23,7 +22,7 @@ interface MemberListProps {
 export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh }) => {
   const { t } = useTranslation();
   const { showToast, toasts } = useToast();
-  const [activeTab, setActiveTab] = useState<"members" | "skills" | "reports" | "weekly">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "skills" | "weekly">("members");
   const [showPublish, setShowPublish] = useState(false);
   const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>([]);
   const [memberStatuses, setMemberStatuses] = useState<Record<string, { project: string; file: string }>>({});
@@ -106,12 +105,6 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
             return rest;
           });
         }
-        break;
-      }
-      case "daily_summary_shared": {
-        // 日报分享事件
-        const summaryEvent = event as DailySummarySharedEvent;
-        showToast(`${summaryEvent.payload.member_name} ${t("team.sharedDailySummary")}`, "success");
         break;
       }
     }
@@ -225,13 +218,6 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
           {t("team.skills")} ({skills?.length || 0})
         </button>
         <button
-          className={`cocursor-team-detail-tab ${activeTab === "reports" ? "active" : ""}`}
-          onClick={() => setActiveTab("reports")}
-        >
-          <span className="cocursor-team-detail-tab-icon">📝</span>
-          {t("team.dailyReports")}
-        </button>
-        <button
           className={`cocursor-team-detail-tab ${activeTab === "weekly" ? "active" : ""}`}
           onClick={() => setActiveTab("weekly")}
         >
@@ -312,11 +298,6 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
             </div>
           )}
         </div>
-      )}
-
-      {/* 日报列表 */}
-      {activeTab === "reports" && (
-        <DailyReportTab teamId={team.id} onRefresh={onRefresh} />
       )}
 
       {/* 周报视图 */}

@@ -56,10 +56,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 优雅关闭
+	// 优雅关闭：监听系统信号或 API 关闭请求
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+
+	// 同时监听 HTTP 服务器的 shutdown channel
+	shutdownChan := app.GetShutdownChan()
+
+	select {
+	case sig := <-sigChan:
+		applog.GetLogger().Info("Received signal, shutting down...", "signal", sig.String())
+	case <-shutdownChan:
+		applog.GetLogger().Info("Received shutdown request from API")
+	}
 
 	applog.GetLogger().Info("Shutting down application...")
 	if err := app.Stop(); err != nil {

@@ -10,6 +10,7 @@ description: Aggregate daily summaries to generate comprehensive weekly work rep
 > Available tools (use full names when calling):
 > - `mcp__cocursor__get_daily_summaries_range` - Batch fetch daily summaries within date range
 > - `mcp__cocursor__save_weekly_summary` - Save weekly report
+> - `mcp__cocursor__get_weekly_summary` - Query saved weekly report with idempotency check
 
 Aggregate daily summaries to generate weekly work reports focused on **accomplishments and progress**.
 
@@ -92,7 +93,63 @@ See [references/report-examples.md](references/report-examples.md).
 3. **Missing data handling**: Days without daily summaries are handled gracefully, noted in report
 4. **Language**: Auto-match based on dominant language in daily summaries
 
+## Idempotency Support
+
+Before generating a new weekly report, check if one already exists and whether source data has changed:
+
+```
+# Check existing weekly report
+mcp__cocursor__get_weekly_summary(week_start: "2024-01-15")
+```
+
+**Response fields:**
+- `found`: Whether a report exists for this week
+- `needs_update`: Whether source daily summaries have changed since last save
+- `summary`: The existing weekly report (if found)
+
+**Recommended workflow:**
+1. Call `get_weekly_summary` first to check existing report
+2. If `found=false` or `needs_update=true`, generate new report
+3. If `found=true` and `needs_update=false`, ask user if they want to regenerate
+
 ## MCP Tool Reference
 
 - `mcp__cocursor__get_daily_summaries_range(start_date, end_date)`: Batch fetch daily summaries within date range
 - `mcp__cocursor__save_weekly_summary(week_start, week_end, summary, ...)`: Save weekly report
+- `mcp__cocursor__get_weekly_summary(week_start)`: Query saved weekly report with idempotency check
+
+## HTTP API Fallback
+
+If MCP tools are unavailable, use HTTP API via curl as an alternative:
+
+### Pre-check: Verify daemon is running
+```bash
+curl -s http://localhost:19960/health
+# Expected: {"status":"ok"}
+```
+
+### HTTP API Endpoints
+```bash
+# Get daily summaries for a date range (equivalent to mcp__cocursor__get_daily_summaries_range)
+curl -s "http://localhost:19960/api/v1/daily-summary/range?start_date=2024-01-15&end_date=2024-01-21"
+
+# Get weekly summary with idempotency check (equivalent to mcp__cocursor__get_weekly_summary)
+curl -s "http://localhost:19960/api/v1/weekly-summary?week_start=2024-01-15"
+
+# Save weekly summary (equivalent to mcp__cocursor__save_weekly_summary)
+curl -X POST "http://localhost:19960/api/v1/weekly-summary" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "week_start": "2024-01-15",
+    "week_end": "2024-01-21",
+    "summary": "# Weekly Report\n...",
+    "language": "zh",
+    "total_sessions": 25,
+    "working_days": 5
+  }'
+```
+
+### Error Handling Strategy
+1. **First**: Try MCP tool call
+2. **If MCP fails** (tool not found, timeout): Use curl fallback
+3. **If curl fails** (connection refused): Inform user that cocursor daemon is not running

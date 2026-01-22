@@ -30,6 +30,10 @@ type WorkspaceCacheService struct {
 	mu             sync.RWMutex
 	syncInProgress map[string]bool
 
+	// 面板到会话的映射缓存（key: workspaceID, value: map[panelID]composerID）
+	panelMappingCache   map[string]map[string]string
+	panelMappingCacheMu sync.RWMutex
+
 	stopCh chan struct{}
 	wg     sync.WaitGroup
 }
@@ -54,6 +58,7 @@ func NewWorkspaceCacheService(
 		sessionRepo:       sessionRepo,
 		metadataRepo:      metadataRepo,
 		syncInProgress:    make(map[string]bool),
+		panelMappingCache: make(map[string]map[string]string),
 		stopCh:            make(chan struct{}),
 	}
 
@@ -74,9 +79,10 @@ func (s *WorkspaceCacheService) Start() error {
 	}
 
 	// 启动定时任务
-	s.wg.Add(2)
+	s.wg.Add(3)
 	go s.startPeriodicSync()
 	go s.startPeriodicScan()
+	go s.startRuntimeStateSync()
 
 	log.Println("[WorkspaceCacheService] 工作区缓存服务启动完成")
 	return nil
@@ -653,4 +659,353 @@ func (s *WorkspaceCacheService) HandleWorkspaceEvent(workspaceID, projectPath st
 
 	log.Printf("[WorkspaceCacheService] Workspace registered from event: %s -> %s", workspaceID, folderPath)
 	return nil
+}
+
+// ===== 运行时状态扫描 =====
+
+// startRuntimeStateSync 启动运行时状态同步任务（每1分钟）
+func (s *WorkspaceCacheService) startRuntimeStateSync() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	// 首次启动时立即执行一次
+	s.syncAllRuntimeStates()
+
+	for {
+		select {
+		case <-ticker.C:
+			s.syncAllRuntimeStates()
+		case <-s.stopCh:
+			return
+		}
+	}
+}
+
+// syncAllRuntimeStates 同步所有工作区的运行时状态
+func (s *WorkspaceCacheService) syncAllRuntimeStates() {
+	projects := s.projectManager.ListAllProjects()
+
+	for _, project := range projects {
+		for _, ws := range project.Workspaces {
+			if err := s.SyncRuntimeState(ws.WorkspaceID); err != nil {
+				log.Printf("[WorkspaceCacheService] failed to sync runtime state for workspace %s: %v", ws.WorkspaceID, err)
+			}
+		}
+	}
+}
+
+// SyncRuntimeState 同步单个工作区的运行时状态
+func (s *WorkspaceCacheService) SyncRuntimeState(workspaceID string) error {
+	// 获取工作区数据库路径
+	workspaceDBPath, err := s.pathResolver.GetWorkspaceDBPath(workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to get workspace DB path: %w", err)
+	}
+
+	// 检查文件是否存在
+	if _, err := os.Stat(workspaceDBPath); os.IsNotExist(err) {
+		return nil // 文件不存在，跳过
+	}
+
+	// 读取面板可见性状态
+	visiblePanels, err := s.readVisiblePanels(workspaceDBPath)
+	if err != nil {
+		log.Printf("[WorkspaceCacheService] failed to read visible panels for %s: %v", workspaceID, err)
+		// 继续执行，使用空的可见面板列表
+		visiblePanels = make(map[string]bool)
+	}
+
+	// 读取当前聚焦面板
+	focusedPanelID, err := s.readFocusedPanel(workspaceDBPath)
+	if err != nil {
+		log.Printf("[WorkspaceCacheService] failed to read focused panel for %s: %v", workspaceID, err)
+		focusedPanelID = ""
+	}
+
+	// 获取或更新面板映射
+	panelMapping, err := s.getPanelMapping(workspaceID, workspaceDBPath, visiblePanels)
+	if err != nil {
+		log.Printf("[WorkspaceCacheService] failed to get panel mapping for %s: %v", workspaceID, err)
+		panelMapping = make(map[string]string)
+	}
+
+	// 先重置所有会话的运行时状态
+	if err := s.sessionRepo.ResetRuntimeState(workspaceID); err != nil {
+		return fmt.Errorf("failed to reset runtime state: %w", err)
+	}
+
+	// 构建运行时状态更新
+	updates := make([]*storage.RuntimeStateUpdate, 0)
+
+	// 收集会话可见性（一个 composerID 可能对应多个 panelID）
+	composerVisibility := make(map[string]struct {
+		isVisible bool
+		isFocused bool
+		panelID   string
+	})
+
+	for panelID, composerID := range panelMapping {
+		if composerID == "" {
+			continue
+		}
+
+		isVisible := visiblePanels[panelID]
+		isFocused := panelID == focusedPanelID
+
+		existing, ok := composerVisibility[composerID]
+		if !ok {
+			composerVisibility[composerID] = struct {
+				isVisible bool
+				isFocused bool
+				panelID   string
+			}{
+				isVisible: isVisible,
+				isFocused: isFocused,
+				panelID:   panelID,
+			}
+		} else {
+			// 合并：任意一个 visible 即为 visible，任意一个 focused 即为 focused
+			composerVisibility[composerID] = struct {
+				isVisible bool
+				isFocused bool
+				panelID   string
+			}{
+				isVisible: existing.isVisible || isVisible,
+				isFocused: existing.isFocused || isFocused,
+				panelID:   panelID, // 使用最新的 panelID
+			}
+		}
+	}
+
+	// 生成更新列表
+	for composerID, state := range composerVisibility {
+		activeLevel := domainCursor.CalculateActiveLevel(false, state.isVisible, state.isFocused)
+
+		updates = append(updates, &storage.RuntimeStateUpdate{
+			ComposerID:  composerID,
+			IsVisible:   state.isVisible,
+			IsFocused:   state.isFocused,
+			ActiveLevel: activeLevel,
+			PanelID:     state.panelID,
+		})
+	}
+
+	// 批量更新运行时状态
+	if len(updates) > 0 {
+		if err := s.sessionRepo.UpdateRuntimeState(workspaceID, updates); err != nil {
+			return fmt.Errorf("failed to update runtime state: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// readVisiblePanels 读取可见面板列表
+func (s *WorkspaceCacheService) readVisiblePanels(workspaceDBPath string) (map[string]bool, error) {
+	result := make(map[string]bool)
+
+	// 读取 workbench.auxiliarybar.viewContainersWorkspaceState
+	value, err := s.dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "workbench.auxiliarybar.viewContainersWorkspaceState")
+	if err != nil {
+		// key 不存在是正常情况
+		if strings.Contains(err.Error(), "key not found") {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	// 解析 JSON 数组
+	var panels []struct {
+		ID      string `json:"id"`
+		Visible bool   `json:"visible"`
+	}
+
+	if err := json.Unmarshal(value, &panels); err != nil {
+		return nil, fmt.Errorf("failed to parse viewContainersWorkspaceState: %w", err)
+	}
+
+	for _, panel := range panels {
+		if panel.Visible {
+			// 提取面板 ID（去掉 workbench.panel.aichat. 前缀）
+			panelID := panel.ID
+			if strings.HasPrefix(panelID, "workbench.panel.aichat.") {
+				panelID = strings.TrimPrefix(panelID, "workbench.panel.aichat.")
+			}
+			result[panelID] = true
+		}
+	}
+
+	return result, nil
+}
+
+// readFocusedPanel 读取当前聚焦面板 ID
+func (s *WorkspaceCacheService) readFocusedPanel(workspaceDBPath string) (string, error) {
+	value, err := s.dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "workbench.auxiliarybar.activepanelid")
+	if err != nil {
+		if strings.Contains(err.Error(), "key not found") {
+			return "", nil
+		}
+		return "", err
+	}
+
+	// 值是一个字符串，可能带引号
+	panelID := strings.Trim(string(value), "\"")
+
+	// 提取面板 ID（去掉 workbench.panel.aichat. 前缀）
+	if strings.HasPrefix(panelID, "workbench.panel.aichat.") {
+		panelID = strings.TrimPrefix(panelID, "workbench.panel.aichat.")
+	}
+
+	return panelID, nil
+}
+
+// getPanelMapping 获取面板到会话的映射
+func (s *WorkspaceCacheService) getPanelMapping(workspaceID, workspaceDBPath string, visiblePanels map[string]bool) (map[string]string, error) {
+	s.panelMappingCacheMu.RLock()
+	cached, ok := s.panelMappingCache[workspaceID]
+	s.panelMappingCacheMu.RUnlock()
+
+	if !ok {
+		cached = make(map[string]string)
+	}
+
+	// 检查可见面板是否都有映射，如果缺失则读取
+	needUpdate := false
+	for panelID := range visiblePanels {
+		if _, exists := cached[panelID]; !exists {
+			needUpdate = true
+			break
+		}
+	}
+
+	if needUpdate {
+		// 读取所有面板映射
+		newMapping, err := s.readAllPanelMappings(workspaceDBPath)
+		if err != nil {
+			log.Printf("[WorkspaceCacheService] failed to read panel mappings: %v", err)
+		} else {
+			// 合并到缓存
+			for k, v := range newMapping {
+				cached[k] = v
+			}
+
+			s.panelMappingCacheMu.Lock()
+			s.panelMappingCache[workspaceID] = cached
+			s.panelMappingCacheMu.Unlock()
+		}
+	}
+
+	return cached, nil
+}
+
+// readAllPanelMappings 读取所有面板到会话的映射
+func (s *WorkspaceCacheService) readAllPanelMappings(workspaceDBPath string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	// 读取所有以 workbench.panel.composerChatViewPane. 开头的 key
+	keys, err := s.dbReader.ReadKeysWithPrefixFromWorkspaceDB(workspaceDBPath, "workbench.panel.composerChatViewPane.")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, key := range keys {
+		value, err := s.dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, key)
+		if err != nil {
+			continue
+		}
+
+		// 解析面板 ID
+		panelID := strings.TrimPrefix(key, "workbench.panel.composerChatViewPane.")
+
+		// 值格式是 JSON: {"workbench.panel.aichat.view.{composerId}": {...}}
+		// 解析 JSON 获取第一个 key，从中提取 composerID
+		var panelState map[string]interface{}
+		if err := json.Unmarshal(value, &panelState); err != nil {
+			// 如果不是 JSON，尝试旧的字符串格式
+			valueStr := strings.Trim(string(value), "\"")
+			if strings.HasPrefix(valueStr, "workbench.panel.aichat.view.") {
+				composerID := strings.TrimPrefix(valueStr, "workbench.panel.aichat.view.")
+				result[panelID] = composerID
+			}
+			continue
+		}
+
+		// 从 JSON 的 key 中提取 composerID
+		for viewKey := range panelState {
+			if strings.HasPrefix(viewKey, "workbench.panel.aichat.view.") {
+				composerID := strings.TrimPrefix(viewKey, "workbench.panel.aichat.view.")
+				result[panelID] = composerID
+				break // 只取第一个
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// GetActiveSessionsOverview 获取活跃会话概览
+func (s *WorkspaceCacheService) GetActiveSessionsOverview(workspaceID string) (*domainCursor.ActiveSessionsOverview, error) {
+	// 查询活跃会话
+	activeSessions, err := s.sessionRepo.FindActiveByWorkspaceID(workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find active sessions: %w", err)
+	}
+
+	// 查询所有会话以获取统计信息
+	allSessions, err := s.sessionRepo.FindByWorkspaceID(workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find all sessions: %w", err)
+	}
+
+	// 统计关闭和归档数量
+	closedCount := 0
+	archivedCount := 0
+	for _, session := range allSessions {
+		switch session.ActiveLevel {
+		case domainCursor.ActiveLevelClosed:
+			closedCount++
+		case domainCursor.ActiveLevelArchived:
+			archivedCount++
+		}
+	}
+
+	// 构建返回结果
+	overview := &domainCursor.ActiveSessionsOverview{
+		ClosedCount:   closedCount,
+		ArchivedCount: archivedCount,
+		OpenSessions:  make([]*domainCursor.ActiveSession, 0),
+	}
+
+	for _, session := range activeSessions {
+		// 计算熵值
+		entropy := domainCursor.CalculateEntropy(
+			session.TotalLinesAdded,
+			session.TotalLinesRemoved,
+			session.FilesChangedCount,
+			session.ContextUsagePercent,
+		)
+
+		// 计算健康状态
+		status, warning := domainCursor.CalculateHealthStatus(entropy, session.ContextUsagePercent)
+
+		activeSession := &domainCursor.ActiveSession{
+			ComposerID:          session.ComposerID,
+			Name:                session.Name,
+			Entropy:             entropy,
+			ContextUsagePercent: session.ContextUsagePercent,
+			Status:              status,
+			Warning:             warning,
+			LastUpdatedAt:       session.LastUpdatedAt,
+		}
+
+		if session.IsFocused {
+			overview.Focused = activeSession
+		} else {
+			overview.OpenSessions = append(overview.OpenSessions, activeSession)
+		}
+	}
+
+	return overview, nil
 }

@@ -453,3 +453,151 @@ type EfficiencyMetricsSummary struct {
 	AvgMessagesPerSession float64 `json:"avg_messages_per_session"` // 平均消息数
 	TotalActiveTime       float64 `json:"total_active_time"`        // 总活跃时长（小时）
 }
+
+// WeeklySummary 每周总结（按周统一，包含多个项目）
+type WeeklySummary struct {
+	// 基础信息
+	ID        string `json:"id"`         // 唯一ID（UUID）
+	WeekStart string `json:"week_start"` // 周起始日期 YYYY-MM-DD（周一）
+	WeekEnd   string `json:"week_end"`   // 周结束日期 YYYY-MM-DD（周日）
+	Language  string `json:"language"`   // 语言：zh/en
+
+	// 总结内容（Markdown格式）
+	Summary string `json:"summary"` // 总结文本
+
+	// 项目列表（本周涉及的所有项目）
+	Projects []*WeeklyProjectSummary `json:"projects"`
+
+	// 工作分类统计（跨所有项目）
+	WorkCategories *WorkCategories `json:"work_categories"`
+
+	// 统计信息
+	TotalSessions int `json:"total_sessions"` // 总会话数
+	WorkingDays   int `json:"working_days"`   // 有数据的工作日数
+
+	// 代码变更统计（可选）
+	CodeChanges *CodeChangeSummary `json:"code_changes,omitempty"`
+
+	// 关键成就列表
+	KeyAccomplishments []string `json:"key_accomplishments,omitempty"`
+
+	// 幂等性支持
+	DataHash string `json:"data_hash,omitempty"` // 源数据哈希，用于检测变化
+
+	// 元数据
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// WeeklyProjectSummary 周报项目摘要
+type WeeklyProjectSummary struct {
+	ProjectName  string             `json:"project_name"`  // 项目名称
+	ProjectPath  string             `json:"project_path"`  // 项目路径
+	SessionCount int                `json:"session_count"` // 会话数量
+	CodeChanges  *CodeChangeSummary `json:"code_changes,omitempty"`
+	WorkItems    []*WorkItem        `json:"work_items,omitempty"` // 工作项汇总
+}
+
+// ActiveLevel 会话活跃等级常量
+const (
+	ActiveLevelFocused  = 0 // 聚焦（当前活跃）
+	ActiveLevelOpen     = 1 // 打开（面板可见）
+	ActiveLevelClosed   = 2 // 关闭（面板不可见且未归档）
+	ActiveLevelArchived = 3 // 归档
+)
+
+// HealthStatus 会话健康状态
+type HealthStatus string
+
+const (
+	HealthStatusHealthy  HealthStatus = "healthy"  // 健康
+	HealthStatusWarning  HealthStatus = "warning"  // 警告
+	HealthStatusCritical HealthStatus = "critical" // 危险
+)
+
+// ActiveSessionsOverview 活跃会话概览
+type ActiveSessionsOverview struct {
+	Focused       *ActiveSession   `json:"focused"`        // 当前聚焦的会话
+	OpenSessions  []*ActiveSession `json:"open_sessions"`  // 其他打开的会话（按熵值降序）
+	ClosedCount   int              `json:"closed_count"`   // 已关闭数量
+	ArchivedCount int              `json:"archived_count"` // 已归档数量
+}
+
+// ActiveSession 活跃会话信息
+type ActiveSession struct {
+	ComposerID          string       `json:"composer_id"`           // 会话 ID
+	Name                string       `json:"name"`                  // 会话名称
+	Entropy             float64      `json:"entropy"`               // 熵值
+	ContextUsagePercent float64      `json:"context_usage_percent"` // 上下文使用率
+	Status              HealthStatus `json:"status"`                // 健康状态
+	Warning             string       `json:"warning,omitempty"`     // 警告提示语
+	LastUpdatedAt       int64        `json:"last_updated_at"`       // 最后更新时间戳
+}
+
+// CalculateHealthStatus 计算会话健康状态
+// 规则：
+// - healthy: 熵值 < 40 且 上下文 < 60%
+// - warning: 熵值 40-70 或 上下文 60-80%
+// - critical: 熵值 > 70 或 上下文 > 80%
+func CalculateHealthStatus(entropy, contextUsagePercent float64) (HealthStatus, string) {
+	// 危险条件：熵值 > 70 或 上下文 > 80%
+	if entropy > 70 || contextUsagePercent > 80 {
+		var warning string
+		if contextUsagePercent > 80 {
+			warning = "会话上下文接近饱和，建议开启新会话继续"
+		} else {
+			warning = "会话复杂度过高，建议拆分任务"
+		}
+		return HealthStatusCritical, warning
+	}
+
+	// 警告条件：熵值 40-70 或 上下文 60-80%
+	if entropy >= 40 || contextUsagePercent >= 60 {
+		var warning string
+		if contextUsagePercent >= 60 {
+			warning = "上下文使用率较高，建议关注会话长度"
+		} else {
+			warning = "会话复杂度中等，注意保持专注"
+		}
+		return HealthStatusWarning, warning
+	}
+
+	return HealthStatusHealthy, ""
+}
+
+// CalculateActiveLevel 计算活跃等级
+func CalculateActiveLevel(isArchived, isVisible, isFocused bool) int {
+	if isFocused {
+		return ActiveLevelFocused
+	}
+	if isVisible {
+		return ActiveLevelOpen
+	}
+	if isArchived {
+		return ActiveLevelArchived
+	}
+	return ActiveLevelClosed
+}
+
+// CalculateEntropy 计算会话熵值
+// 基于代码变更行数、文件数量、上下文使用率等指标计算
+func CalculateEntropy(linesAdded, linesRemoved, filesChanged int, contextUsagePercent float64) float64 {
+	// 代码变更维度（权重 40%）
+	totalLines := float64(linesAdded + linesRemoved)
+	linesScore := minFloat(totalLines/500.0*100, 100) * 0.4
+
+	// 文件变更维度（权重 30%）
+	filesScore := minFloat(float64(filesChanged)/10.0*100, 100) * 0.3
+
+	// 上下文使用率维度（权重 30%）
+	contextScore := contextUsagePercent * 0.3
+
+	return linesScore + filesScore + contextScore
+}
+
+func minFloat(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}

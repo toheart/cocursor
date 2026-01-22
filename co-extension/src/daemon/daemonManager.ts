@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, execSync } from "child_process";
 import axios, { AxiosInstance } from "axios";
 import { Logger } from "../utils/logger";
 
@@ -13,6 +13,7 @@ export class DaemonManager {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private readonly healthCheckInterval = 5000; // 5秒
   private readonly healthCheckUrl = "http://localhost:19960/health";
+  private readonly shutdownUrl = "http://localhost:19960/api/v1/shutdown";
   private readonly context: vscode.ExtensionContext;
   private axiosInstance: AxiosInstance;
 
@@ -93,25 +94,199 @@ export class DaemonManager {
   }
 
   /**
-   * 停止后端服务器
+   * 停止后端服务器（同步方法，用于 deactivate）
    */
   stop(): void {
     this.stopHeartbeat();
 
+    // 首先尝试通过 HTTP API 优雅关闭
+    this.sendShutdownRequest();
+
+    // 然后强制终止进程
+    this.killProcess();
+
+    // 清理可能的残留进程（通过端口查找）
+    this.killProcessByPort(19960);
+  }
+
+  /**
+   * 异步停止后端服务器（用于需要等待的场景）
+   */
+  async stopAsync(): Promise<void> {
+    this.stopHeartbeat();
+
+    // 首先尝试通过 HTTP API 优雅关闭
+    await this.sendShutdownRequestAsync();
+
+    // 等待进程退出
     if (this.process && !this.process.killed) {
-      Logger.backendInfo("停止后端进程");
-      // Windows 上使用 taskkill，Unix 上使用 kill
+      const exitPromise = new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          Logger.backendWarn("等待进程退出超时，强制终止");
+          resolve();
+        }, 3000); // 最多等待 3 秒
+
+        this.process?.once("exit", () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
+
+      // 发送 SIGTERM
+      this.process.kill("SIGTERM");
+      await exitPromise;
+
+      // 如果进程仍在运行，强制终止
+      if (this.process && !this.process.killed) {
+        this.killProcess();
+      }
+    }
+
+    this.process = null;
+
+    // 清理可能的残留进程
+    this.killProcessByPort(19960);
+  }
+
+  /**
+   * 同步发送关闭请求（不等待响应）
+   */
+  private sendShutdownRequest(): void {
+    try {
+      // 使用 XMLHttpRequest 同步请求（Node.js 环境下使用 execSync + curl）
       if (process.platform === "win32") {
-        // Windows: 终止进程树
-        spawn("taskkill", ["/F", "/T", "/PID", this.process.pid!.toString()], {
-          detached: true,
+        execSync(`curl -s -X POST "${this.shutdownUrl}" --max-time 1`, {
           stdio: "ignore",
+          timeout: 2000,
         });
       } else {
-        // Unix/Linux/Mac: 发送 SIGTERM
-        this.process.kill("SIGTERM");
+        execSync(`curl -s -X POST "${this.shutdownUrl}" --max-time 1 2>/dev/null || true`, {
+          stdio: "ignore",
+          timeout: 2000,
+        });
       }
+      Logger.backendInfo("已发送关闭请求到后端");
+    } catch {
+      // 忽略错误，可能后端已经关闭
+      Logger.backendDebug("发送关闭请求失败（后端可能已关闭）");
+    }
+  }
+
+  /**
+   * 异步发送关闭请求
+   */
+  private async sendShutdownRequestAsync(): Promise<void> {
+    try {
+      await this.axiosInstance.post(this.shutdownUrl, {}, { timeout: 2000 });
+      Logger.backendInfo("已发送关闭请求到后端");
+      // 等待一小段时间让后端处理关闭
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } catch {
+      // 忽略错误，可能后端已经关闭
+      Logger.backendDebug("发送关闭请求失败（后端可能已关闭）");
+    }
+  }
+
+  /**
+   * 强制终止当前管理的进程
+   */
+  private killProcess(): void {
+    if (!this.process) {
+      return;
+    }
+
+    const pid = this.process.pid;
+    if (!pid) {
       this.process = null;
+      return;
+    }
+
+    Logger.backendInfo(`强制终止进程 PID=${pid}`);
+
+    try {
+      if (process.platform === "win32") {
+        // Windows: 使用 taskkill 强制终止进程树（同步执行）
+        try {
+          execSync(`taskkill /F /T /PID ${pid}`, {
+            stdio: "ignore",
+            timeout: 5000,
+          });
+        } catch {
+          // 进程可能已经退出
+        }
+      } else {
+        // Unix/Linux/Mac: 先尝试 SIGTERM，再 SIGKILL
+        try {
+          this.process.kill("SIGTERM");
+          // 给进程一点时间响应 SIGTERM
+          execSync("sleep 0.5", { stdio: "ignore" });
+        } catch {
+          // 忽略
+        }
+
+        // 检查进程是否仍在运行，如果是则发送 SIGKILL
+        try {
+          process.kill(pid, 0); // 测试进程是否存在
+          this.process.kill("SIGKILL");
+          Logger.backendInfo(`已发送 SIGKILL 到进程 PID=${pid}`);
+        } catch {
+          // 进程已经不存在，这是好事
+          Logger.backendDebug(`进程 PID=${pid} 已退出`);
+        }
+      }
+    } catch (error) {
+      Logger.backendWarn(`终止进程失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    this.process = null;
+  }
+
+  /**
+   * 通过端口查找并终止占用该端口的进程
+   */
+  private killProcessByPort(port: number): void {
+    try {
+      if (process.platform === "win32") {
+        // Windows: 使用 netstat 查找并终止
+        try {
+          const result = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
+            encoding: "utf-8",
+            timeout: 5000,
+          });
+          const lines = result.trim().split("\n");
+          for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && /^\d+$/.test(pid)) {
+              Logger.backendInfo(`通过端口 ${port} 发现残留进程 PID=${pid}，正在终止`);
+              execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore", timeout: 5000 });
+            }
+          }
+        } catch {
+          // 没有找到占用端口的进程，这是正常的
+        }
+      } else {
+        // Unix/Linux/Mac: 使用 lsof 查找并终止
+        try {
+          const result = execSync(`lsof -ti:${port}`, {
+            encoding: "utf-8",
+            timeout: 5000,
+          });
+          const pids = result.trim().split("\n").filter((p) => p && /^\d+$/.test(p));
+          for (const pid of pids) {
+            Logger.backendInfo(`通过端口 ${port} 发现残留进程 PID=${pid}，正在终止`);
+            try {
+              execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 2000 });
+            } catch {
+              // 进程可能已经退出
+            }
+          }
+        } catch {
+          // 没有找到占用端口的进程，这是正常的
+        }
+      }
+    } catch (error) {
+      Logger.backendDebug(`端口清理失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

@@ -148,12 +148,24 @@
       "dangerous": "危险",
       "unknown": "未知"
     },
+    "activeSessions": {
+      "title": "活跃会话状态",
+      "focused": "当前聚焦",
+      "otherOpen": "其他打开",
+      "open": "打开",
+      "closed": "已关闭",
+      "archived": "已归档",
+      "noActive": "没有活跃会话",
+      "entropy": "熵值",
+      "context": "上下文"
+    },
     "overview": {
       "codeChanges": "代码变更",
       "added": "添加",
       "removed": "删除",
       "files": "文件",
       "acceptanceRate": "接受率",
+      "weekSessions": "周会话数",
       "activeSessions": "活跃会话",
       "aiInteraction": "AI 交互",
       "prompts": "Prompts",

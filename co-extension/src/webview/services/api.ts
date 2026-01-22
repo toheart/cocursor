@@ -80,6 +80,11 @@ class ApiService {
     return this.postMessage("fetchWorkAnalysis", { startDate, endDate });
   }
 
+  // 获取活跃会话概览
+  async getActiveSessions(workspaceId?: string): Promise<unknown> {
+    return this.postMessage("fetchActiveSessions", { workspaceId });
+  }
+
   // 获取会话列表
   async getSessionList(projectName?: string, limit?: number, offset?: number, search?: string): Promise<unknown> {
     return this.postMessage("fetchSessionList", { projectName, limit, offset, search });

@@ -6,6 +6,7 @@ import "github.com/google/wire"
 var ProviderSet = wire.NewSet(
 	ProvideDB,                          // 提供数据库连接
 	NewDailySummaryRepository,          // 每日总结仓储
+	NewWeeklySummaryRepository,         // 每周总结仓储
 	NewWorkspaceSessionRepository,      // 工作区会话仓储
 	NewWorkspaceFileMetadataRepository, // 工作区文件元数据仓储
 	NewChunkRepository,                 // RAG 知识片段仓储

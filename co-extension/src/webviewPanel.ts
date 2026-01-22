@@ -211,6 +211,9 @@ export class WebviewPanel {
       case "fetchWorkAnalysis":
         this._handleFetchWorkAnalysis(message.payload as { startDate?: string; endDate?: string; projectName?: string });
         break;
+      case "fetchActiveSessions":
+        this._handleFetchActiveSessions(message.payload as { workspaceId?: string });
+        break;
       case "fetchSessionList":
         this._handleFetchSessionList(message.payload as { projectName?: string; limit?: number; offset?: number; search?: string });
         break;
@@ -750,6 +753,35 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchWorkAnalysis-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" }
+      });
+    }
+  }
+
+  private async _handleFetchActiveSessions(payload: { workspaceId?: string }): Promise<void> {
+    try {
+      let apiUrl = "http://localhost:19960/api/v1/sessions/active";
+      const params = new URLSearchParams();
+      if (payload.workspaceId) {
+        params.append("workspace_id", payload.workspaceId);
+      }
+      if (params.toString()) {
+        apiUrl += `?${params.toString()}`;
+      }
+
+      const response = await axios.get(apiUrl, { timeout: 10000 });
+      
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "fetchActiveSessions-response",
+          data: response.data.data
+        });
+      } else {
+        throw new Error(response.data.message || "获取活跃会话失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchActiveSessions-response",
         data: { error: error instanceof Error ? error.message : "未知错误" }
       });
     }

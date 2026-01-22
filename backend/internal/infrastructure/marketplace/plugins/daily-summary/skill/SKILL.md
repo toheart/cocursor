@@ -282,3 +282,38 @@ See [references/summary-examples.md](references/summary-examples.md) for complet
 - `mcp__cocursor__get_daily_summary(date)`: Query historical summary (optional)
 
 **Performance Tip**: Always prefer `mcp__cocursor__get_daily_conversations` over multiple `mcp__cocursor__get_session_content` calls. It's more efficient and reduces MCP round trips.
+
+## HTTP API Fallback
+
+If MCP tools are unavailable (tool not found, connection timeout), use HTTP API via curl as an alternative:
+
+### Pre-check: Verify daemon is running
+```bash
+curl -s http://localhost:19960/health
+# Expected: {"status":"ok"}
+```
+
+### HTTP API Endpoints
+```bash
+# Get daily sessions (equivalent to mcp__cocursor__get_daily_sessions)
+curl -s "http://localhost:19960/api/v1/sessions/daily?date=2024-01-22"
+
+# Get daily conversations (equivalent to mcp__cocursor__get_daily_conversations)
+curl -s "http://localhost:19960/api/v1/sessions/conversations?date=2024-01-22"
+
+# Get daily summary (equivalent to mcp__cocursor__get_daily_summary)
+curl -s "http://localhost:19960/api/v1/daily-summary?date=2024-01-22"
+
+# Save daily summary (equivalent to mcp__cocursor__save_daily_summary)
+curl -X POST "http://localhost:19960/api/v1/daily-summary" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2024-01-22","summary":"...","total_sessions":5}'
+
+# Get summaries for date range
+curl -s "http://localhost:19960/api/v1/daily-summary/range?start_date=2024-01-15&end_date=2024-01-21"
+```
+
+### Error Handling Strategy
+1. **First**: Try MCP tool call
+2. **If MCP fails** (tool not found, timeout): Use curl fallback
+3. **If curl fails** (connection refused): Inform user that cocursor daemon is not running

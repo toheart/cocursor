@@ -211,3 +211,26 @@ mcp__cocursor__save_user_profile
   content (required): string (Markdown, no frontmatter)
   language: "zh" | "en" (use stats.primary_language)
 ```
+
+## HTTP API Fallback
+
+If MCP tools are unavailable, the user-profile skill currently does not have HTTP API equivalents. In this case:
+
+1. **Check daemon status first:**
+```bash
+curl -s http://localhost:19960/health
+# Expected: {"status":"ok"}
+```
+
+2. **If daemon is running but MCP fails:**
+   - This usually indicates a temporary MCP connection issue
+   - Wait a moment and retry the MCP call
+   - If still failing, suggest user restart Cursor
+
+3. **If daemon is not running:**
+   - Inform user: "cocursor daemon is not running. User profile generation requires the cocursor service."
+
+### Error Handling Strategy
+1. **First**: Try MCP tool call
+2. **If MCP fails** (tool not found, timeout): Retry once, then inform user about the issue
+3. **If curl health check fails** (connection refused): Inform user that cocursor daemon is not running

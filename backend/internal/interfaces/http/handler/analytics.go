@@ -17,6 +17,7 @@ var (
 	_ domainCursor.TokenUsage
 	_ domainCursor.WorkAnalysis
 	_ domainCursor.SessionDetail
+	_ domainCursor.ActiveSessionsOverview
 )
 
 // AnalyticsHandler 分析处理器
@@ -101,6 +102,29 @@ func (h *AnalyticsHandler) WorkAnalysis(c *gin.Context) {
 	}
 
 	response.Success(c, analysis)
+}
+
+// ActiveSessions 获取活跃会话概览
+// @Summary 获取活跃会话概览
+// @Tags 会话
+// @Accept json
+// @Produce json
+// @Param workspace_id query string false "工作区 ID，如果不提供则聚合所有工作区"
+// @Success 200 {object} response.Response{data=domainCursor.ActiveSessionsOverview}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /sessions/active [get]
+func (h *AnalyticsHandler) ActiveSessions(c *gin.Context) {
+	workspaceID := c.Query("workspace_id")
+
+	// 调用服务获取活跃会话概览
+	overview, err := h.workAnalysisService.GetActiveSessionsOverview(workspaceID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 700001, "获取活跃会话概览失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, overview)
 }
 
 // SessionList 获取会话列表（分页）

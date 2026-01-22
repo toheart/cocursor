@@ -41,12 +41,18 @@ func NewApp(
 	wsHub *websocket.Hub,
 	projectManager *appCursor.ProjectManager,
 	workspaceCacheService *appCursor.WorkspaceCacheService,
+	workAnalysisService *appCursor.WorkAnalysisService,
 	scanScheduler *appRAG.ScanScheduler,
 	ragInitializer *appRAG.RAGInitializer,
 	mcpInitializer *infraMarketplace.MCPInitializer,
 	db *sql.DB,
 ) *App {
 	logger := applog.NewModuleLogger("app", "main")
+
+	// 设置 WorkspaceCacheService 到 WorkAnalysisService（解决循环依赖）
+	if workAnalysisService != nil && workspaceCacheService != nil {
+		workAnalysisService.SetWorkspaceCacheService(workspaceCacheService)
+	}
 
 	// 初始化事件总线
 	eventBus := watcher.NewEventBus()
@@ -202,6 +208,11 @@ func (a *App) setupEventSubscribers() {
 		)
 		a.logger.Info("WorkspaceCacheService subscribed to workspace events")
 	}
+}
+
+// GetShutdownChan 获取关闭信号通道（用于 main 函数监听 API 关闭请求）
+func (a *App) GetShutdownChan() <-chan struct{} {
+	return a.HTTPServer.GetShutdownChan()
 }
 
 // Stop 停止所有服务

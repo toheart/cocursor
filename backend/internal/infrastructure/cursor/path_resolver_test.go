@@ -1,11 +1,13 @@
 package cursor
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -378,4 +380,550 @@ func TestGetWorkspaceIDByPath_PathMatching(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ==================== 新增测试：PathNotFoundError ====================
+
+// TestPathNotFoundError_Error 测试 PathNotFoundError 的 Error() 方法
+func TestPathNotFoundError_Error(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      *PathNotFoundError
+		contains []string
+	}{
+		{
+			name: "单个尝试路径",
+			err: &PathNotFoundError{
+				PathType:      "user_data_dir",
+				AttemptedPath: "/path/to/cursor",
+				Hint:          "路径不存在",
+			},
+			contains: []string{"user_data_dir", "/path/to/cursor", "路径不存在"},
+		},
+		{
+			name: "多个尝试路径",
+			err: &PathNotFoundError{
+				PathType:       "user_data_dir",
+				AttemptedPaths: []string{"/path1", "/path2"},
+				Hint:           "自动检测失败",
+			},
+			contains: []string{"user_data_dir", "/path1", "/path2", "自动检测失败"},
+		},
+		{
+			name: "仅提示信息",
+			err: &PathNotFoundError{
+				PathType: "projects_dir",
+				Hint:     "HOME 环境变量未设置",
+			},
+			contains: []string{"projects_dir", "HOME 环境变量未设置"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errMsg := tt.err.Error()
+			for _, substr := range tt.contains {
+				assert.Contains(t, errMsg, substr, "错误信息应包含: %s", substr)
+			}
+		})
+	}
+}
+
+// TestIsPathNotFoundError 测试错误类型检测
+func TestIsPathNotFoundError(t *testing.T) {
+	pnfErr := &PathNotFoundError{PathType: "test"}
+	genericErr := os.ErrNotExist
+
+	assert.True(t, IsPathNotFoundError(pnfErr))
+	assert.False(t, IsPathNotFoundError(genericErr))
+	assert.False(t, IsPathNotFoundError(nil))
+}
+
+// TestAsPathNotFoundError 测试错误类型转换
+func TestAsPathNotFoundError(t *testing.T) {
+	pnfErr := &PathNotFoundError{PathType: "test", Hint: "test hint"}
+
+	// 成功转换
+	converted, ok := AsPathNotFoundError(pnfErr)
+	assert.True(t, ok)
+	assert.Equal(t, "test", converted.PathType)
+	assert.Equal(t, "test hint", converted.Hint)
+
+	// 转换失败
+	_, ok = AsPathNotFoundError(os.ErrNotExist)
+	assert.False(t, ok)
+}
+
+// ==================== 新增测试：自定义路径配置 ====================
+
+// TestNewPathResolverWithConfig 测试使用自定义配置创建 PathResolver
+func TestNewPathResolverWithConfig(t *testing.T) {
+	resolver := NewPathResolverWithConfig("/custom/user/data", "/custom/projects")
+
+	assert.Equal(t, "/custom/user/data", resolver.customUserDataDir)
+	assert.Equal(t, "/custom/projects", resolver.customProjectsDir)
+}
+
+// TestPathResolver_CustomUserDataDir 测试自定义 UserDataDir 优先级
+func TestPathResolver_CustomUserDataDir(t *testing.T) {
+	// 创建临时目录模拟 Cursor 用户数据目录
+	tmpDir := t.TempDir()
+	globalStorageDir := filepath.Join(tmpDir, "globalStorage")
+	require.NoError(t, os.MkdirAll(globalStorageDir, 0755))
+
+	resolver := NewPathResolverWithConfig(tmpDir, "")
+
+	userDataDir, err := resolver.getUserDataDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, userDataDir)
+}
+
+// TestPathResolver_CustomUserDataDir_NotExists 测试自定义路径不存在的情况
+func TestPathResolver_CustomUserDataDir_NotExists(t *testing.T) {
+	resolver := NewPathResolverWithConfig("/nonexistent/path", "")
+
+	_, err := resolver.getUserDataDir()
+	require.Error(t, err)
+	assert.True(t, IsPathNotFoundError(err))
+
+	pnfErr, ok := AsPathNotFoundError(err)
+	require.True(t, ok)
+	assert.Equal(t, "user_data_dir", pnfErr.PathType)
+	assert.True(t, pnfErr.IsCustom)
+	assert.Equal(t, "/nonexistent/path", pnfErr.AttemptedPath)
+}
+
+// TestPathResolver_CustomProjectsDir 测试自定义 ProjectsDir 优先级
+func TestPathResolver_CustomProjectsDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	resolver := NewPathResolverWithConfig("", tmpDir)
+
+	projectsDir, err := resolver.GetCursorProjectsDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, projectsDir)
+}
+
+// TestPathResolver_CustomProjectsDir_NotExists 测试自定义项目路径不存在的情况
+func TestPathResolver_CustomProjectsDir_NotExists(t *testing.T) {
+	resolver := NewPathResolverWithConfig("", "/nonexistent/projects")
+
+	_, err := resolver.GetCursorProjectsDir()
+	require.Error(t, err)
+	assert.True(t, IsPathNotFoundError(err))
+
+	pnfErr, ok := AsPathNotFoundError(err)
+	require.True(t, ok)
+	assert.Equal(t, "projects_dir", pnfErr.PathType)
+	assert.True(t, pnfErr.IsCustom)
+}
+
+// ==================== 新增测试：全局配置 ====================
+
+// TestGlobalCursorConfig 测试全局配置设置和获取
+func TestGlobalCursorConfig(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	defer SetGlobalCursorConfig(originalConfig)
+
+	// 设置新配置
+	newConfig := &config.CursorConfig{
+		UserDataDir: "/global/user/data",
+		ProjectsDir: "/global/projects",
+	}
+	SetGlobalCursorConfig(newConfig)
+
+	// 验证配置已设置
+	cfg := GetGlobalCursorConfig()
+	require.NotNil(t, cfg)
+	assert.Equal(t, "/global/user/data", cfg.UserDataDir)
+	assert.Equal(t, "/global/projects", cfg.ProjectsDir)
+}
+
+// TestPathResolver_GlobalConfig_UserDataDir 测试全局配置对 UserDataDir 的影响
+func TestPathResolver_GlobalConfig_UserDataDir(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	defer SetGlobalCursorConfig(originalConfig)
+
+	// 创建临时目录
+	tmpDir := t.TempDir()
+	globalStorageDir := filepath.Join(tmpDir, "globalStorage")
+	require.NoError(t, os.MkdirAll(globalStorageDir, 0755))
+
+	// 设置全局配置
+	SetGlobalCursorConfig(&config.CursorConfig{
+		UserDataDir: tmpDir,
+	})
+
+	resolver := NewPathResolver()
+	userDataDir, err := resolver.getUserDataDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, userDataDir)
+}
+
+// TestPathResolver_GlobalConfig_ProjectsDir 测试全局配置对 ProjectsDir 的影响
+func TestPathResolver_GlobalConfig_ProjectsDir(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	defer SetGlobalCursorConfig(originalConfig)
+
+	// 创建临时目录
+	tmpDir := t.TempDir()
+
+	// 设置全局配置
+	SetGlobalCursorConfig(&config.CursorConfig{
+		ProjectsDir: tmpDir,
+	})
+
+	resolver := NewPathResolver()
+	projectsDir, err := resolver.GetCursorProjectsDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, projectsDir)
+}
+
+// ==================== 新增测试：环境变量配置 ====================
+
+// TestPathResolver_EnvVar_UserDataDir 测试环境变量 CURSOR_USER_DATA_DIR
+func TestPathResolver_EnvVar_UserDataDir(t *testing.T) {
+	// 保存原始值
+	originalValue := os.Getenv("CURSOR_USER_DATA_DIR")
+	originalConfig := GetGlobalCursorConfig()
+	defer func() {
+		if originalValue == "" {
+			os.Unsetenv("CURSOR_USER_DATA_DIR")
+		} else {
+			os.Setenv("CURSOR_USER_DATA_DIR", originalValue)
+		}
+		SetGlobalCursorConfig(originalConfig)
+	}()
+
+	// 清除全局配置
+	SetGlobalCursorConfig(nil)
+
+	// 创建临时目录
+	tmpDir := t.TempDir()
+	globalStorageDir := filepath.Join(tmpDir, "globalStorage")
+	require.NoError(t, os.MkdirAll(globalStorageDir, 0755))
+
+	// 设置环境变量
+	os.Setenv("CURSOR_USER_DATA_DIR", tmpDir)
+
+	resolver := NewPathResolver()
+	userDataDir, err := resolver.getUserDataDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, userDataDir)
+}
+
+// TestPathResolver_EnvVar_UserDataDir_NotExists 测试环境变量指定的路径不存在
+func TestPathResolver_EnvVar_UserDataDir_NotExists(t *testing.T) {
+	// 保存原始值
+	originalValue := os.Getenv("CURSOR_USER_DATA_DIR")
+	originalConfig := GetGlobalCursorConfig()
+	defer func() {
+		if originalValue == "" {
+			os.Unsetenv("CURSOR_USER_DATA_DIR")
+		} else {
+			os.Setenv("CURSOR_USER_DATA_DIR", originalValue)
+		}
+		SetGlobalCursorConfig(originalConfig)
+	}()
+
+	// 清除全局配置
+	SetGlobalCursorConfig(nil)
+
+	// 设置不存在的路径
+	os.Setenv("CURSOR_USER_DATA_DIR", "/nonexistent/env/path")
+
+	resolver := NewPathResolver()
+	_, err := resolver.getUserDataDir()
+	require.Error(t, err)
+	assert.True(t, IsPathNotFoundError(err))
+
+	pnfErr, ok := AsPathNotFoundError(err)
+	require.True(t, ok)
+	assert.True(t, pnfErr.IsCustom)
+	assert.Contains(t, pnfErr.Hint, "CURSOR_USER_DATA_DIR")
+}
+
+// TestPathResolver_EnvVar_ProjectsDir 测试环境变量 CURSOR_PROJECTS_DIR
+func TestPathResolver_EnvVar_ProjectsDir(t *testing.T) {
+	// 保存原始值
+	originalValue := os.Getenv("CURSOR_PROJECTS_DIR")
+	originalConfig := GetGlobalCursorConfig()
+	defer func() {
+		if originalValue == "" {
+			os.Unsetenv("CURSOR_PROJECTS_DIR")
+		} else {
+			os.Setenv("CURSOR_PROJECTS_DIR", originalValue)
+		}
+		SetGlobalCursorConfig(originalConfig)
+	}()
+
+	// 清除全局配置
+	SetGlobalCursorConfig(nil)
+
+	// 创建临时目录
+	tmpDir := t.TempDir()
+
+	// 设置环境变量
+	os.Setenv("CURSOR_PROJECTS_DIR", tmpDir)
+
+	resolver := NewPathResolver()
+	projectsDir, err := resolver.GetCursorProjectsDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, projectsDir)
+}
+
+// ==================== 新增测试：优先级测试 ====================
+
+// TestPathResolver_Priority_UserDataDir 测试 UserDataDir 配置优先级
+// 优先级：实例配置 > 全局配置 > 环境变量 > 自动检测
+func TestPathResolver_Priority_UserDataDir(t *testing.T) {
+	// 保存原始值
+	originalEnv := os.Getenv("CURSOR_USER_DATA_DIR")
+	originalConfig := GetGlobalCursorConfig()
+	defer func() {
+		if originalEnv == "" {
+			os.Unsetenv("CURSOR_USER_DATA_DIR")
+		} else {
+			os.Setenv("CURSOR_USER_DATA_DIR", originalEnv)
+		}
+		SetGlobalCursorConfig(originalConfig)
+	}()
+
+	// 创建多个临时目录
+	instanceDir := t.TempDir()
+	globalDir := t.TempDir()
+	envDir := t.TempDir()
+
+	// 设置环境变量
+	os.Setenv("CURSOR_USER_DATA_DIR", envDir)
+
+	// 设置全局配置
+	SetGlobalCursorConfig(&config.CursorConfig{
+		UserDataDir: globalDir,
+	})
+
+	// 测试1：实例配置优先
+	resolver := NewPathResolverWithConfig(instanceDir, "")
+	userDataDir, err := resolver.getUserDataDir()
+	require.NoError(t, err)
+	assert.Equal(t, instanceDir, userDataDir, "实例配置应优先")
+
+	// 测试2：全局配置次之
+	resolver = NewPathResolver()
+	userDataDir, err = resolver.getUserDataDir()
+	require.NoError(t, err)
+	assert.Equal(t, globalDir, userDataDir, "全局配置应次之")
+
+	// 测试3：环境变量再次之
+	SetGlobalCursorConfig(nil)
+	resolver = NewPathResolver()
+	userDataDir, err = resolver.getUserDataDir()
+	require.NoError(t, err)
+	assert.Equal(t, envDir, userDataDir, "环境变量应再次之")
+}
+
+// ==================== 新增测试：GetPathStatus ====================
+
+// TestPathResolver_GetPathStatus 测试获取路径状态
+func TestPathResolver_GetPathStatus(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	defer SetGlobalCursorConfig(originalConfig)
+
+	// 创建临时目录
+	userDataDir := t.TempDir()
+	projectsDir := t.TempDir()
+
+	// 创建 globalStorage 子目录
+	globalStorageDir := filepath.Join(userDataDir, "globalStorage")
+	require.NoError(t, os.MkdirAll(globalStorageDir, 0755))
+
+	// 设置全局配置
+	SetGlobalCursorConfig(&config.CursorConfig{
+		UserDataDir: userDataDir,
+		ProjectsDir: projectsDir,
+	})
+
+	resolver := NewPathResolver()
+	status := resolver.GetPathStatus()
+
+	// 验证状态
+	assert.True(t, status.UserDataDirOK, "UserDataDir 应该正常")
+	assert.True(t, status.ProjectsDirOK, "ProjectsDir 应该正常")
+	assert.Equal(t, userDataDir, status.UserDataDir)
+	assert.Equal(t, projectsDir, status.ProjectsDir)
+	assert.Nil(t, status.UserDataDirError)
+	assert.Nil(t, status.ProjectsDirError)
+
+	// 验证配置信息
+	assert.Equal(t, userDataDir, status.ConfigUserDataDir)
+	assert.Equal(t, projectsDir, status.ConfigProjectsDir)
+}
+
+// TestPathResolver_GetPathStatus_WithErrors 测试路径不存在时的状态
+func TestPathResolver_GetPathStatus_WithErrors(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	originalEnvUserData := os.Getenv("CURSOR_USER_DATA_DIR")
+	originalEnvProjects := os.Getenv("CURSOR_PROJECTS_DIR")
+	defer func() {
+		SetGlobalCursorConfig(originalConfig)
+		if originalEnvUserData == "" {
+			os.Unsetenv("CURSOR_USER_DATA_DIR")
+		} else {
+			os.Setenv("CURSOR_USER_DATA_DIR", originalEnvUserData)
+		}
+		if originalEnvProjects == "" {
+			os.Unsetenv("CURSOR_PROJECTS_DIR")
+		} else {
+			os.Setenv("CURSOR_PROJECTS_DIR", originalEnvProjects)
+		}
+	}()
+
+	// 清除环境变量
+	os.Unsetenv("CURSOR_USER_DATA_DIR")
+	os.Unsetenv("CURSOR_PROJECTS_DIR")
+
+	// 设置不存在的路径
+	SetGlobalCursorConfig(&config.CursorConfig{
+		UserDataDir: "/nonexistent/user/data",
+		ProjectsDir: "/nonexistent/projects",
+	})
+
+	resolver := NewPathResolver()
+	status := resolver.GetPathStatus()
+
+	// 验证状态
+	assert.False(t, status.UserDataDirOK, "UserDataDir 应该失败")
+	assert.False(t, status.ProjectsDirOK, "ProjectsDir 应该失败")
+	assert.NotNil(t, status.UserDataDirError)
+	assert.NotNil(t, status.ProjectsDirError)
+	assert.Equal(t, "user_data_dir", status.UserDataDirError.PathType)
+	assert.Equal(t, "projects_dir", status.ProjectsDirError.PathType)
+}
+
+// ==================== 新增测试：WSL 检测 ====================
+
+// TestPathResolver_IsWSL 测试 WSL 检测
+func TestPathResolver_IsWSL(t *testing.T) {
+	resolver := NewPathResolver()
+	isWSL := resolver.isWSL()
+
+	// 在非 WSL 环境下应该返回 false
+	// 这个测试主要验证方法不会 panic
+	t.Logf("isWSL: %v", isWSL)
+
+	// 如果设置了 WSL 环境变量，应该返回 true
+	if os.Getenv("WSL_DISTRO_NAME") != "" || os.Getenv("WSLENV") != "" {
+		assert.True(t, isWSL, "在 WSL 环境中应返回 true")
+	}
+}
+
+// TestPathResolver_WindowsPathToWSL 测试 Windows 路径转换为 WSL 路径
+func TestPathResolver_WindowsPathToWSL(t *testing.T) {
+	resolver := NewPathResolver()
+
+	tests := []struct {
+		name        string
+		windowsPath string
+		expected    string
+	}{
+		{
+			name:        "标准 Windows 路径",
+			windowsPath: "C:\\Users\\test",
+			expected:    "/mnt/c/Users/test",
+		},
+		{
+			name:        "带正斜杠的 Windows 路径",
+			windowsPath: "C:/Users/test",
+			expected:    "/mnt/c/Users/test",
+		},
+		{
+			name:        "D 盘路径",
+			windowsPath: "D:\\code\\project",
+			expected:    "/mnt/d/code/project",
+		},
+		{
+			name:        "大写盘符",
+			windowsPath: "E:\\data",
+			expected:    "/mnt/e/data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resolver.windowsPathToWSL(tt.windowsPath)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// ==================== 新增测试：getPathConfigHint ====================
+
+// TestPathResolver_GetPathConfigHint 测试路径配置提示
+func TestPathResolver_GetPathConfigHint(t *testing.T) {
+	resolver := NewPathResolver()
+
+	// 测试 user_data_dir 提示
+	hint := resolver.getPathConfigHint("user_data_dir")
+	assert.NotEmpty(t, hint)
+	assert.Contains(t, hint, "CURSOR_USER_DATA_DIR")
+
+	// 测试 projects_dir 提示
+	hint = resolver.getPathConfigHint("projects_dir")
+	assert.NotEmpty(t, hint)
+	assert.Contains(t, hint, "CURSOR_PROJECTS_DIR")
+}
+
+// ==================== 新增测试：GetCursorProjectsDirOrDefault ====================
+
+// TestPathResolver_GetCursorProjectsDirOrDefault 测试获取项目目录（带默认值）
+func TestPathResolver_GetCursorProjectsDirOrDefault(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	defer SetGlobalCursorConfig(originalConfig)
+
+	// 创建临时目录
+	tmpDir := t.TempDir()
+
+	// 设置全局配置
+	SetGlobalCursorConfig(&config.CursorConfig{
+		ProjectsDir: tmpDir,
+	})
+
+	resolver := NewPathResolver()
+	projectsDir := resolver.GetCursorProjectsDirOrDefault()
+
+	assert.Equal(t, tmpDir, projectsDir)
+}
+
+// TestPathResolver_GetCursorProjectsDirOrDefault_Fallback 测试回退到默认路径
+func TestPathResolver_GetCursorProjectsDirOrDefault_Fallback(t *testing.T) {
+	// 保存原始配置
+	originalConfig := GetGlobalCursorConfig()
+	originalEnv := os.Getenv("CURSOR_PROJECTS_DIR")
+	defer func() {
+		SetGlobalCursorConfig(originalConfig)
+		if originalEnv == "" {
+			os.Unsetenv("CURSOR_PROJECTS_DIR")
+		} else {
+			os.Setenv("CURSOR_PROJECTS_DIR", originalEnv)
+		}
+	}()
+
+	// 清除配置
+	SetGlobalCursorConfig(nil)
+	os.Unsetenv("CURSOR_PROJECTS_DIR")
+
+	resolver := NewPathResolver()
+	projectsDir := resolver.GetCursorProjectsDirOrDefault()
+
+	// 应该返回默认路径（不报错）
+	// 默认路径格式：~/.cursor/projects
+	homeDir, _ := os.UserHomeDir()
+	expectedDefault := filepath.Join(homeDir, ".cursor", "projects")
+	assert.Equal(t, expectedDefault, projectsDir)
 }

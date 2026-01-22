@@ -128,6 +128,11 @@ func InitDatabase() error {
 		"ALTER TABLE daily_summaries ADD COLUMN efficiency_metrics TEXT",
 		"ALTER TABLE daily_summaries ADD COLUMN projects TEXT",
 		"ALTER TABLE workspace_sessions ADD COLUMN token_count INTEGER DEFAULT 0",
+		// 运行时状态字段
+		"ALTER TABLE workspace_sessions ADD COLUMN is_visible INTEGER DEFAULT 0",
+		"ALTER TABLE workspace_sessions ADD COLUMN is_focused INTEGER DEFAULT 0",
+		"ALTER TABLE workspace_sessions ADD COLUMN active_level INTEGER DEFAULT 2",
+		"ALTER TABLE workspace_sessions ADD COLUMN panel_id TEXT",
 	}
 
 	// 执行迁移（忽略错误，因为字段可能已存在）
@@ -175,7 +180,8 @@ func InitDatabase() error {
 	CREATE INDEX IF NOT EXISTS idx_workspace_sessions_workspace ON workspace_sessions(workspace_id);
 	CREATE INDEX IF NOT EXISTS idx_workspace_sessions_dates ON workspace_sessions(workspace_id, created_at, last_updated_at);
 	CREATE INDEX IF NOT EXISTS idx_workspace_sessions_name ON workspace_sessions(name);
-	CREATE INDEX IF NOT EXISTS idx_workspace_sessions_archived ON workspace_sessions(workspace_id, is_archived);`
+	CREATE INDEX IF NOT EXISTS idx_workspace_sessions_archived ON workspace_sessions(workspace_id, is_archived);
+	CREATE INDEX IF NOT EXISTS idx_workspace_sessions_active_level ON workspace_sessions(workspace_id, active_level);`
 
 	if _, err := db.Exec(createWorkspaceSessionsIndexSQL); err != nil {
 		return fmt.Errorf("failed to create workspace_sessions indexes: %w", err)
@@ -283,6 +289,40 @@ func InitDatabase() error {
 
 	if _, err := db.Exec(createNewRAGIndexesSQL); err != nil {
 		return fmt.Errorf("failed to create new RAG indexes: %w", err)
+	}
+
+	// 创建 weekly_summaries 表（周报存储，支持幂等更新）
+	createWeeklySummariesTableSQL := `
+	CREATE TABLE IF NOT EXISTS weekly_summaries (
+		id TEXT PRIMARY KEY,
+		week_start TEXT NOT NULL,
+		week_end TEXT NOT NULL,
+		summary TEXT NOT NULL,
+		language TEXT DEFAULT 'zh',
+		projects TEXT,
+		categories TEXT,
+		total_sessions INTEGER DEFAULT 0,
+		working_days INTEGER DEFAULT 0,
+		code_changes TEXT,
+		key_accomplishments TEXT,
+		data_hash TEXT,
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL,
+		UNIQUE(week_start)
+	);`
+
+	if _, err := db.Exec(createWeeklySummariesTableSQL); err != nil {
+		return fmt.Errorf("failed to create weekly_summaries table: %w", err)
+	}
+
+	// 创建 weekly_summaries 索引
+	createWeeklySummariesIndexSQL := `
+	CREATE INDEX IF NOT EXISTS idx_weekly_summaries_week_start ON weekly_summaries(week_start);
+	CREATE INDEX IF NOT EXISTS idx_weekly_summaries_week_range ON weekly_summaries(week_start, week_end);
+	`
+
+	if _, err := db.Exec(createWeeklySummariesIndexSQL); err != nil {
+		return fmt.Errorf("failed to create weekly_summaries indexes: %w", err)
 	}
 
 	return nil

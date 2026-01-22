@@ -447,6 +447,10 @@
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: default;
+  /* 固定最小高度，防止卡片高度不一致导致网格跳动 */
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
 }
 
 .cocursor-daily-card:hover {
@@ -527,6 +531,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1; /* 让指标区域撑满剩余空间 */
 }
 
 .cocursor-daily-card-metric-row {
@@ -627,7 +632,7 @@
 
 /* 底部操作区 */
 .cocursor-daily-card-action {
-  margin-top: 12px;
+  margin-top: auto; /* 使用 auto 让底部操作区始终贴底 */
   padding-top: 12px;
   border-top: 1px solid var(--vscode-panel-border);
   display: flex;
@@ -1329,5 +1334,256 @@
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
   opacity: 0.6;
+}
+
+/* ========== 活跃会话卡片样式 ========== */
+.cocursor-active-sessions-card {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.cocursor-active-sessions-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cocursor-active-sessions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--vscode-editor-background);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.cocursor-active-sessions-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-active-sessions-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-active-sessions-collapse-icon {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  transition: transform 0.2s ease;
+}
+
+.cocursor-active-sessions-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-active-sessions-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 8px;
+}
+
+.cocursor-active-sessions-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cocursor-active-sessions-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.cocursor-active-sessions-stat {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+.cocursor-active-sessions-stat.open {
+  background: rgba(var(--vscode-textLink-foreground-rgb, 0, 122, 204), 0.15);
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-active-sessions-stat.closed {
+  background: rgba(var(--vscode-descriptionForeground-rgb, 128, 128, 128), 0.15);
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-active-sessions-stat.archived {
+  background: rgba(var(--vscode-descriptionForeground-rgb, 128, 128, 128), 0.1);
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
+.cocursor-active-sessions-content {
+  padding: 16px;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cocursor-active-sessions-card.collapsed .cocursor-active-sessions-content {
+  display: none;
+}
+
+.cocursor-active-sessions-loading {
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cocursor-active-sessions-empty {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-active-sessions-empty-icon {
+  font-size: 24px;
+  opacity: 0.6;
+}
+
+/* 聚焦会话区域 */
+.cocursor-active-session-focused {
+  margin-bottom: 16px;
+}
+
+.cocursor-active-session-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.cocursor-active-session-focus-indicator {
+  color: var(--vscode-textLink-foreground);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* 打开会话列表 */
+.cocursor-active-sessions-open-list {
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 12px;
+}
+
+.cocursor-active-sessions-open-list .cocursor-active-session-label {
+  margin-bottom: 12px;
+}
+
+/* 单个会话项 */
+.cocursor-active-session-item {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.cocursor-active-session-item:last-child {
+  margin-bottom: 0;
+}
+
+.cocursor-active-session-item:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-active-session-item.focused {
+  border-color: var(--vscode-textLink-foreground);
+  box-shadow: 0 0 0 1px rgba(var(--vscode-textLink-foreground-rgb, 0, 122, 204), 0.2);
+}
+
+.cocursor-active-session-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.cocursor-active-session-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cocursor-active-session-metrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+}
+
+.cocursor-active-session-status-badge {
+  font-size: 12px;
+}
+
+.cocursor-active-session-entropy,
+.cocursor-active-session-context {
+  font-family: var(--vscode-editor-font-family), monospace;
+}
+
+.cocursor-active-session-warning {
+  font-size: 12px;
+  padding: 6px 10px;
+  background: rgba(var(--vscode-errorForeground-rgb, 255, 85, 85), 0.1);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.cocursor-active-session-progress {
+  height: 3px;
+  background: var(--vscode-progressBar-background);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cocursor-active-session-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
 }
 

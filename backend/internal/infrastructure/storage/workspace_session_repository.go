@@ -25,6 +25,11 @@ type WorkspaceSession struct {
 	CreatedOnBranch     string
 	TokenCount          int   // 会话的 Token 数量
 	CachedAt            int64 // 毫秒时间戳
+	// 运行时状态字段
+	IsVisible   bool   // 是否可见（面板打开）
+	IsFocused   bool   // 是否聚焦（当前活跃）
+	ActiveLevel int    // 活跃等级：0=聚焦, 1=打开, 2=关闭, 3=归档
+	PanelID     string // 对应的面板 ID
 }
 
 // WorkspaceFileMetadata 工作区文件元数据实体
@@ -46,6 +51,15 @@ type DailyTokenUsage struct {
 	TokenCount int    // 当日 Token 总数
 }
 
+// RuntimeStateUpdate 运行时状态更新参数
+type RuntimeStateUpdate struct {
+	ComposerID  string
+	IsVisible   bool
+	IsFocused   bool
+	ActiveLevel int
+	PanelID     string
+}
+
 // WorkspaceSessionRepository 工作区会话仓储接口
 type WorkspaceSessionRepository interface {
 	// Save 保存或更新会话（upsert）
@@ -62,6 +76,12 @@ type WorkspaceSessionRepository interface {
 	GetCachedComposerIDs(workspaceID string) ([]string, error)
 	// GetDailyTokenUsage 按日期聚合 Token 使用量
 	GetDailyTokenUsage(workspaceIDs []string, startDate, endDate string) ([]*DailyTokenUsage, error)
+	// UpdateRuntimeState 批量更新运行时状态
+	UpdateRuntimeState(workspaceID string, updates []*RuntimeStateUpdate) error
+	// ResetRuntimeState 重置工作区所有会话的运行时状态（用于扫描前清理）
+	ResetRuntimeState(workspaceID string) error
+	// FindActiveByWorkspaceID 查询指定工作区的活跃会话（按 active_level 排序）
+	FindActiveByWorkspaceID(workspaceID string) ([]*WorkspaceSession, error)
 }
 
 // WorkspaceFileMetadataRepository 工作区文件元数据仓储接口
@@ -104,8 +124,9 @@ func (r *workspaceSessionRepository) Save(session *WorkspaceSession) error {
 		INSERT OR REPLACE INTO workspace_sessions 
 		(workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		 total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		 is_archived, created_on_branch, token_count, cached_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 is_archived, created_on_branch, token_count, cached_at,
+		 is_visible, is_focused, active_level, panel_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := r.db.Exec(query,
 		session.WorkspaceID,
@@ -124,6 +145,10 @@ func (r *workspaceSessionRepository) Save(session *WorkspaceSession) error {
 		session.CreatedOnBranch,
 		session.TokenCount,
 		session.CachedAt,
+		session.IsVisible,
+		session.IsFocused,
+		session.ActiveLevel,
+		session.PanelID,
 	)
 
 	if err != nil {
@@ -138,7 +163,8 @@ func (r *workspaceSessionRepository) FindByWorkspaceID(workspaceID string) ([]*W
 	query := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at,
+		       COALESCE(is_visible, 0), COALESCE(is_focused, 0), COALESCE(active_level, 2), COALESCE(panel_id, '')
 		FROM workspace_sessions
 		WHERE workspace_id = ?
 		ORDER BY last_updated_at DESC`
@@ -152,7 +178,7 @@ func (r *workspaceSessionRepository) FindByWorkspaceID(workspaceID string) ([]*W
 	var sessions []*WorkspaceSession
 	for rows.Next() {
 		session := &WorkspaceSession{}
-		var isArchivedInt int
+		var isArchivedInt, isVisibleInt, isFocusedInt int
 
 		if err := rows.Scan(
 			&session.ID,
@@ -172,11 +198,17 @@ func (r *workspaceSessionRepository) FindByWorkspaceID(workspaceID string) ([]*W
 			&session.CreatedOnBranch,
 			&session.TokenCount,
 			&session.CachedAt,
+			&isVisibleInt,
+			&isFocusedInt,
+			&session.ActiveLevel,
+			&session.PanelID,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan workspace session: %w", err)
 		}
 
 		session.IsArchived = isArchivedInt == 1
+		session.IsVisible = isVisibleInt == 1
+		session.IsFocused = isFocusedInt == 1
 		sessions = append(sessions, session)
 	}
 
@@ -188,12 +220,13 @@ func (r *workspaceSessionRepository) FindByWorkspaceIDAndComposerID(workspaceID,
 	query := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at,
+		       COALESCE(is_visible, 0), COALESCE(is_focused, 0), COALESCE(active_level, 2), COALESCE(panel_id, '')
 		FROM workspace_sessions
 		WHERE workspace_id = ? AND composer_id = ?`
 
 	session := &WorkspaceSession{}
-	var isArchivedInt int
+	var isArchivedInt, isVisibleInt, isFocusedInt int
 
 	err := r.db.QueryRow(query, workspaceID, composerID).Scan(
 		&session.ID,
@@ -213,6 +246,10 @@ func (r *workspaceSessionRepository) FindByWorkspaceIDAndComposerID(workspaceID,
 		&session.CreatedOnBranch,
 		&session.TokenCount,
 		&session.CachedAt,
+		&isVisibleInt,
+		&isFocusedInt,
+		&session.ActiveLevel,
+		&session.PanelID,
 	)
 
 	if err != nil {
@@ -223,6 +260,8 @@ func (r *workspaceSessionRepository) FindByWorkspaceIDAndComposerID(workspaceID,
 	}
 
 	session.IsArchived = isArchivedInt == 1
+	session.IsVisible = isVisibleInt == 1
+	session.IsFocused = isFocusedInt == 1
 	return session, nil
 }
 
@@ -250,7 +289,8 @@ func (r *workspaceSessionRepository) FindByWorkspacesAndDateRange(workspaceIDs [
 	query := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at,
+		       COALESCE(is_visible, 0), COALESCE(is_focused, 0), COALESCE(active_level, 2), COALESCE(panel_id, '')
 		FROM workspace_sessions
 		WHERE workspace_id IN (`
 	
@@ -280,7 +320,7 @@ func (r *workspaceSessionRepository) FindByWorkspacesAndDateRange(workspaceIDs [
 	var sessions []*WorkspaceSession
 	for rows.Next() {
 		session := &WorkspaceSession{}
-		var isArchivedInt int
+		var isArchivedInt, isVisibleInt, isFocusedInt int
 
 		if err := rows.Scan(
 			&session.ID,
@@ -300,11 +340,17 @@ func (r *workspaceSessionRepository) FindByWorkspacesAndDateRange(workspaceIDs [
 			&session.CreatedOnBranch,
 			&session.TokenCount,
 			&session.CachedAt,
+			&isVisibleInt,
+			&isFocusedInt,
+			&session.ActiveLevel,
+			&session.PanelID,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan workspace session: %w", err)
 		}
 
 		session.IsArchived = isArchivedInt == 1
+		session.IsVisible = isVisibleInt == 1
+		session.IsFocused = isFocusedInt == 1
 		sessions = append(sessions, session)
 	}
 
@@ -321,7 +367,8 @@ func (r *workspaceSessionRepository) FindByWorkspaces(workspaceIDs []string, sea
 	baseQuery := `
 		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
 		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
-		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at,
+		       COALESCE(is_visible, 0), COALESCE(is_focused, 0), COALESCE(active_level, 2), COALESCE(panel_id, '')
 		FROM workspace_sessions
 		WHERE workspace_id IN (`
 	
@@ -375,7 +422,7 @@ func (r *workspaceSessionRepository) FindByWorkspaces(workspaceIDs []string, sea
 	var sessions []*WorkspaceSession
 	for rows.Next() {
 		session := &WorkspaceSession{}
-		var isArchivedInt int
+		var isArchivedInt, isVisibleInt, isFocusedInt int
 
 		if err := rows.Scan(
 			&session.ID,
@@ -395,11 +442,17 @@ func (r *workspaceSessionRepository) FindByWorkspaces(workspaceIDs []string, sea
 			&session.CreatedOnBranch,
 			&session.TokenCount,
 			&session.CachedAt,
+			&isVisibleInt,
+			&isFocusedInt,
+			&session.ActiveLevel,
+			&session.PanelID,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan workspace session: %w", err)
 		}
 
 		session.IsArchived = isArchivedInt == 1
+		session.IsVisible = isVisibleInt == 1
+		session.IsFocused = isFocusedInt == 1
 		sessions = append(sessions, session)
 	}
 
@@ -491,6 +544,121 @@ func (r *workspaceSessionRepository) GetDailyTokenUsage(workspaceIDs []string, s
 	}
 
 	return result, nil
+}
+
+// UpdateRuntimeState 批量更新运行时状态
+func (r *workspaceSessionRepository) UpdateRuntimeState(workspaceID string, updates []*RuntimeStateUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// 使用事务批量更新
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		UPDATE workspace_sessions 
+		SET is_visible = ?, is_focused = ?, active_level = ?, panel_id = ?
+		WHERE workspace_id = ? AND composer_id = ?`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, update := range updates {
+		_, err := stmt.Exec(
+			update.IsVisible,
+			update.IsFocused,
+			update.ActiveLevel,
+			update.PanelID,
+			workspaceID,
+			update.ComposerID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update runtime state for %s: %w", update.ComposerID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// ResetRuntimeState 重置工作区所有会话的运行时状态（用于扫描前清理）
+func (r *workspaceSessionRepository) ResetRuntimeState(workspaceID string) error {
+	query := `
+		UPDATE workspace_sessions 
+		SET is_visible = 0, is_focused = 0, active_level = CASE WHEN is_archived = 1 THEN 3 ELSE 2 END
+		WHERE workspace_id = ?`
+
+	_, err := r.db.Exec(query, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to reset runtime state: %w", err)
+	}
+
+	return nil
+}
+
+// FindActiveByWorkspaceID 查询指定工作区的活跃会话（按 active_level 排序）
+func (r *workspaceSessionRepository) FindActiveByWorkspaceID(workspaceID string) ([]*WorkspaceSession, error) {
+	query := `
+		SELECT id, workspace_id, composer_id, name, type, created_at, last_updated_at, unified_mode, subtitle,
+		       total_lines_added, total_lines_removed, files_changed_count, context_usage_percent,
+		       is_archived, created_on_branch, COALESCE(token_count, 0), cached_at,
+		       COALESCE(is_visible, 0), COALESCE(is_focused, 0), COALESCE(active_level, 2), COALESCE(panel_id, '')
+		FROM workspace_sessions
+		WHERE workspace_id = ? AND active_level <= 1
+		ORDER BY active_level ASC, context_usage_percent DESC`
+
+	rows, err := r.db.Query(query, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query active sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []*WorkspaceSession
+	for rows.Next() {
+		session := &WorkspaceSession{}
+		var isArchivedInt, isVisibleInt, isFocusedInt int
+
+		if err := rows.Scan(
+			&session.ID,
+			&session.WorkspaceID,
+			&session.ComposerID,
+			&session.Name,
+			&session.Type,
+			&session.CreatedAt,
+			&session.LastUpdatedAt,
+			&session.UnifiedMode,
+			&session.Subtitle,
+			&session.TotalLinesAdded,
+			&session.TotalLinesRemoved,
+			&session.FilesChangedCount,
+			&session.ContextUsagePercent,
+			&isArchivedInt,
+			&session.CreatedOnBranch,
+			&session.TokenCount,
+			&session.CachedAt,
+			&isVisibleInt,
+			&isFocusedInt,
+			&session.ActiveLevel,
+			&session.PanelID,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan active session: %w", err)
+		}
+
+		session.IsArchived = isArchivedInt == 1
+		session.IsVisible = isVisibleInt == 1
+		session.IsFocused = isFocusedInt == 1
+		sessions = append(sessions, session)
+	}
+
+	return sessions, nil
 }
 
 // Save 保存或更新元数据（upsert）

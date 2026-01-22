@@ -18,12 +18,13 @@ var readDir = os.ReadDir
 
 // WorkAnalysisService 工作分析服务
 type WorkAnalysisService struct {
-	statsService   *StatsService
-	projectManager *ProjectManager
-	sessionRepo    storage.WorkspaceSessionRepository
-	summaryRepo    storage.DailySummaryRepository
-	tokenService   *TokenService
-	logger         *slog.Logger
+	statsService          *StatsService
+	projectManager        *ProjectManager
+	sessionRepo           storage.WorkspaceSessionRepository
+	summaryRepo           storage.DailySummaryRepository
+	tokenService          *TokenService
+	workspaceCacheService *WorkspaceCacheService // 用于获取活跃会话状态
+	logger                *slog.Logger
 }
 
 // NewWorkAnalysisService 创建工作分析服务实例（接受 Repository 作为参数）
@@ -42,6 +43,11 @@ func NewWorkAnalysisService(
 		tokenService:   tokenService,
 		logger:         log.NewModuleLogger("cursor", "work_analysis"),
 	}
+}
+
+// SetWorkspaceCacheService 设置工作区缓存服务（用于解决循环依赖）
+func (s *WorkAnalysisService) SetWorkspaceCacheService(cacheService *WorkspaceCacheService) {
+	s.workspaceCacheService = cacheService
 }
 
 // GetWorkAnalysis 获取工作分析数据（全局视图）
@@ -533,4 +539,58 @@ func (s *WorkAnalysisService) countCompletedChangesOnDate(date string) int {
 	}
 	
 	return count
+}
+
+// GetActiveSessionsOverview 获取当前工作区的活跃会话概览
+// 如果 workspaceID 为空，则聚合所有工作区的活跃会话
+func (s *WorkAnalysisService) GetActiveSessionsOverview(workspaceID string) (*domainCursor.ActiveSessionsOverview, error) {
+	if s.workspaceCacheService == nil {
+		return nil, fmt.Errorf("workspace cache service not initialized")
+	}
+
+	// 如果指定了工作区，直接返回该工作区的概览
+	if workspaceID != "" {
+		return s.workspaceCacheService.GetActiveSessionsOverview(workspaceID)
+	}
+
+	// 否则，聚合所有工作区的活跃会话
+	projects := s.projectManager.ListAllProjects()
+
+	aggregatedOverview := &domainCursor.ActiveSessionsOverview{
+		OpenSessions:  make([]*domainCursor.ActiveSession, 0),
+		ClosedCount:   0,
+		ArchivedCount: 0,
+	}
+
+	for _, project := range projects {
+		for _, ws := range project.Workspaces {
+			overview, err := s.workspaceCacheService.GetActiveSessionsOverview(ws.WorkspaceID)
+			if err != nil {
+				s.logger.Error("failed to get active sessions for workspace", "workspace_id", ws.WorkspaceID, "error", err)
+				continue
+			}
+
+			// 聚合统计
+			aggregatedOverview.ClosedCount += overview.ClosedCount
+			aggregatedOverview.ArchivedCount += overview.ArchivedCount
+
+			// 聚焦会话：只保留一个（通常只有一个工作区是活跃的）
+			if overview.Focused != nil {
+				// 如果已有聚焦会话，比较更新时间，保留最新的
+				if aggregatedOverview.Focused == nil || overview.Focused.LastUpdatedAt > aggregatedOverview.Focused.LastUpdatedAt {
+					aggregatedOverview.Focused = overview.Focused
+				}
+			}
+
+			// 合并打开会话列表
+			aggregatedOverview.OpenSessions = append(aggregatedOverview.OpenSessions, overview.OpenSessions...)
+		}
+	}
+
+	// 按熵值降序排序打开会话
+	sort.Slice(aggregatedOverview.OpenSessions, func(i, j int) bool {
+		return aggregatedOverview.OpenSessions[i].Entropy > aggregatedOverview.OpenSessions[j].Entropy
+	})
+
+	return aggregatedOverview, nil
 }

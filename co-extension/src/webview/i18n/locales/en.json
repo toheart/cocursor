@@ -148,12 +148,24 @@
       "dangerous": "Dangerous",
       "unknown": "Unknown"
     },
+    "activeSessions": {
+      "title": "Active Sessions Status",
+      "focused": "Currently Focused",
+      "otherOpen": "Other Open",
+      "open": "Open",
+      "closed": "Closed",
+      "archived": "Archived",
+      "noActive": "No active sessions",
+      "entropy": "Entropy",
+      "context": "Context"
+    },
     "overview": {
       "codeChanges": "Code Changes",
       "added": "Added",
       "removed": "Removed",
       "files": "Files",
       "acceptanceRate": "Acceptance Rate",
+      "weekSessions": "Week Sessions",
       "activeSessions": "Active Sessions",
       "aiInteraction": "AI Interaction",
       "prompts": "Prompts",

@@ -12,12 +12,15 @@ import (
 
 // MCPServer MCP 服务器
 type MCPServer struct {
-	server         *mcp.Server
-	handler        http.Handler
-	projectManager *appCursor.ProjectManager
-	summaryRepo    infraStorage.DailySummaryRepository
-	sessionRepo    infraStorage.WorkspaceSessionRepository
-	ragInitializer *appRAG.RAGInitializer
+	server               *mcp.Server
+	handler              http.Handler
+	projectManager       *appCursor.ProjectManager
+	summaryRepo          infraStorage.DailySummaryRepository
+	sessionRepo          infraStorage.WorkspaceSessionRepository
+	weeklySummaryRepo    infraStorage.WeeklySummaryRepository
+	ragInitializer       *appRAG.RAGInitializer
+	dailySummaryService  *appCursor.DailySummaryService
+	weeklySummaryService *appCursor.WeeklySummaryService
 }
 
 // NewServer 创建 MCP 服务器
@@ -25,6 +28,7 @@ func NewServer(
 	projectManager *appCursor.ProjectManager,
 	summaryRepo infraStorage.DailySummaryRepository,
 	sessionRepo infraStorage.WorkspaceSessionRepository,
+	weeklySummaryRepo infraStorage.WeeklySummaryRepository,
 	ragInitializer *appRAG.RAGInitializer,
 ) *MCPServer {
 	// 创建 MCP 服务器实例
@@ -54,13 +58,20 @@ func NewServer(
 		Description: "Get the health status (entropy) of the current active session. Parameters: project_path (string, optional) - project path, e.g., D:/code/cocursor, if not provided will attempt auto-detection. Returns: entropy value, health status (healthy/sub_healthy/dangerous), warning message, and suggestion message.",
 	}, getSessionHealthTool)
 
+	// 创建 Service 层实例
+	dailySummaryService := appCursor.NewDailySummaryService(projectManager, summaryRepo, sessionRepo)
+	weeklySummaryService := appCursor.NewWeeklySummaryService(weeklySummaryRepo, summaryRepo)
+
 	// 创建服务器实例（用于闭包捕获依赖）
 	mcpServer := &MCPServer{
-		server:         server,
-		projectManager: projectManager,
-		summaryRepo:    summaryRepo,
-		sessionRepo:    sessionRepo,
-		ragInitializer: ragInitializer,
+		server:               server,
+		projectManager:       projectManager,
+		summaryRepo:          summaryRepo,
+		sessionRepo:          sessionRepo,
+		weeklySummaryRepo:    weeklySummaryRepo,
+		ragInitializer:       ragInitializer,
+		dailySummaryService:  dailySummaryService,
+		weeklySummaryService: weeklySummaryService,
 	}
 
 	// 注册新工具：get_daily_sessions
@@ -168,6 +179,46 @@ For global scope, the profile is saved to ~/.cocursor/profiles/global.md.
 
 Returns: success status, file path, git_ignored flag, and message.`,
 	}, mcpServer.saveUserProfileTool)
+
+	// 注册周报工具：get_daily_summaries_range
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "get_daily_summaries_range",
+		Description: `Batch fetch daily summaries within a date range.
+Parameters:
+- start_date (string, required): Start date in YYYY-MM-DD format
+- end_date (string, required): End date in YYYY-MM-DD format
+
+Returns: Array of daily summary objects for each date that has a summary.`,
+	}, mcpServer.getDailySummariesRangeTool)
+
+	// 注册周报工具：save_weekly_summary
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "save_weekly_summary",
+		Description: `Save weekly summary to database with idempotent update support.
+Parameters:
+- week_start (string, required): Week start date in YYYY-MM-DD format (Monday)
+- week_end (string, required): Week end date in YYYY-MM-DD format (Sunday)
+- summary (string, required): Summary content in Markdown format
+- language (string, optional): Language code "zh" or "en", defaults to "zh"
+- projects (array, optional): Array of project summary objects
+- categories (object, optional): Work category statistics object
+- total_sessions (int, optional): Total session count
+- working_days (int, optional): Number of working days with data
+- code_changes (object, optional): Code changes summary
+- key_accomplishments (array, optional): List of key accomplishments
+
+Returns: success status, summary ID, and message.`,
+	}, mcpServer.saveWeeklySummaryTool)
+
+	// 注册周报工具：get_weekly_summary
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "get_weekly_summary",
+		Description: `Query weekly summary for the specified week with idempotency check.
+Parameters:
+- week_start (string, required): Week start date in YYYY-MM-DD format (Monday)
+
+Returns: summary object (if found), found flag, and needs_update flag indicating if source data has changed.`,
+	}, mcpServer.getWeeklySummaryTool)
 
 	// 创建 SSE Handler
 	handler := mcp.NewSSEHandler(

@@ -89,6 +89,14 @@ func (r *DBReader) ReadWorkspaceData(workspaceID string, key string) ([]byte, er
 	return r.ReadValueFromWorkspaceDB(dbPath, key)
 }
 
+// ReadKeysWithPrefixFromWorkspaceDB 从工作区数据库读取具有指定前缀的所有键
+// workspaceDBPath: 工作区数据库文件路径
+// prefix: 键的前缀
+// 返回: 键列表
+func (r *DBReader) ReadKeysWithPrefixFromWorkspaceDB(workspaceDBPath string, prefix string) ([]string, error) {
+	return r.QueryAllKeys(workspaceDBPath, prefix+"%")
+}
+
 // QueryAllKeys 查询所有键（支持模糊匹配）
 // dbPath: 数据库文件路径
 // pattern: 键的模式（支持 % 通配符），如 "aiService.%" 或 "%token%"
