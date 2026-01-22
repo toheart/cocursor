@@ -344,12 +344,17 @@ jobs:
           echo "✓ OVSX_PAT is configured (length: ${#OVSX_PAT})"
           
           # 收集所有 .vsix 文件
-          VSIX_FILES=$(find artifacts -name "*.vsix" | tr '\n' ' ')
-          echo "Found VSIX files: $VSIX_FILES"
+          VSIX_FILES=$(find artifacts -name "*.vsix")
+          echo "Found VSIX files:"
+          echo "$VSIX_FILES"
           
-          # 发布所有平台版本
+          # 逐个发布每个平台版本
           echo "Publishing to Open VSX..."
-          ovsx publish $VSIX_FILES -p "$OVSX_PAT"
+          for vsix in $VSIX_FILES; do
+            echo "Publishing: $vsix"
+            ovsx publish "$vsix" -p "$OVSX_PAT"
+            echo "✓ Published: $vsix"
+          done
           echo "✅ All platforms published to Open VSX successfully!"
 
   # ============================================================================
