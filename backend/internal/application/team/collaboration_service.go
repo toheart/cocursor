@@ -1,6 +1,7 @@
 package team
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -368,7 +369,8 @@ func (s *CollaborationService) sendToLeader(ctx context.Context, leaderEndpoint,
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	// 使用 bytes.NewReader 包装 data 作为请求体
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

@@ -14,6 +14,7 @@ import {
   useScreenshot,
 } from "./DailyReport";
 import { ActiveSessionsCard, ActiveSessionsOverview } from "./common/ActiveSessionsCard";
+import { startOfWeek, endOfWeek, subWeeks, format, parseISO, getDate, getDay } from "date-fns";
 
 /**
  * 工作分析数据接口
@@ -93,31 +94,12 @@ export const WorkAnalysis: React.FC = () => {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   
-  // 格式化本地日期为 YYYY-MM-DD，避免时区问题
-  const formatLocalDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  // 计算周的起止日期
+  // 计算周的起止日期（使用 date-fns，weekStartsOn: 1 表示周一为周起始日）
   const getWeekRange = (weeksAgo: number): { start: string; end: string } => {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = 周日, 1 = 周一, ...
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 调整到周一
-    
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + mondayOffset - (weeksAgo * 7));
-    
-    const weekStart = new Date(targetDate);
-    const weekEnd = new Date(targetDate);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    
-    // 使用本地时间格式化，避免 toISOString() 的 UTC 时区问题
+    const targetDate = subWeeks(new Date(), weeksAgo);
     return {
-      start: formatLocalDate(weekStart),
-      end: formatLocalDate(weekEnd)
+      start: format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+      end: format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
     };
   };
   
@@ -268,6 +250,11 @@ export const WorkAnalysis: React.FC = () => {
 
   // 加载数据（带防抖）
   useEffect(() => {
+    // 日期未初始化时不发起请求，避免使用后端默认参数导致数据不正确
+    if (!startDate || !endDate) {
+      return;
+    }
+
     // 清除之前的定时器
     if (loadDataTimeoutRef.current) {
       clearTimeout(loadDataTimeoutRef.current);
@@ -550,14 +537,13 @@ export const WorkAnalysis: React.FC = () => {
                   {(() => {
                     // 计算当周最大 Token 用量，用于进度条
                     const maxToken = Math.max(...data.daily_details.map(d => d.token_usage || 0), 1);
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = format(new Date(), 'yyyy-MM-dd');
                     
                     return data.daily_details.map((day, index) => {
-                      // 解析日期字符串，避免时区问题
-                      // day.date 格式: "2026-01-19"
-                      const [year, month, dayOfMonth] = day.date.split('-').map(Number);
-                      const dateObj = new Date(year, month - 1, dayOfMonth);
-                      const dayNum = dateObj.getDate();
+                      // 使用 date-fns 解析日期，避免时区问题
+                      const dateObj = parseISO(day.date);
+                      const dayNum = getDate(dateObj);
+                      const dayOfWeek = getDay(dateObj);
                       const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
                       const weekdaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                       const isToday = day.date === today;
@@ -573,7 +559,7 @@ export const WorkAnalysis: React.FC = () => {
                           <div className="cocursor-daily-card-date">
                             <div className="cocursor-daily-card-day">{dayNum}</div>
                             <div className="cocursor-daily-card-weekday">
-                              {t("common.unknown") === "未知" ? `周${weekdays[dateObj.getDay()]}` : weekdaysEn[dateObj.getDay()]}
+                              {t("common.unknown") === "未知" ? `周${weekdays[dayOfWeek]}` : weekdaysEn[dayOfWeek]}
                               {isToday && <span className="cocursor-daily-card-today"> · {t("workAnalysis.dailyDetails.today")}</span>}
                             </div>
                           </div>
