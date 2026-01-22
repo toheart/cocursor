@@ -11,6 +11,11 @@ on:
         required: true
         default: false
         type: boolean
+      publish_to_openvsx:
+        description: 'Publish to Open VSX'
+        required: true
+        default: false
+        type: boolean
 
 env:
   NODE_VERSION: '20'
@@ -145,6 +150,17 @@ jobs:
       - name: Install dependencies
         working-directory: co-extension
         run: npm ci
+
+      # 从 git tag 提取版本号并更新 package.json
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: co-extension
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Updating package.json version to: $VERSION"
+          npm version $VERSION --no-git-tag-version --allow-same-version
+          echo "✓ Version updated to $VERSION"
 
       # 统一使用 Makefile 构建前端
       - name: Build extension
@@ -285,21 +301,75 @@ jobs:
           echo "✅ ${PLATFORM} published successfully!"
 
   # ============================================================================
-  # 阶段5: 发布结果汇总
+  # 阶段5: 发布到 Open VSX
+  # ============================================================================
+  publish-openvsx:
+    name: Publish to Open VSX
+    needs: release
+    runs-on: ubuntu-latest
+    # 当推送 tag 时自动发布，或手动触发时勾选 publish_to_openvsx
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_to_openvsx == 'true'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ovsx
+        run: npm install -g ovsx
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          # 检查 PAT 是否存在
+          if [ -z "$OVSX_PAT" ]; then
+            echo "❌ Error: OVSX_PAT secret is not set or empty!"
+            echo "Please add OVSX_PAT in: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo ""
+            echo "To get an Open VSX token:"
+            echo "1. Go to https://open-vsx.org"
+            echo "2. Login with GitHub"
+            echo "3. Go to Access Tokens and generate a new token"
+            exit 1
+          fi
+          echo "✓ OVSX_PAT is configured (length: ${#OVSX_PAT})"
+          
+          # 收集所有 .vsix 文件
+          VSIX_FILES=$(find artifacts -name "*.vsix" | tr '\n' ' ')
+          echo "Found VSIX files: $VSIX_FILES"
+          
+          # 发布所有平台版本
+          echo "Publishing to Open VSX..."
+          ovsx publish $VSIX_FILES -p "$OVSX_PAT"
+          echo "✅ All platforms published to Open VSX successfully!"
+
+  # ============================================================================
+  # 阶段6: 发布结果汇总
   # ============================================================================
   publish-summary:
     name: Publish Summary
-    needs: publish-marketplace
+    needs: [publish-marketplace, publish-openvsx]
     runs-on: ubuntu-latest
-    if: always() && (github.event.inputs.publish_to_marketplace == 'true' || (startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'))
+    if: always()
 
     steps:
       - name: Check publish results
         run: |
-          echo "=== Marketplace 发布结果汇总 ==="
-          echo "请查看各平台的发布 job 状态"
+          echo "=== 发布结果汇总 ==="
+          echo ""
+          echo "VS Code Marketplace: ${{ needs.publish-marketplace.result || 'skipped' }}"
+          echo "Open VSX: ${{ needs.publish-openvsx.result || 'skipped' }}"
           echo ""
           echo "如有发布失败，请检查以下内容："
-          echo "1. VSCE_PAT secret 是否正确配置"
-          echo "2. 版本号是否已存在于 Marketplace"
+          echo "1. VSCE_PAT / OVSX_PAT secret 是否正确配置"
+          echo "2. 版本号是否已存在"
           echo "3. package.json 中的 publisher 是否正确"
