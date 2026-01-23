@@ -11,7 +11,7 @@
     "en": "Specification-driven development workflow tool that provides complete OpenSpec workflow support through cocursor MCP tools"
   },
   "author": "CoCursor Team",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "category": "tools",
   "category_i18n": {
     "zh-CN": "开发工具",

@@ -13,4 +13,6 @@ var ProviderSet = wire.NewSet(
 	NewRAGHandler,
 	NewDailySummaryHandler,
 	NewWeeklySummaryHandler,
+	NewProfileHandler,
+	NewOpenSpecHandler,
 )

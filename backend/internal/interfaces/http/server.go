@@ -48,6 +48,8 @@ func NewServer(
 	ragHandler *handler.RAGHandler,
 	dailySummaryHandler *handler.DailySummaryHandler,
 	weeklySummaryHandler *handler.WeeklySummaryHandler,
+	profileHandler *handler.ProfileHandler,
+	openspecHandler *handler.OpenSpecHandler,
 	mcpServer *mcp.MCPServer,
 	pluginService *appMarketplace.PluginService,
 	dailySummaryRepo storage.DailySummaryRepository,
@@ -106,6 +108,25 @@ func NewServer(
 			api.GET("/daily-summary/range", dailySummaryHandler.GetDailySummariesRange)
 			api.GET("/sessions/daily", dailySummaryHandler.GetDailySessions)
 			api.GET("/sessions/conversations", dailySummaryHandler.GetDailyConversations)
+			api.GET("/sessions/:id/content", dailySummaryHandler.GetSessionContent)
+		}
+
+		// Profile 相关路由
+		if profileHandler != nil {
+			profile := api.Group("/profile")
+			{
+				profile.POST("/messages", profileHandler.GetMessages)
+				profile.POST("", profileHandler.Save)
+			}
+		}
+
+		// OpenSpec 相关路由
+		if openspecHandler != nil {
+			openspec := api.Group("/openspec")
+			{
+				openspec.GET("/list", openspecHandler.List)
+				openspec.POST("/validate", openspecHandler.Validate)
+			}
 		}
 
 		// 周报相关路由

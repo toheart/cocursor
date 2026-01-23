@@ -11,7 +11,7 @@
     "en": "Automatically summarize Cursor chat records to generate daily work reports"
   },
   "author": "CoCursor Team",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "category": "productivity",
   "category_i18n": {
     "zh-CN": "生产力",

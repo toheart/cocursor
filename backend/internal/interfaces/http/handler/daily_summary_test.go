@@ -74,7 +74,7 @@ func TestDailySummaryHandler_GetBatchStatus(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockRepo := newMockDailySummaryRepositoryForHandler()
-	handler := NewDailySummaryHandler(mockRepo, nil)
+	handler := NewDailySummaryHandler(mockRepo, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -159,7 +159,7 @@ func TestDailySummaryHandler_GetDailySummary(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockRepo := newMockDailySummaryRepositoryForHandler()
-	handler := NewDailySummaryHandler(mockRepo, nil)
+	handler := NewDailySummaryHandler(mockRepo, nil, nil)
 
 	tests := []struct {
 		name           string
