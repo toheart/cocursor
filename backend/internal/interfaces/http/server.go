@@ -12,6 +12,7 @@ import (
 	appTeam "github.com/cocursor/backend/internal/application/team"
 	"github.com/cocursor/backend/internal/infrastructure/git"
 	"github.com/cocursor/backend/internal/infrastructure/log"
+	infraP2P "github.com/cocursor/backend/internal/infrastructure/p2p"
 	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
@@ -108,7 +109,7 @@ func NewServer(
 			api.GET("/daily-summary/range", dailySummaryHandler.GetDailySummariesRange)
 			api.GET("/sessions/daily", dailySummaryHandler.GetDailySessions)
 			api.GET("/sessions/conversations", dailySummaryHandler.GetDailyConversations)
-			api.GET("/sessions/:id/content", dailySummaryHandler.GetSessionContent)
+			api.GET("/sessions/:sessionId/content", dailySummaryHandler.GetSessionContent)
 		}
 
 		// Profile 相关路由
@@ -339,6 +340,17 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		p2p.GET("/weekly-stats", weeklyStatsHandler.GetWeeklyStats)
 		p2p.GET("/daily-detail", weeklyStatsHandler.GetDailyDetail)
 	}
+
+	// 注册团队 P2P 路由（用于团队加入、成员管理等）
+	var wsServer *infraP2P.WebSocketServer
+	if ws := components.TeamService.GetWebSocketServer(); ws != nil {
+		wsServer = ws.(*infraP2P.WebSocketServer)
+	}
+	p2pTeamHandler := p2pHandler.NewP2PTeamHandler(
+		components.TeamService,
+		wsServer,
+	)
+	p2pTeamHandler.RegisterRoutes(s.router)
 }
 
 // GetTeamComponents 获取团队组件（如果已初始化）

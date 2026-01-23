@@ -108,7 +108,7 @@ If enabled, see [references/git-analysis.md](references/git-analysis.md).
 |----------|--------|-------------|
 | `/api/v1/sessions/conversations` | GET | Get all conversations for date |
 | `/api/v1/sessions/daily` | GET | Get session list for date |
-| `/api/v1/sessions/:id/content` | GET | Get single session content |
+| `/api/v1/sessions/:sessionId/content` | GET | Get single session content |
 | `/api/v1/daily-summary` | GET | Query saved summary |
 | `/api/v1/daily-summary` | POST | Save summary |
 | `/api/v1/daily-summary/range` | GET | Batch query summaries |

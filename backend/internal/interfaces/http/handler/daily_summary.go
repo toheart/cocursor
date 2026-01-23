@@ -243,14 +243,14 @@ type SessionTextMessage struct {
 // @Tags 会话
 // @Accept json
 // @Produce json
-// @Param id path string true "会话 ID"
+// @Param sessionId path string true "会话 ID"
 // @Success 200 {object} response.Response{data=SessionContentResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /sessions/{id}/content [get]
+// @Router /sessions/{sessionId}/content [get]
 func (h *DailySummaryHandler) GetSessionContent(c *gin.Context) {
-	sessionID := c.Param("id")
+	sessionID := c.Param("sessionId")
 	if sessionID == "" {
 		response.Error(c, http.StatusBadRequest, 700001, "session id is required")
 		return
