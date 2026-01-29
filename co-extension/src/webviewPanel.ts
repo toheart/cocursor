@@ -2,8 +2,20 @@ import * as vscode from "vscode";
 import axios from "axios";
 import FormData from "form-data";
 import { WebviewMessage, ExtensionMessage } from "./types/message";
+import {
+  t,
+  getTranslationResources,
+  onLanguageChange,
+  changeLanguage,
+} from "./utils/i18n";
 
-export type WebviewType = "workAnalysis" | "recentSessions" | "marketplace" | "ragSearch" | "team";
+export type WebviewType =
+  | "workAnalysis"
+  | "recentSessions"
+  | "marketplace"
+  | "ragSearch"
+  | "team"
+  | "codeAnalysis";
 
 export class WebviewPanel {
   public static workAnalysisPanel: WebviewPanel | undefined;
@@ -11,6 +23,7 @@ export class WebviewPanel {
   public static marketplacePanel: WebviewPanel | undefined;
   public static ragSearchPanel: WebviewPanel | undefined;
   public static teamPanel: WebviewPanel | undefined;
+  public static codeAnalysisPanel: WebviewPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private readonly _viewType: WebviewType;
@@ -20,7 +33,10 @@ export class WebviewPanel {
   private initialRoute: string = "/";
   // 项目列表缓存（避免重复请求）
   private static projectListCache: {
-    projects: Array<{ project_name: string; workspaces: Array<{ path: string }> }>;
+    projects: Array<{
+      project_name: string;
+      workspaces: Array<{ path: string }>;
+    }>;
     timestamp: number;
   } | null = null;
   private static readonly CACHE_TTL = 5000; // 5秒缓存
@@ -33,15 +49,19 @@ export class WebviewPanel {
   public static notifyRefresh(viewType?: WebviewType, dataType?: string): void {
     const message = {
       type: "dataUpdated",
-      dataType: dataType || "all"
+      dataType: dataType || "all",
     };
 
-    const panels: Array<{ panel: WebviewPanel | undefined; type: WebviewType }> = [
+    const panels: Array<{
+      panel: WebviewPanel | undefined;
+      type: WebviewType;
+    }> = [
       { panel: WebviewPanel.workAnalysisPanel, type: "workAnalysis" },
       { panel: WebviewPanel.recentSessionsPanel, type: "recentSessions" },
       { panel: WebviewPanel.marketplacePanel, type: "marketplace" },
       { panel: WebviewPanel.ragSearchPanel, type: "ragSearch" },
       { panel: WebviewPanel.teamPanel, type: "team" },
+      { panel: WebviewPanel.codeAnalysisPanel, type: "codeAnalysis" },
     ];
 
     for (const { panel, type } of panels) {
@@ -50,13 +70,22 @@ export class WebviewPanel {
           panel._panel.webview.postMessage(message);
           console.log(`WebviewPanel: 已发送刷新通知到 ${type} 面板`);
         } catch (error) {
-          console.error(`WebviewPanel: 发送刷新通知到 ${type} 面板失败:`, error);
+          console.error(
+            `WebviewPanel: 发送刷新通知到 ${type} 面板失败:`,
+            error,
+          );
         }
       }
     }
   }
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, viewType: WebviewType, context: vscode.ExtensionContext, route?: string) {
+  private constructor(
+    panel: vscode.WebviewPanel,
+    extensionUri: vscode.Uri,
+    viewType: WebviewType,
+    context: vscode.ExtensionContext,
+    route?: string,
+  ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._viewType = viewType;
@@ -65,7 +94,14 @@ export class WebviewPanel {
       this.initialRoute = route;
     }
 
-    console.log("WebviewPanel: 创建新面板", extensionUri.toString(), "viewType:", this._viewType, "route:", this.initialRoute);
+    console.log(
+      "WebviewPanel: 创建新面板",
+      extensionUri.toString(),
+      "viewType:",
+      this._viewType,
+      "route:",
+      this.initialRoute,
+    );
 
     // 设置 Webview 内容
     const html = this._getHtmlForWebview(this._panel.webview);
@@ -79,7 +115,7 @@ export class WebviewPanel {
         this._handleMessage(message);
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     // 监听面板可见性变化，当面板变为可见时通知 Webview 刷新数据
@@ -89,24 +125,38 @@ export class WebviewPanel {
           console.log("WebviewPanel: 面板变为可见，发送刷新通知");
           this._panel.webview.postMessage({
             type: "panelBecameVisible",
-            viewType: this._viewType
+            viewType: this._viewType,
           });
         }
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     // 监听面板关闭
-    this._panel.onDidDispose(() => {
-      console.log("WebviewPanel: 面板已关闭");
-      this.dispose();
-    }, null, this._disposables);
+    this._panel.onDidDispose(
+      () => {
+        console.log("WebviewPanel: 面板已关闭");
+        this.dispose();
+      },
+      null,
+      this._disposables,
+    );
   }
 
-  public static createOrShow(extensionUri: vscode.Uri, viewType: WebviewType, context: vscode.ExtensionContext, route?: string): void {
-    console.log("WebviewPanel: createOrShow 被调用", extensionUri.toString(), viewType, route);
-    
+  public static createOrShow(
+    extensionUri: vscode.Uri,
+    viewType: WebviewType,
+    context: vscode.ExtensionContext,
+    route?: string,
+  ): void {
+    console.log(
+      "WebviewPanel: createOrShow 被调用",
+      extensionUri.toString(),
+      viewType,
+      route,
+    );
+
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -123,6 +173,8 @@ export class WebviewPanel {
       currentPanel = WebviewPanel.ragSearchPanel;
     } else if (viewType === "team") {
       currentPanel = WebviewPanel.teamPanel;
+    } else if (viewType === "codeAnalysis") {
+      currentPanel = WebviewPanel.codeAnalysisPanel;
     }
 
     // 如果已经有对应类型的面板，显示它并导航到指定路由
@@ -135,7 +187,7 @@ export class WebviewPanel {
         const cleanRoute = route.startsWith("#") ? route.substring(1) : route;
         currentPanel._panel.webview.postMessage({
           type: "navigate",
-          route: cleanRoute
+          route: cleanRoute,
         });
       }
       return;
@@ -143,19 +195,20 @@ export class WebviewPanel {
 
     // 创建新面板
     console.log(`WebviewPanel: 创建新${viewType}面板`);
-    const panelTitle = 
-      viewType === "workAnalysis" ? "工作分析 - CoCursor" :
-      viewType === "recentSessions" ? "最近对话 - CoCursor" :
-      viewType === "marketplace" ? "插件市场 - CoCursor" :
-      viewType === "ragSearch" ? "RAG 搜索 - CoCursor" :
-      "团队 - CoCursor";
-    const panelId = 
-      viewType === "workAnalysis" ? "cocursorWorkAnalysis" :
-      viewType === "recentSessions" ? "cocursorRecentSessions" :
-      viewType === "marketplace" ? "cocursorMarketplace" :
-      viewType === "ragSearch" ? "cocursorRAGSearch" :
-      "cocursorTeam";
-    
+    const panelTitle = WebviewPanel.getPanelTitle(viewType);
+    const panelId =
+      viewType === "workAnalysis"
+        ? "cocursorWorkAnalysis"
+        : viewType === "recentSessions"
+          ? "cocursorRecentSessions"
+          : viewType === "marketplace"
+            ? "cocursorMarketplace"
+            : viewType === "ragSearch"
+              ? "cocursorRAGSearch"
+              : viewType === "team"
+                ? "cocursorTeam"
+                : "cocursorCodeAnalysis";
+
     const panel = vscode.window.createWebviewPanel(
       panelId,
       panelTitle,
@@ -164,14 +217,20 @@ export class WebviewPanel {
         enableScripts: true,
         localResourceRoots: [
           vscode.Uri.joinPath(extensionUri, "dist"),
-          vscode.Uri.joinPath(extensionUri, "src")
+          vscode.Uri.joinPath(extensionUri, "src"),
         ],
-        retainContextWhenHidden: true
-      }
+        retainContextWhenHidden: true,
+      },
     );
 
-    const newPanel = new WebviewPanel(panel, extensionUri, viewType, context, route);
-    
+    const newPanel = new WebviewPanel(
+      panel,
+      extensionUri,
+      viewType,
+      context,
+      route,
+    );
+
     // 根据类型保存到对应的静态变量
     if (viewType === "workAnalysis") {
       WebviewPanel.workAnalysisPanel = newPanel;
@@ -183,8 +242,10 @@ export class WebviewPanel {
       WebviewPanel.ragSearchPanel = newPanel;
     } else if (viewType === "team") {
       WebviewPanel.teamPanel = newPanel;
+    } else if (viewType === "codeAnalysis") {
+      WebviewPanel.codeAnalysisPanel = newPanel;
     }
-    
+
     console.log(`WebviewPanel: ${viewType}面板创建完成`);
   }
 
@@ -200,35 +261,68 @@ export class WebviewPanel {
         this._handleGetPeers();
         break;
       case "fetchCurrentSessionHealth":
-        this._handleFetchCurrentSessionHealth(message.payload as { projectPath?: string; projectName?: string });
+        this._handleFetchCurrentSessionHealth(
+          message.payload as { projectPath?: string; projectName?: string },
+        );
         break;
       case "fetchProjectDetail":
-        this._handleFetchProjectDetail(message.payload as { projectName: string });
+        this._handleFetchProjectDetail(
+          message.payload as { projectName: string },
+        );
         break;
       case "fetchProjectStats":
-        this._handleFetchProjectStats(message.payload as { projectName: string; startDate?: string; endDate?: string });
+        this._handleFetchProjectStats(
+          message.payload as {
+            projectName: string;
+            startDate?: string;
+            endDate?: string;
+          },
+        );
         break;
       case "fetchWorkAnalysis":
-        this._handleFetchWorkAnalysis(message.payload as { startDate?: string; endDate?: string; projectName?: string });
+        this._handleFetchWorkAnalysis(
+          message.payload as {
+            startDate?: string;
+            endDate?: string;
+            projectName?: string;
+          },
+        );
         break;
       case "fetchActiveSessions":
-        this._handleFetchActiveSessions(message.payload as { workspaceId?: string });
+        this._handleFetchActiveSessions(
+          message.payload as { workspaceId?: string },
+        );
         break;
       case "fetchSessionList":
-        this._handleFetchSessionList(message.payload as { projectName?: string; limit?: number; offset?: number; search?: string });
+        this._handleFetchSessionList(
+          message.payload as {
+            projectName?: string;
+            limit?: number;
+            offset?: number;
+            search?: string;
+          },
+        );
         break;
       case "fetchSessionDetail":
-        this._handleFetchSessionDetail(message.payload as { sessionId: string; limit?: number });
+        this._handleFetchSessionDetail(
+          message.payload as { sessionId: string; limit?: number },
+        );
         break;
       case "fetchProjectList":
         this._handleFetchProjectList();
         break;
       case "showEntropyWarning":
-        this._handleShowEntropyWarning(message.payload as { entropy: number; message: string });
+        this._handleShowEntropyWarning(
+          message.payload as { entropy: number; message: string },
+        );
         break;
       case "updateTitle":
         // 更新 WebView 标题（静默处理，不报错）
-        if (message.payload && typeof message.payload === "object" && "title" in message.payload) {
+        if (
+          message.payload &&
+          typeof message.payload === "object" &&
+          "title" in message.payload
+        ) {
           this._panel.title = String(message.payload.title);
         }
         break;
@@ -236,7 +330,16 @@ export class WebviewPanel {
         this._handleChangeLanguage(message.payload as { language: string });
         break;
       case "fetchPlugins":
-        this._handleFetchPlugins(message.payload as { category?: string; search?: string; installed?: boolean; lang?: string; source?: string; team_id?: string });
+        this._handleFetchPlugins(
+          message.payload as {
+            category?: string;
+            search?: string;
+            installed?: boolean;
+            lang?: string;
+            source?: string;
+            team_id?: string;
+          },
+        );
         break;
       case "fetchPlugin":
         this._handleFetchPlugin(message.payload as { id: string });
@@ -245,16 +348,30 @@ export class WebviewPanel {
         this._handleFetchInstalledPlugins();
         break;
       case "installPlugin":
-        this._handleInstallPlugin(message.payload as { id: string; workspacePath: string; force?: boolean });
+        this._handleInstallPlugin(
+          message.payload as {
+            id: string;
+            workspacePath: string;
+            force?: boolean;
+          },
+        );
         break;
       case "uninstallPlugin":
-        this._handleUninstallPlugin(message.payload as { id: string; workspacePath: string });
+        this._handleUninstallPlugin(
+          message.payload as { id: string; workspacePath: string },
+        );
         break;
       case "checkPluginStatus":
         this._handleCheckPluginStatus(message.payload as { id: string });
         break;
       case "showConfirmDialog":
-        this._handleShowConfirmDialog(message.payload as { message: string; confirmText?: string; cancelText?: string });
+        this._handleShowConfirmDialog(
+          message.payload as {
+            message: string;
+            confirmText?: string;
+            cancelText?: string;
+          },
+        );
         break;
       case "fetchRAGConfig":
         this._handleFetchRAGConfig();
@@ -263,22 +380,46 @@ export class WebviewPanel {
         this._handleUpdateRAGConfig(message.payload as { config: unknown });
         break;
       case "testRAGConfig":
-        this._handleTestRAGConfig(message.payload as { config: { url: string; api_key: string; model: string } });
+        this._handleTestRAGConfig(
+          message.payload as {
+            config: { url: string; api_key: string; model: string };
+          },
+        );
         break;
       case "testLLMConnection":
-        this._handleTestLLMConnection(message.payload as { config: { url: string; api_key: string; model: string } });
+        this._handleTestLLMConnection(
+          message.payload as {
+            config: { url: string; api_key: string; model: string };
+          },
+        );
         break;
       case "searchRAG":
-        this._handleSearchRAG(message.payload as { query: string; projectIds?: string[]; limit?: number });
+        this._handleSearchRAG(
+          message.payload as {
+            query: string;
+            projectIds?: string[];
+            limit?: number;
+          },
+        );
         break;
       case "searchRAGChunks":
-        this._handleSearchRAGChunks(message.payload as { query: string; projectIds?: string[]; limit?: number });
+        this._handleSearchRAGChunks(
+          message.payload as {
+            query: string;
+            projectIds?: string[];
+            limit?: number;
+          },
+        );
         break;
       case "triggerRAGIndex":
         this._handleTriggerRAGIndex(message.payload as { sessionId?: string });
         break;
       case "triggerFullIndex":
-        this._handleTriggerFullIndex(message.payload as { batch_size?: number; concurrency?: number } | undefined);
+        this._handleTriggerFullIndex(
+          message.payload as
+            | { batch_size?: number; concurrency?: number }
+            | undefined,
+        );
         break;
       case "fetchIndexProgress":
         this._handleFetchIndexProgress();
@@ -299,7 +440,9 @@ export class WebviewPanel {
         this._handleDownloadQdrant(message.payload as { version?: string });
         break;
       case "uploadQdrantPackage":
-        this._handleUploadQdrantPackage(message.payload as { filename: string; fileBase64: string });
+        this._handleUploadQdrantPackage(
+          message.payload as { filename: string; fileBase64: string },
+        );
         break;
       case "startQdrant":
         this._handleStartQdrant();
@@ -308,10 +451,14 @@ export class WebviewPanel {
         this._handleStopQdrant();
         break;
       case "openRAGSearch":
-        this._handleOpenRAGSearch(message.payload as { route?: string } | undefined);
+        this._handleOpenRAGSearch(
+          message.payload as { route?: string } | undefined,
+        );
         break;
       case "openMarketplace":
-        this._handleOpenMarketplace(message.payload as { skillId?: string } | undefined);
+        this._handleOpenMarketplace(
+          message.payload as { skillId?: string } | undefined,
+        );
         break;
       // ========== 团队相关命令 ==========
       case "fetchTeamIdentity":
@@ -324,7 +471,13 @@ export class WebviewPanel {
         this._handleFetchNetworkInterfaces();
         break;
       case "createTeam":
-        this._handleCreateTeam(message.payload as { name: string; preferred_interface?: string; preferred_ip?: string });
+        this._handleCreateTeam(
+          message.payload as {
+            name: string;
+            preferred_interface?: string;
+            preferred_ip?: string;
+          },
+        );
         break;
       case "discoverTeams":
         this._handleDiscoverTeams(message.payload as { timeout?: number });
@@ -351,86 +504,187 @@ export class WebviewPanel {
         this._handleValidateSkillDirectory(message.payload as { path: string });
         break;
       case "publishTeamSkill":
-        this._handlePublishTeamSkill(message.payload as { teamId: string; pluginId: string; localPath: string });
+        this._handlePublishTeamSkill(
+          message.payload as {
+            teamId: string;
+            pluginId: string;
+            localPath: string;
+          },
+        );
         break;
       case "publishTeamSkillWithMetadata":
-        this._handlePublishTeamSkillWithMetadata(message.payload as { 
-          teamId: string; 
-          localPath: string; 
-          metadata: {
-            plugin_id: string;
-            name: string;
-            name_zh_cn?: string;
-            description: string;
-            description_zh_cn?: string;
-            version: string;
-            category: string;
-            author: string;
-          };
-        });
+        this._handlePublishTeamSkillWithMetadata(
+          message.payload as {
+            teamId: string;
+            localPath: string;
+            metadata: {
+              plugin_id: string;
+              name: string;
+              name_zh_cn?: string;
+              description: string;
+              description_zh_cn?: string;
+              version: string;
+              category: string;
+              author: string;
+            };
+          },
+        );
         break;
       case "installTeamSkill":
-        this._handleInstallTeamSkill(message.payload as { teamId: string; pluginId: string; version?: string; force?: boolean });
+        this._handleInstallTeamSkill(
+          message.payload as {
+            teamId: string;
+            pluginId: string;
+            version?: string;
+            force?: boolean;
+          },
+        );
         break;
       case "uninstallTeamSkill":
-        this._handleUninstallTeamSkill(message.payload as { teamId: string; pluginId: string });
+        this._handleUninstallTeamSkill(
+          message.payload as { teamId: string; pluginId: string },
+        );
         break;
       case "downloadTeamSkill":
-        this._handleDownloadTeamSkill(message.payload as { teamId: string; pluginId: string; authorEndpoint: string; checksum?: string });
+        this._handleDownloadTeamSkill(
+          message.payload as {
+            teamId: string;
+            pluginId: string;
+            authorEndpoint: string;
+            checksum?: string;
+          },
+        );
         break;
       case "selectDirectory":
         this._handleSelectDirectory();
         break;
       // ========== 日报相关命令 ==========
       case "fetchDailyReportStatus":
-        this._handleFetchDailyReportStatus(message.payload as { startDate: string; endDate: string });
+        this._handleFetchDailyReportStatus(
+          message.payload as { startDate: string; endDate: string },
+        );
         break;
       case "fetchDailySummary":
         this._handleFetchDailySummary(message.payload as { date: string });
         break;
       // 团队协作相关
-      case "shareCode":
-        this._handleShareCode(message.payload as { teamId: string; file_name: string; file_path?: string; language?: string; start_line?: number; end_line?: number; code: string; message?: string });
-        break;
       case "updateWorkStatus":
-        this._handleUpdateWorkStatus(message.payload as { teamId: string; project_name?: string; current_file?: string; status_visible?: boolean });
+        this._handleUpdateWorkStatus(
+          message.payload as {
+            teamId: string;
+            project_name?: string;
+            current_file?: string;
+            status_visible?: boolean;
+          },
+        );
         break;
       case "shareTeamDailySummary":
-        this._handleShareTeamDailySummary(message.payload as { teamId: string; date: string });
+        this._handleShareTeamDailySummary(
+          message.payload as { teamId: string; date: string },
+        );
         break;
       case "fetchTeamDailySummaries":
-        this._handleFetchTeamDailySummaries(message.payload as { teamId: string; date?: string });
+        this._handleFetchTeamDailySummaries(
+          message.payload as { teamId: string; date?: string },
+        );
         break;
       case "fetchTeamDailySummaryDetail":
-        this._handleFetchTeamDailySummaryDetail(message.payload as { teamId: string; memberId: string; date: string });
+        this._handleFetchTeamDailySummaryDetail(
+          message.payload as { teamId: string; memberId: string; date: string },
+        );
         break;
       // 团队周报相关
       case "fetchTeamProjectConfig":
-        this._handleFetchTeamProjectConfig(message.payload as { teamId: string });
+        this._handleFetchTeamProjectConfig(
+          message.payload as { teamId: string },
+        );
         break;
       case "updateTeamProjectConfig":
-        this._handleUpdateTeamProjectConfig(message.payload as { teamId: string; projects: Array<{ id: string; name: string; repo_url: string }> });
+        this._handleUpdateTeamProjectConfig(
+          message.payload as {
+            teamId: string;
+            projects: Array<{ id: string; name: string; repo_url: string }>;
+          },
+        );
         break;
       case "addTeamProject":
-        this._handleAddTeamProject(message.payload as { teamId: string; name: string; repo_url: string });
+        this._handleAddTeamProject(
+          message.payload as { teamId: string; name: string; repo_url: string },
+        );
         break;
       case "removeTeamProject":
-        this._handleRemoveTeamProject(message.payload as { teamId: string; projectId: string });
+        this._handleRemoveTeamProject(
+          message.payload as { teamId: string; projectId: string },
+        );
+        break;
+      case "selectFolder":
+        this._handleSelectFolder();
+        break;
+      case "addTeamProjectByPath":
+        this._handleAddTeamProjectByPath(
+          message.payload as { teamId: string; path: string; name?: string },
+        );
         break;
       case "fetchTeamWeeklyReport":
-        this._handleFetchTeamWeeklyReport(message.payload as { teamId: string; weekStart: string });
+        this._handleFetchTeamWeeklyReport(
+          message.payload as { teamId: string; weekStart: string },
+        );
         break;
       case "fetchMemberDailyDetail":
-        this._handleFetchMemberDailyDetail(message.payload as { teamId: string; memberId: string; date: string });
+        this._handleFetchMemberDailyDetail(
+          message.payload as { teamId: string; memberId: string; date: string },
+        );
         break;
       case "refreshTeamWeeklyStats":
-        this._handleRefreshTeamWeeklyStats(message.payload as { teamId: string; weekStart: string });
+        this._handleRefreshTeamWeeklyStats(
+          message.payload as { teamId: string; weekStart: string },
+        );
         break;
       case "saveDailyReportScreenshot":
-        this._handleSaveDailyReportScreenshot(message.payload as { filename: string; data: string });
+        this._handleSaveDailyReportScreenshot(
+          message.payload as { filename: string; data: string },
+        );
         break;
       case "showMessage":
-        this._handleShowMessage(message.payload as { type: string; message: string });
+        this._handleShowMessage(
+          message.payload as { type: string; message: string },
+        );
+        break;
+      // ========== 代码分析相关命令 ==========
+      case "scanEntryPoints":
+        this._handleScanEntryPoints(
+          message.payload as { project_path: string },
+        );
+        break;
+      case "registerProject":
+        this._handleRegisterProject(
+          message.payload as {
+            project_path: string;
+            entry_points: string[];
+            exclude: string[];
+            algorithm: string;
+          },
+        );
+        break;
+      case "checkCallGraphStatus":
+        this._handleCheckCallGraphStatus(
+          message.payload as { project_path: string; commit?: string },
+        );
+        break;
+      case "generateCallGraph":
+        this._handleGenerateCallGraph(
+          message.payload as { project_path: string; commit?: string },
+        );
+        break;
+      case "generateCallGraphAsync":
+        this._handleGenerateCallGraphAsync(
+          message.payload as { project_path: string; commit?: string },
+        );
+        break;
+      case "getGenerationProgress":
+        this._handleGetGenerationProgress(
+          message.payload as { task_id: string },
+        );
         break;
       default:
         console.warn(`未知命令: ${message.command}`);
@@ -440,18 +694,18 @@ export class WebviewPanel {
   // 处理语言切换：保存到 globalState 并广播到所有 webview
   private _handleChangeLanguage(payload: { language: string }): void {
     const language = payload.language;
-    if (language !== 'zh-CN' && language !== 'en') {
+    if (language !== "zh-CN" && language !== "en") {
       console.warn(`Invalid language: ${language}`);
       return;
     }
 
-    // 保存到 globalState
-    this._context.globalState.update('cocursor-language', language).then(() => {
+    // 使用统一的 changeLanguage 方法（会自动保存到 globalState 并触发事件）
+    changeLanguage(language).then(() => {
       // 广播到所有 webview
       WebviewPanel.broadcastLanguageChange(language);
-      
+
       // 通知侧边栏刷新（通过命令）
-      vscode.commands.executeCommand('cocursor.refreshSidebarLanguage');
+      vscode.commands.executeCommand("cocursor.refreshSidebarLanguage");
     });
   }
 
@@ -462,41 +716,71 @@ export class WebviewPanel {
       WebviewPanel.recentSessionsPanel,
       WebviewPanel.marketplacePanel,
       WebviewPanel.ragSearchPanel,
-      WebviewPanel.teamPanel
+      WebviewPanel.teamPanel,
+      WebviewPanel.codeAnalysisPanel,
     ].filter(Boolean) as WebviewPanel[];
 
-    panels.forEach(panel => {
+    panels.forEach((panel) => {
+      // 发送语言变更消息到 Webview
       panel._sendMessage({
         type: "languageChanged",
-        data: { language }
+        data: { language },
       });
+      // 更新面板标题（国际化）
+      panel._panel.title = WebviewPanel.getPanelTitle(panel._viewType);
     });
   }
 
+  /**
+   * 获取面板标题（国际化）
+   * @param viewType 视图类型
+   * @returns 国际化后的面板标题
+   */
+  private static getPanelTitle(viewType: WebviewType): string {
+    const titleKeys: Record<WebviewType, string> = {
+      workAnalysis: "panel.workAnalysis",
+      recentSessions: "panel.recentSessions",
+      marketplace: "panel.marketplace",
+      ragSearch: "panel.ragSearch",
+      team: "panel.team",
+      codeAnalysis: "panel.codeAnalysis",
+    };
+    return t(titleKeys[viewType]);
+  }
+
   // 处理日报截图保存
-  private async _handleSaveDailyReportScreenshot(payload: { filename: string; data: string }): Promise<void> {
+  private async _handleSaveDailyReportScreenshot(payload: {
+    filename: string;
+    data: string;
+  }): Promise<void> {
     try {
       const { filename, data } = payload;
-      
+
       // 让用户选择保存位置
       const saveUri = await vscode.window.showSaveDialog({
         defaultUri: vscode.Uri.file(filename),
         filters: {
-          "PNG Images": ["png"]
+          "PNG Images": ["png"],
         },
-        title: "保存日报截图"
+        title: t("vscode.saveScreenshot"),
       });
 
       if (saveUri) {
         // 将 base64 数据写入文件
         const buffer = Buffer.from(data, "base64");
         await vscode.workspace.fs.writeFile(saveUri, buffer);
-        
-        vscode.window.showInformationMessage(`日报截图已保存到: ${saveUri.fsPath}`);
+
+        vscode.window.showInformationMessage(
+          t("vscode.screenshotSaved", { path: saveUri.fsPath }),
+        );
       }
     } catch (error) {
       console.error("Save screenshot failed:", error);
-      vscode.window.showErrorMessage(`保存截图失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      vscode.window.showErrorMessage(
+        t("vscode.screenshotSaveFailed", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
     }
   }
 
@@ -525,28 +809,30 @@ export class WebviewPanel {
       const response: unknown[] = [];
       this._sendMessage({
         type: "fetchChats-response",
-        data: response
+        data: response,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchChats-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchChatDetail(payload: { chatId: string }): Promise<void> {
+  private async _handleFetchChatDetail(payload: {
+    chatId: string;
+  }): Promise<void> {
     try {
       // TODO: 调用后端 API
       const response = { code: 0, data: null, message: "success" };
       this._sendMessage({
         type: "fetchChatDetail-response",
-        data: response
+        data: response,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchChatDetail-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
@@ -557,30 +843,42 @@ export class WebviewPanel {
       const response = { code: 0, data: [], message: "success" };
       this._sendMessage({
         type: "getPeers-response",
-        data: response
+        data: response,
       });
     } catch (error) {
       this._sendMessage({
         type: "getPeers-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   // 获取项目列表（带缓存）
-  private async _getProjectList(): Promise<Array<{ project_name: string; workspaces: Array<{ path: string }> }>> {
+  private async _getProjectList(): Promise<
+    Array<{ project_name: string; workspaces: Array<{ path: string }> }>
+  > {
     const now = Date.now();
     // 检查缓存是否有效
-    if (WebviewPanel.projectListCache && (now - WebviewPanel.projectListCache.timestamp) < WebviewPanel.CACHE_TTL) {
+    if (
+      WebviewPanel.projectListCache &&
+      now - WebviewPanel.projectListCache.timestamp < WebviewPanel.CACHE_TTL
+    ) {
       return WebviewPanel.projectListCache.projects;
     }
 
     try {
-      const projectsResponse = await axios.get("http://localhost:19960/api/v1/project/list", {
-        timeout: 5000
-      });
-      
-      if (projectsResponse.data && projectsResponse.data.data && projectsResponse.data.data.projects) {
+      const projectsResponse = await axios.get(
+        "http://localhost:19960/api/v1/project/list",
+        {
+          timeout: 5000,
+        },
+      );
+
+      if (
+        projectsResponse.data &&
+        projectsResponse.data.data &&
+        projectsResponse.data.data.projects
+      ) {
         const projects = projectsResponse.data.data.projects as Array<{
           project_name: string;
           workspaces: Array<{ path: string }>;
@@ -588,25 +886,33 @@ export class WebviewPanel {
         // 更新缓存
         WebviewPanel.projectListCache = {
           projects,
-          timestamp: now
+          timestamp: now,
         };
         return projects;
       }
     } catch (error) {
-      console.log(`获取项目列表失败: ${error instanceof Error ? error.message : String(error)}`);
+      console.log(
+        `获取项目列表失败: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-    
+
     // 如果请求失败，返回空数组
     return [];
   }
 
   // 通过路径查找项目名
-  private _findProjectNameByPath(projectPath: string, projects: Array<{ project_name: string; workspaces: Array<{ path: string }> }>): string | null {
+  private _findProjectNameByPath(
+    projectPath: string,
+    projects: Array<{
+      project_name: string;
+      workspaces: Array<{ path: string }>;
+    }>,
+  ): string | null {
     const normalizePathForCompare = (path: string): string => {
       return path.replace(/\\/g, "/").toLowerCase().replace(/\/$/, "");
     };
     const normalizedTargetPath = normalizePathForCompare(projectPath);
-    
+
     for (const project of projects) {
       for (const ws of project.workspaces) {
         if (normalizePathForCompare(ws.path) === normalizedTargetPath) {
@@ -617,14 +923,22 @@ export class WebviewPanel {
     return null;
   }
 
-  private async _handleFetchCurrentSessionHealth(payload: { projectPath?: string; projectName?: string }): Promise<void> {
+  private async _handleFetchCurrentSessionHealth(payload: {
+    projectPath?: string;
+    projectName?: string;
+  }): Promise<void> {
     try {
       // 优先使用 project_name，其次通过 project_path 查找项目名
       const workspaceFolders = vscode.workspace.workspaceFolders;
       let projectPath = payload.projectPath;
       let projectName = payload.projectName;
-      
-      if (!projectName && !projectPath && workspaceFolders && workspaceFolders.length > 0) {
+
+      if (
+        !projectName &&
+        !projectPath &&
+        workspaceFolders &&
+        workspaceFolders.length > 0
+      ) {
         projectPath = workspaceFolders[0].uri.fsPath;
       }
 
@@ -632,9 +946,12 @@ export class WebviewPanel {
       if (!projectName && projectPath) {
         try {
           const projects = await this._getProjectList();
-          projectName = this._findProjectNameByPath(projectPath, projects) || undefined;
+          projectName =
+            this._findProjectNameByPath(projectPath, projects) || undefined;
         } catch (error) {
-          console.log(`通过路径查找项目名失败: ${error instanceof Error ? error.message : String(error)}`);
+          console.log(
+            `通过路径查找项目名失败: ${error instanceof Error ? error.message : String(error)}`,
+          );
           // 继续执行，后端会尝试自动检测
         }
       }
@@ -647,13 +964,13 @@ export class WebviewPanel {
       // 如果没有 project_name，后端会尝试从当前工作目录自动检测
 
       const response = await axios.get(apiUrl, {
-        timeout: 5000
+        timeout: 5000,
       });
-      
+
       if (response.data.code === 0 && response.data.data) {
         this._sendMessage({
           type: "fetchCurrentSessionHealth-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取会话健康状态失败");
@@ -661,27 +978,29 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchCurrentSessionHealth-response",
-        data: { 
+        data: {
           error: error instanceof Error ? error.message : "未知错误",
           entropy: 0,
           status: "healthy",
-          warning: ""
-        }
+          warning: "",
+        },
       });
     }
   }
 
-  private async _handleFetchProjectDetail(payload: { projectName: string }): Promise<void> {
+  private async _handleFetchProjectDetail(payload: {
+    projectName: string;
+  }): Promise<void> {
     try {
       const response = await axios.get(
         `http://localhost:19960/api/v1/project/${encodeURIComponent(payload.projectName)}/sessions`,
-        { timeout: 5000 }
+        { timeout: 5000 },
       );
-      
+
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchProjectDetail-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取项目详情失败");
@@ -689,12 +1008,16 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchProjectDetail-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchProjectStats(payload: { projectName: string; startDate?: string; endDate?: string }): Promise<void> {
+  private async _handleFetchProjectStats(payload: {
+    projectName: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<void> {
     try {
       const params = new URLSearchParams();
       if (payload.startDate) {
@@ -706,13 +1029,13 @@ export class WebviewPanel {
 
       const apiUrl = `http://localhost:19960/api/v1/project/${encodeURIComponent(payload.projectName)}/stats/acceptance${params.toString() ? `?${params.toString()}` : ""}`;
       const response = await axios.get(apiUrl, {
-        timeout: 5000
+        timeout: 5000,
       });
-      
+
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchProjectStats-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取项目统计失败");
@@ -720,12 +1043,15 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchProjectStats-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchWorkAnalysis(payload: { startDate?: string; endDate?: string }): Promise<void> {
+  private async _handleFetchWorkAnalysis(payload: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<void> {
     try {
       let apiUrl = "http://localhost:19960/api/v1/stats/work-analysis";
       const params = new URLSearchParams();
@@ -741,11 +1067,11 @@ export class WebviewPanel {
 
       // 工作分析接口需要遍历多个工作区和日期，处理时间较长
       const response = await axios.get(apiUrl, { timeout: 60000 });
-      
+
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchWorkAnalysis-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取工作分析数据失败");
@@ -753,12 +1079,14 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchWorkAnalysis-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchActiveSessions(payload: { workspaceId?: string }): Promise<void> {
+  private async _handleFetchActiveSessions(payload: {
+    workspaceId?: string;
+  }): Promise<void> {
     try {
       let apiUrl = "http://localhost:19960/api/v1/sessions/active";
       const params = new URLSearchParams();
@@ -770,11 +1098,11 @@ export class WebviewPanel {
       }
 
       const response = await axios.get(apiUrl, { timeout: 10000 });
-      
+
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchActiveSessions-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取活跃会话失败");
@@ -782,12 +1110,17 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchActiveSessions-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchSessionList(payload: { projectName?: string; limit?: number; offset?: number; search?: string }): Promise<void> {
+  private async _handleFetchSessionList(payload: {
+    projectName?: string;
+    limit?: number;
+    offset?: number;
+    search?: string;
+  }): Promise<void> {
     try {
       const params = new URLSearchParams();
       if (payload.projectName) {
@@ -805,14 +1138,14 @@ export class WebviewPanel {
 
       const apiUrl = `http://localhost:19960/api/v1/sessions/list${params.toString() ? `?${params.toString()}` : ""}`;
       const response = await axios.get(apiUrl, { timeout: 10000 });
-      
+
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchSessionList-response",
           data: {
             data: response.data.data,
-            page: response.data.page
-          }
+            page: response.data.page,
+          },
         });
       } else {
         throw new Error(response.data.message || "获取会话列表失败");
@@ -820,12 +1153,15 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchSessionList-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchSessionDetail(payload: { sessionId: string; limit?: number }): Promise<void> {
+  private async _handleFetchSessionDetail(payload: {
+    sessionId: string;
+    limit?: number;
+  }): Promise<void> {
     try {
       const params = new URLSearchParams();
       if (payload.limit) {
@@ -834,11 +1170,11 @@ export class WebviewPanel {
 
       const apiUrl = `http://localhost:19960/api/v1/sessions/${encodeURIComponent(payload.sessionId)}/detail${params.toString() ? `?${params.toString()}` : ""}`;
       const response = await axios.get(apiUrl, { timeout: 10000 });
-      
+
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchSessionDetail-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取会话详情失败");
@@ -846,7 +1182,7 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchSessionDetail-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
@@ -856,33 +1192,51 @@ export class WebviewPanel {
       const projects = await this._getProjectList();
       this._sendMessage({
         type: "fetchProjectList-response",
-        data: { projects: projects.map(p => ({ project_name: p.project_name })) }
+        data: {
+          projects: projects.map((p) => ({ project_name: p.project_name })),
+        },
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchProjectList-response",
-        data: { 
+        data: {
           error: error instanceof Error ? error.message : "未知错误",
-          projects: []
-        }
+          projects: [],
+        },
       });
     }
   }
 
-  private _handleShowEntropyWarning(payload: { entropy: number; message: string }): void {
+  private _handleShowEntropyWarning(payload: {
+    entropy: number;
+    message: string;
+  }): void {
     // 显示 VS Code 警告通知
-    vscode.window.showWarningMessage(
-      `⚠️ ${payload.message} (熵值: ${payload.entropy.toFixed(2)})`,
-      "查看详情"
-    ).then((selection) => {
-      if (selection === "查看详情") {
-        // 显示面板（如果已关闭则创建）
-        WebviewPanel.createOrShow(this._extensionUri, "workAnalysis", this._context);
-      }
-    });
+    vscode.window
+      .showWarningMessage(
+        `⚠️ ${payload.message} (熵值: ${payload.entropy.toFixed(2)})`,
+        "查看详情",
+      )
+      .then((selection) => {
+        if (selection === "查看详情") {
+          // 显示面板（如果已关闭则创建）
+          WebviewPanel.createOrShow(
+            this._extensionUri,
+            "workAnalysis",
+            this._context,
+          );
+        }
+      });
   }
 
-  private async _handleFetchPlugins(payload: { category?: string; search?: string; installed?: boolean; lang?: string; source?: string; team_id?: string }): Promise<void> {
+  private async _handleFetchPlugins(payload: {
+    category?: string;
+    search?: string;
+    installed?: boolean;
+    lang?: string;
+    source?: string;
+    team_id?: string;
+  }): Promise<void> {
     try {
       const params = new URLSearchParams();
       if (payload.category) {
@@ -910,7 +1264,7 @@ export class WebviewPanel {
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchPlugins-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "Failed to fetch plugins");
@@ -918,26 +1272,33 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchPlugins-response",
-        data: { error: error instanceof Error ? error.message : "Unknown error" }
+        data: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       });
     }
   }
 
-  private async _handleFetchPlugin(payload: { id: string; lang?: string }): Promise<void> {
+  private async _handleFetchPlugin(payload: {
+    id: string;
+    lang?: string;
+  }): Promise<void> {
     try {
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}`;
       const params = new URLSearchParams();
       if (payload.lang) {
         params.append("lang", payload.lang);
       }
-      const urlWithParams = params.toString() ? `${apiUrl}?${params.toString()}` : apiUrl;
-      
+      const urlWithParams = params.toString()
+        ? `${apiUrl}?${params.toString()}`
+        : apiUrl;
+
       const response = await axios.get(urlWithParams, { timeout: 10000 });
 
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchPlugin-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "Failed to fetch plugin");
@@ -945,63 +1306,88 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchPlugin-response",
-        data: { error: error instanceof Error ? error.message : "Unknown error" }
+        data: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       });
     }
   }
 
-  private async _handleFetchInstalledPlugins(payload?: { lang?: string }): Promise<void> {
+  private async _handleFetchInstalledPlugins(payload?: {
+    lang?: string;
+  }): Promise<void> {
     try {
       const apiUrl = "http://localhost:19960/api/v1/marketplace/installed";
       const params = new URLSearchParams();
       if (payload && payload.lang) {
         params.append("lang", payload.lang);
       }
-      const urlWithParams = params.toString() ? `${apiUrl}?${params.toString()}` : apiUrl;
-      
+      const urlWithParams = params.toString()
+        ? `${apiUrl}?${params.toString()}`
+        : apiUrl;
+
       const response = await axios.get(urlWithParams, { timeout: 10000 });
 
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchInstalledPlugins-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
-        throw new Error(response.data.message || "Failed to fetch installed plugins");
+        throw new Error(
+          response.data.message || "Failed to fetch installed plugins",
+        );
       }
     } catch (error) {
       this._sendMessage({
         type: "fetchInstalledPlugins-response",
-        data: { error: error instanceof Error ? error.message : "Unknown error" }
+        data: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       });
     }
   }
 
-  private async _handleInstallPlugin(payload: { id: string; workspacePath: string; force?: boolean }): Promise<void> {
+  private async _handleInstallPlugin(payload: {
+    id: string;
+    workspacePath: string;
+    force?: boolean;
+  }): Promise<void> {
     try {
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/install`;
-      const response = await axios.post(apiUrl, {
-        workspace_path: payload.workspacePath,
-        force: payload.force || false
-      }, { timeout: 30000 });
+      const response = await axios.post(
+        apiUrl,
+        {
+          workspace_path: payload.workspacePath,
+          force: payload.force || false,
+        },
+        { timeout: 30000 },
+      );
 
       if (response.data.code === 0) {
-        const result = response.data.data as { success: boolean; message: string; env_vars?: string[] };
-        
+        const result = response.data.data as {
+          success: boolean;
+          message: string;
+          env_vars?: string[];
+        };
+
         // 如果有环境变量需要配置，显示提示
         if (result.env_vars && result.env_vars.length > 0) {
           const envVarsList = result.env_vars.join(", ");
           vscode.window.showWarningMessage(
-            `Plugin installed successfully. Please configure the following environment variables: ${envVarsList}`,
-            "OK"
+            t("vscode.configureEnvVars", { vars: envVarsList }),
+            t("vscode.ok"),
           );
         } else {
-          vscode.window.showInformationMessage("Plugin installed successfully", "OK");
+          vscode.window.showInformationMessage(
+            t("vscode.pluginInstallSuccess"),
+            t("vscode.ok"),
+          );
         }
 
         this._sendMessage({
           type: "installPlugin-response",
-          data: result
+          data: result,
         });
       } else {
         throw new Error(response.data.message || "Failed to install plugin");
@@ -1015,7 +1401,7 @@ export class WebviewPanel {
           message: string;
           conflict_type: string;
         };
-        
+
         // 返回冲突信息给前端，让前端决定是否强制覆盖
         this._sendMessage({
           type: "installPlugin-response",
@@ -1023,48 +1409,66 @@ export class WebviewPanel {
             conflict: true,
             conflict_type: conflictData?.conflict_type || "unknown",
             skill_name: conflictData?.skill_name || "",
-            message: conflictData?.message || "Skill conflict detected"
-          }
+            message: conflictData?.message || "Skill conflict detected",
+          },
         });
         return;
       }
-      
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      vscode.window.showErrorMessage(`Failed to install plugin: ${errorMessage}`);
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      vscode.window.showErrorMessage(
+        t("vscode.pluginInstallFailed", { error: errorMessage }),
+      );
       this._sendMessage({
         type: "installPlugin-response",
-        data: { error: errorMessage }
+        data: { error: errorMessage },
       });
     }
   }
 
-  private async _handleUninstallPlugin(payload: { id: string; workspacePath: string }): Promise<void> {
+  private async _handleUninstallPlugin(payload: {
+    id: string;
+    workspacePath: string;
+  }): Promise<void> {
     try {
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/uninstall`;
-      const response = await axios.post(apiUrl, {
-        workspace_path: payload.workspacePath
-      }, { timeout: 30000 });
+      const response = await axios.post(
+        apiUrl,
+        {
+          workspace_path: payload.workspacePath,
+        },
+        { timeout: 30000 },
+      );
 
       if (response.data.code === 0) {
-        vscode.window.showInformationMessage("Plugin uninstalled successfully", "OK");
+        vscode.window.showInformationMessage(
+          t("vscode.pluginUninstallSuccess"),
+          t("vscode.ok"),
+        );
         this._sendMessage({
           type: "uninstallPlugin-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "Failed to uninstall plugin");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      vscode.window.showErrorMessage(`Failed to uninstall plugin: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      vscode.window.showErrorMessage(
+        t("vscode.pluginUninstallFailed", { error: errorMessage }),
+      );
       this._sendMessage({
         type: "uninstallPlugin-response",
-        data: { error: errorMessage }
+        data: { error: errorMessage },
       });
     }
   }
 
-  private async _handleCheckPluginStatus(payload: { id: string }): Promise<void> {
+  private async _handleCheckPluginStatus(payload: {
+    id: string;
+  }): Promise<void> {
     try {
       const apiUrl = `http://localhost:19960/api/v1/marketplace/plugins/${encodeURIComponent(payload.id)}/status`;
       const response = await axios.get(apiUrl, { timeout: 10000 });
@@ -1072,33 +1476,41 @@ export class WebviewPanel {
       if (response.data.code === 0) {
         this._sendMessage({
           type: "checkPluginStatus-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
-        throw new Error(response.data.message || "Failed to check plugin status");
+        throw new Error(
+          response.data.message || "Failed to check plugin status",
+        );
       }
     } catch (error) {
       this._sendMessage({
         type: "checkPluginStatus-response",
-        data: { error: error instanceof Error ? error.message : "Unknown error" }
+        data: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       });
     }
   }
 
-  private async _handleShowConfirmDialog(payload: { message: string; confirmText?: string; cancelText?: string }): Promise<void> {
+  private async _handleShowConfirmDialog(payload: {
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+  }): Promise<void> {
     const confirmText = payload.confirmText || "Yes";
     const cancelText = payload.cancelText || "No";
-    
+
     const result = await vscode.window.showWarningMessage(
       payload.message,
       { modal: true },
       confirmText,
-      cancelText
+      cancelText,
     );
-    
+
     this._sendMessage({
       type: "showConfirmDialog-response",
-      data: result === confirmText
+      data: result === confirmText,
     });
   }
 
@@ -1106,144 +1518,194 @@ export class WebviewPanel {
 
   private async _handleFetchRAGConfig(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/rag/config", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/rag/config",
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "fetchRAGConfig-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchRAGConfig-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleUpdateRAGConfig(payload: { config: unknown }): Promise<void> {
+  private async _handleUpdateRAGConfig(payload: {
+    config: unknown;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/config", payload.config, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/config",
+        payload.config,
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "updateRAGConfig-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "updateRAGConfig-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleTestRAGConfig(payload: { config: { url: string; api_key: string; model: string } }): Promise<void> {
+  private async _handleTestRAGConfig(payload: {
+    config: { url: string; api_key: string; model: string };
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/config/test", payload.config, { timeout: 30000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/config/test",
+        payload.config,
+        { timeout: 30000 },
+      );
       this._sendMessage({
         type: "testRAGConfig-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "testRAGConfig-response",
-        data: { 
+        data: {
           success: false,
-          error: error instanceof Error ? error.message : "未知错误" 
-        }
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleSearchRAG(payload: { query: string; projectIds?: string[]; limit?: number }): Promise<void> {
+  private async _handleSearchRAG(payload: {
+    query: string;
+    projectIds?: string[];
+    limit?: number;
+  }): Promise<void> {
     try {
       const requestBody: any = {
         query: payload.query,
-        limit: payload.limit || 10
+        limit: payload.limit || 10,
       };
       // 只有当 projectIds 有值时才添加到请求体
       if (payload.projectIds && payload.projectIds.length > 0) {
         requestBody.project_ids = payload.projectIds;
       }
 
-      const response = await axios.post("http://localhost:19960/api/v1/rag/search", requestBody, { timeout: 30000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/search",
+        requestBody,
+        { timeout: 30000 },
+      );
       this._sendMessage({
         type: "searchRAG-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "searchRAG-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleSearchRAGChunks(payload: { query: string; projectIds?: string[]; limit?: number }): Promise<void> {
+  private async _handleSearchRAGChunks(payload: {
+    query: string;
+    projectIds?: string[];
+    limit?: number;
+  }): Promise<void> {
     try {
       const requestBody: any = {
         query: payload.query,
-        limit: payload.limit || 20
+        limit: payload.limit || 20,
       };
       // 只有当 projectIds 有值时才添加到请求体
       if (payload.projectIds && payload.projectIds.length > 0) {
         requestBody.project_ids = payload.projectIds;
       }
 
-      const response = await axios.post("http://localhost:19960/api/v1/rag/search/chunks", requestBody, { timeout: 30000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/search/chunks",
+        requestBody,
+        { timeout: 30000 },
+      );
       this._sendMessage({
         type: "searchRAGChunks-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "searchRAGChunks-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleTriggerRAGIndex(payload: { sessionId?: string }): Promise<void> {
+  private async _handleTriggerRAGIndex(payload: {
+    sessionId?: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/index", {
-        session_id: payload.sessionId || ""
-      }, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/index",
+        {
+          session_id: payload.sessionId || "",
+        },
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "triggerRAGIndex-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "triggerRAGIndex-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleTestLLMConnection(payload: { config: { url: string; api_key: string; model: string } }): Promise<void> {
+  private async _handleTestLLMConnection(payload: {
+    config: { url: string; api_key: string; model: string };
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/config/llm/test", payload.config, { timeout: 30000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/config/llm/test",
+        payload.config,
+        { timeout: 30000 },
+      );
       this._sendMessage({
         type: "testLLMConnection-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "testLLMConnection-response",
         data: {
           success: false,
-          error: error instanceof Error ? error.message : "未知错误"
-        }
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleTriggerFullIndex(payload?: { batch_size?: number; concurrency?: number }): Promise<void> {
+  private async _handleTriggerFullIndex(payload?: {
+    batch_size?: number;
+    concurrency?: number;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/index/full", {
-        batch_size: payload?.batch_size,
-        concurrency: payload?.concurrency
-      }, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/index/full",
+        {
+          batch_size: payload?.batch_size,
+          concurrency: payload?.concurrency,
+        },
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "triggerFullIndex-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       // 尝试从 axios 响应中获取后端错误消息
@@ -1255,180 +1717,232 @@ export class WebviewPanel {
       }
       this._sendMessage({
         type: "triggerFullIndex-response",
-        data: { error: errorMessage }
+        data: { error: errorMessage },
       });
     }
   }
 
   private async _handleFetchIndexProgress(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/rag/index/progress", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/rag/index/progress",
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "fetchIndexProgress-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchIndexProgress-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleClearAllData(): Promise<void> {
     try {
-      const response = await axios.delete("http://localhost:19960/api/v1/rag/data", { timeout: 10000 });
+      const response = await axios.delete(
+        "http://localhost:19960/api/v1/rag/data",
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "clearAllData-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "clearAllData-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleFetchRAGStats(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/rag/stats", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/rag/stats",
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "fetchRAGStats-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchRAGStats-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleFetchIndexedProjects(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/rag/projects", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/rag/projects",
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "fetchIndexedProjects-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchIndexedProjects-response",
-        data: { projects: [], total: 0, error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          projects: [],
+          total: 0,
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleDownloadQdrant(payload: { version?: string }): Promise<void> {
+  private async _handleDownloadQdrant(payload: {
+    version?: string;
+  }): Promise<void> {
     try {
       // 异步下载模式：接口立即返回，前端通过轮询 status 获取进度
-      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/download", {
-        version: payload.version || ""
-      }, { timeout: 30000 }); // 30秒超时（只是启动下载任务，不需要等待下载完成）
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/qdrant/download",
+        {
+          version: payload.version || "",
+        },
+        { timeout: 30000 },
+      ); // 30秒超时（只是启动下载任务，不需要等待下载完成）
       this._sendMessage({
         type: "downloadQdrant-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "downloadQdrant-response",
-        data: { 
+        data: {
           success: false,
-          error: error instanceof Error ? error.message : "未知错误" 
-        }
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
   private _handleOpenRAGSearch(payload?: { route?: string }): void {
     const route = payload?.route || "/";
-    WebviewPanel.createOrShow(this._extensionUri, "ragSearch", this._context, route);
+    WebviewPanel.createOrShow(
+      this._extensionUri,
+      "ragSearch",
+      this._context,
+      route,
+    );
   }
 
   private _handleOpenMarketplace(payload?: { skillId?: string }): void {
     // 打开技能市场，如果指定了 skillId 则导航到该技能详情页
     const route = payload?.skillId ? `/plugin/${payload.skillId}` : "/";
-    WebviewPanel.createOrShow(this._extensionUri, "marketplace", this._context, route);
+    WebviewPanel.createOrShow(
+      this._extensionUri,
+      "marketplace",
+      this._context,
+      route,
+    );
   }
 
-  private async _handleUploadQdrantPackage(payload: { filename: string; fileBase64: string }): Promise<void> {
+  private async _handleUploadQdrantPackage(payload: {
+    filename: string;
+    fileBase64: string;
+  }): Promise<void> {
     try {
       // 将 base64 转换为 Buffer
       const fileBuffer = Buffer.from(payload.fileBase64, "base64");
-      
+
       // 创建 FormData（使用 form-data 包）
       const form = new FormData();
       form.append("file", fileBuffer, {
         filename: payload.filename,
-        contentType: payload.filename.endsWith(".zip") ? "application/zip" : "application/gzip"
+        contentType: payload.filename.endsWith(".zip")
+          ? "application/zip"
+          : "application/gzip",
       });
 
-      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/upload", form, {
-        headers: {
-          ...form.getHeaders()
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/qdrant/upload",
+        form,
+        {
+          headers: {
+            ...form.getHeaders(),
+          },
+          timeout: 120000, // 2分钟超时
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
         },
-        timeout: 120000, // 2分钟超时
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity
-      });
+      );
 
       this._sendMessage({
         type: "uploadQdrantPackage-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "uploadQdrantPackage-response",
         data: {
           success: false,
-          error: error instanceof Error ? error.message : "未知错误"
-        }
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
   private async _handleFetchQdrantStatus(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/rag/qdrant/status", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/rag/qdrant/status",
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "fetchQdrantStatus-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchQdrantStatus-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleStartQdrant(): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/start", {}, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/qdrant/start",
+        {},
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "startQdrant-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "startQdrant-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleStopQdrant(): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/rag/qdrant/stop", {}, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/rag/qdrant/stop",
+        {},
+        { timeout: 10000 },
+      );
       this._sendMessage({
         type: "stopQdrant-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "stopQdrant-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
@@ -1437,11 +1951,14 @@ export class WebviewPanel {
 
   private async _handleFetchTeamIdentity(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/team/identity", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/team/identity",
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchTeamIdentity-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取身份失败");
@@ -1449,18 +1966,27 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamIdentity-response",
-        data: { exists: false, error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          exists: false,
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleSetTeamIdentity(payload: { name: string }): Promise<void> {
+  private async _handleSetTeamIdentity(payload: {
+    name: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/team/identity", payload, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/team/identity",
+        payload,
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "setTeamIdentity-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "设置身份失败");
@@ -1468,18 +1994,21 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "setTeamIdentity-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleFetchNetworkInterfaces(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/team/network/interfaces", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/team/network/interfaces",
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchNetworkInterfaces-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取网卡列表失败");
@@ -1487,18 +2016,29 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchNetworkInterfaces-response",
-        data: { interfaces: [], error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          interfaces: [],
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleCreateTeam(payload: { name: string; preferred_interface?: string; preferred_ip?: string }): Promise<void> {
+  private async _handleCreateTeam(payload: {
+    name: string;
+    preferred_interface?: string;
+    preferred_ip?: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/team/create", payload, { timeout: 30000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/team/create",
+        payload,
+        { timeout: 30000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "createTeam-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "创建团队失败");
@@ -1506,19 +2046,24 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "createTeam-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleDiscoverTeams(payload: { timeout?: number }): Promise<void> {
+  private async _handleDiscoverTeams(payload: {
+    timeout?: number;
+  }): Promise<void> {
     try {
       const timeout = payload.timeout || 5;
-      const response = await axios.get(`http://localhost:19960/api/v1/team/discover?timeout=${timeout}`, { timeout: (timeout + 5) * 1000 });
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/discover?timeout=${timeout}`,
+        { timeout: (timeout + 5) * 1000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "discoverTeams-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "发现团队失败");
@@ -1526,18 +2071,27 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "discoverTeams-response",
-        data: { teams: [], error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          teams: [],
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleJoinTeamByEndpoint(payload: { endpoint: string }): Promise<void> {
+  private async _handleJoinTeamByEndpoint(payload: {
+    endpoint: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/team/join", payload, { timeout: 30000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/team/join",
+        payload,
+        { timeout: 30000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "joinTeam-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "加入团队失败");
@@ -1545,18 +2099,21 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "joinTeam-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   private async _handleFetchTeamList(): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/team/list", { timeout: 10000 });
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/team/list",
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchTeamList-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取团队列表失败");
@@ -1564,18 +2121,27 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamList-response",
-        data: { teams: [], total: 0, error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          teams: [],
+          total: 0,
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleFetchTeamMembers(payload: { teamId: string }): Promise<void> {
+  private async _handleFetchTeamMembers(payload: {
+    teamId: string;
+  }): Promise<void> {
     try {
-      const response = await axios.get(`http://localhost:19960/api/v1/team/${payload.teamId}/members`, { timeout: 10000 });
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/members`,
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchTeamMembers-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取成员列表失败");
@@ -1583,18 +2149,25 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamMembers-response",
-        data: { members: [], error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          members: [],
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
   private async _handleLeaveTeam(payload: { teamId: string }): Promise<void> {
     try {
-      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/leave`, {}, { timeout: 10000 });
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/leave`,
+        {},
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "leaveTeam-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "离开团队失败");
@@ -1602,18 +2175,24 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "leaveTeam-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleDissolveTeam(payload: { teamId: string }): Promise<void> {
+  private async _handleDissolveTeam(payload: {
+    teamId: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/dissolve`, {}, { timeout: 10000 });
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/dissolve`,
+        {},
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "dissolveTeam-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "解散团队失败");
@@ -1621,18 +2200,23 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "dissolveTeam-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchTeamSkillIndex(payload: { teamId: string }): Promise<void> {
+  private async _handleFetchTeamSkillIndex(payload: {
+    teamId: string;
+  }): Promise<void> {
     try {
-      const response = await axios.get(`http://localhost:19960/api/v1/team/${payload.teamId}/skills`, { timeout: 10000 });
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills`,
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchTeamSkillIndex-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取技能索引失败");
@@ -1640,18 +2224,27 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamSkillIndex-response",
-        data: { entries: [], error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          entries: [],
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleValidateSkillDirectory(payload: { path: string }): Promise<void> {
+  private async _handleValidateSkillDirectory(payload: {
+    path: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post("http://localhost:19960/api/v1/team/skills/validate", { path: payload.path }, { timeout: 10000 });
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/team/skills/validate",
+        { path: payload.path },
+        { timeout: 10000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "validateSkillDirectory-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "验证技能目录失败");
@@ -1659,21 +2252,32 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "validateSkillDirectory-response",
-        data: { valid: false, error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          valid: false,
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handlePublishTeamSkill(payload: { teamId: string; pluginId: string; localPath: string }): Promise<void> {
+  private async _handlePublishTeamSkill(payload: {
+    teamId: string;
+    pluginId: string;
+    localPath: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/publish`, {
-        plugin_id: payload.pluginId,
-        local_path: payload.localPath
-      }, { timeout: 60000 });
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/publish`,
+        {
+          plugin_id: payload.pluginId,
+          local_path: payload.localPath,
+        },
+        { timeout: 60000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "publishTeamSkill-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "发布技能失败");
@@ -1681,15 +2285,15 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "publishTeamSkill-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   // 带元数据发布技能
-  private async _handlePublishTeamSkillWithMetadata(payload: { 
-    teamId: string; 
-    localPath: string; 
+  private async _handlePublishTeamSkillWithMetadata(payload: {
+    teamId: string;
+    localPath: string;
     metadata: {
       plugin_id: string;
       name: string;
@@ -1702,14 +2306,18 @@ export class WebviewPanel {
     };
   }): Promise<void> {
     try {
-      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/publish-with-metadata`, {
-        local_path: payload.localPath,
-        metadata: payload.metadata
-      }, { timeout: 60000 });
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/publish-with-metadata`,
+        {
+          local_path: payload.localPath,
+          metadata: payload.metadata,
+        },
+        { timeout: 60000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "publishTeamSkillWithMetadata-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "发布技能失败");
@@ -1717,33 +2325,39 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "publishTeamSkillWithMetadata-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   // 安装团队技能
-  private async _handleInstallTeamSkill(payload: { teamId: string; pluginId: string; version?: string; force?: boolean }): Promise<void> {
+  private async _handleInstallTeamSkill(payload: {
+    teamId: string;
+    pluginId: string;
+    version?: string;
+    force?: boolean;
+  }): Promise<void> {
     try {
       // 获取当前工作区路径
       const workspaceFolders = vscode.workspace.workspaceFolders;
-      const workspacePath = workspaceFolders && workspaceFolders.length > 0 
-        ? workspaceFolders[0].uri.fsPath 
-        : "";
-      
+      const workspacePath =
+        workspaceFolders && workspaceFolders.length > 0
+          ? workspaceFolders[0].uri.fsPath
+          : "";
+
       const response = await axios.post(
-        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/${payload.pluginId}/install`, 
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/${payload.pluginId}/install`,
         {
           workspace_path: workspacePath,
           version: payload.version || "1.0.0",
-          force: payload.force || false
-        }, 
-        { timeout: 60000 }
+          force: payload.force || false,
+        },
+        { timeout: 60000 },
       );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "installTeamSkill-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "安装技能失败");
@@ -1751,31 +2365,35 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "installTeamSkill-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   // 卸载团队技能
-  private async _handleUninstallTeamSkill(payload: { teamId: string; pluginId: string }): Promise<void> {
+  private async _handleUninstallTeamSkill(payload: {
+    teamId: string;
+    pluginId: string;
+  }): Promise<void> {
     try {
       // 获取当前工作区路径
       const workspaceFolders = vscode.workspace.workspaceFolders;
-      const workspacePath = workspaceFolders && workspaceFolders.length > 0 
-        ? workspaceFolders[0].uri.fsPath 
-        : "";
-      
+      const workspacePath =
+        workspaceFolders && workspaceFolders.length > 0
+          ? workspaceFolders[0].uri.fsPath
+          : "";
+
       const response = await axios.post(
-        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/${payload.pluginId}/uninstall`, 
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/${payload.pluginId}/uninstall`,
         {
-          workspace_path: workspacePath
-        }, 
-        { timeout: 60000 }
+          workspace_path: workspacePath,
+        },
+        { timeout: 60000 },
       );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "uninstallTeamSkill-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "卸载技能失败");
@@ -1783,22 +2401,31 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "uninstallTeamSkill-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleDownloadTeamSkill(payload: { teamId: string; pluginId: string; authorEndpoint: string; checksum?: string }): Promise<void> {
+  private async _handleDownloadTeamSkill(payload: {
+    teamId: string;
+    pluginId: string;
+    authorEndpoint: string;
+    checksum?: string;
+  }): Promise<void> {
     try {
-      const response = await axios.post(`http://localhost:19960/api/v1/team/${payload.teamId}/skills/download`, {
-        plugin_id: payload.pluginId,
-        author_endpoint: payload.authorEndpoint,
-        checksum: payload.checksum
-      }, { timeout: 120000 });
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/skills/download`,
+        {
+          plugin_id: payload.pluginId,
+          author_endpoint: payload.authorEndpoint,
+          checksum: payload.checksum,
+        },
+        { timeout: 120000 },
+      );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "downloadTeamSkill-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "下载技能失败");
@@ -1806,7 +2433,7 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "downloadTeamSkill-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
@@ -1817,44 +2444,50 @@ export class WebviewPanel {
         canSelectFiles: false,
         canSelectFolders: true,
         canSelectMany: false,
-        openLabel: "选择技能目录"
+        openLabel: t("vscode.selectSkillDir"),
       });
 
       if (result && result.length > 0) {
         this._sendMessage({
           type: "selectDirectory-response",
-          data: { path: result[0].fsPath }
+          data: { path: result[0].fsPath },
         });
       } else {
         this._sendMessage({
           type: "selectDirectory-response",
-          data: { cancelled: true }
+          data: { cancelled: true },
         });
       }
     } catch (error) {
       this._sendMessage({
         type: "selectDirectory-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   // ========== 日报相关处理 ==========
 
-  private async _handleFetchDailyReportStatus(payload: { startDate: string; endDate: string }): Promise<void> {
+  private async _handleFetchDailyReportStatus(payload: {
+    startDate: string;
+    endDate: string;
+  }): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/daily-summary/batch-status", {
-        params: {
-          start_date: payload.startDate,
-          end_date: payload.endDate
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/daily-summary/batch-status",
+        {
+          params: {
+            start_date: payload.startDate,
+            end_date: payload.endDate,
+          },
+          timeout: 10000,
         },
-        timeout: 10000
-      });
+      );
 
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchDailyReportStatus-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取日报状态失败");
@@ -1862,24 +2495,29 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchDailyReportStatus-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchDailySummary(payload: { date: string }): Promise<void> {
+  private async _handleFetchDailySummary(payload: {
+    date: string;
+  }): Promise<void> {
     try {
-      const response = await axios.get("http://localhost:19960/api/v1/daily-summary", {
-        params: {
-          date: payload.date
+      const response = await axios.get(
+        "http://localhost:19960/api/v1/daily-summary",
+        {
+          params: {
+            date: payload.date,
+          },
+          timeout: 10000,
         },
-        timeout: 10000
-      });
+      );
 
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchDailySummary-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取日报失败");
@@ -1889,12 +2527,12 @@ export class WebviewPanel {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         this._sendMessage({
           type: "fetchDailySummary-response",
-          data: null
+          data: null,
         });
       } else {
         this._sendMessage({
           type: "fetchDailySummary-response",
-          data: { error: error instanceof Error ? error.message : "未知错误" }
+          data: { error: error instanceof Error ? error.message : "未知错误" },
         });
       }
     }
@@ -1902,51 +2540,11 @@ export class WebviewPanel {
 
   // ========== 团队协作 API 处理器 ==========
 
-  private async _handleShareCode(payload: { 
-    teamId: string; 
-    file_name: string; 
-    file_path?: string; 
-    language?: string; 
-    start_line?: number; 
-    end_line?: number; 
-    code: string; 
-    message?: string 
-  }): Promise<void> {
-    try {
-      const response = await axios.post(
-        `http://localhost:19960/api/v1/team/${payload.teamId}/share-code`,
-        {
-          file_name: payload.file_name,
-          file_path: payload.file_path,
-          language: payload.language,
-          start_line: payload.start_line,
-          end_line: payload.end_line,
-          code: payload.code,
-          message: payload.message
-        },
-        { timeout: 10000 }
-      );
-      if (response.data.code === 0) {
-        this._sendMessage({
-          type: "shareCode-response",
-          data: response.data.data
-        });
-      } else {
-        throw new Error(response.data.message || "分享代码失败");
-      }
-    } catch (error) {
-      this._sendMessage({
-        type: "shareCode-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
-      });
-    }
-  }
-
-  private async _handleUpdateWorkStatus(payload: { 
-    teamId: string; 
-    project_name?: string; 
-    current_file?: string; 
-    status_visible?: boolean 
+  private async _handleUpdateWorkStatus(payload: {
+    teamId: string;
+    project_name?: string;
+    current_file?: string;
+    status_visible?: boolean;
   }): Promise<void> {
     try {
       const response = await axios.post(
@@ -1954,14 +2552,14 @@ export class WebviewPanel {
         {
           project_name: payload.project_name,
           current_file: payload.current_file,
-          status_visible: payload.status_visible
+          status_visible: payload.status_visible,
         },
-        { timeout: 5000 }
+        { timeout: 5000 },
       );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "updateWorkStatus-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "更新工作状态失败");
@@ -1969,22 +2567,25 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "updateWorkStatus-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleShareTeamDailySummary(payload: { teamId: string; date: string }): Promise<void> {
+  private async _handleShareTeamDailySummary(payload: {
+    teamId: string;
+    date: string;
+  }): Promise<void> {
     try {
       const response = await axios.post(
         `http://localhost:19960/api/v1/team/${payload.teamId}/daily-summaries/share`,
         { date: payload.date },
-        { timeout: 30000 }
+        { timeout: 30000 },
       );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "shareTeamDailySummary-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "分享日报失败");
@@ -1992,25 +2593,28 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "shareTeamDailySummary-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchTeamDailySummaries(payload: { teamId: string; date?: string }): Promise<void> {
+  private async _handleFetchTeamDailySummaries(payload: {
+    teamId: string;
+    date?: string;
+  }): Promise<void> {
     try {
       const date = payload.date || new Date().toISOString().split("T")[0];
       const response = await axios.get(
         `http://localhost:19960/api/v1/team/${payload.teamId}/daily-summaries`,
-        { 
+        {
           params: { date },
-          timeout: 10000 
-        }
+          timeout: 10000,
+        },
       );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchTeamDailySummaries-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取团队日报列表失败");
@@ -2018,24 +2622,31 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamDailySummaries-response",
-        data: { summaries: [], error: error instanceof Error ? error.message : "未知错误" }
+        data: {
+          summaries: [],
+          error: error instanceof Error ? error.message : "未知错误",
+        },
       });
     }
   }
 
-  private async _handleFetchTeamDailySummaryDetail(payload: { teamId: string; memberId: string; date: string }): Promise<void> {
+  private async _handleFetchTeamDailySummaryDetail(payload: {
+    teamId: string;
+    memberId: string;
+    date: string;
+  }): Promise<void> {
     try {
       const response = await axios.get(
         `http://localhost:19960/api/v1/team/${payload.teamId}/daily-summaries/${payload.memberId}`,
-        { 
+        {
           params: { date: payload.date },
-          timeout: 30000 
-        }
+          timeout: 30000,
+        },
       );
       if (response.data.code === 0) {
         this._sendMessage({
           type: "fetchTeamDailySummaryDetail-response",
-          data: response.data.data
+          data: response.data.data,
         });
       } else {
         throw new Error(response.data.message || "获取日报详情失败");
@@ -2043,155 +2654,235 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamDailySummaryDetail-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
   // ===== 团队周报相关处理方法 =====
 
-  private async _handleFetchTeamProjectConfig(payload: { teamId: string }): Promise<void> {
+  private async _handleFetchTeamProjectConfig(payload: {
+    teamId: string;
+  }): Promise<void> {
     try {
       const response = await axios.get(
         `http://localhost:19960/api/v1/team/${payload.teamId}/project-config`,
-        { timeout: 10000 }
+        { timeout: 10000 },
       );
       // 项目配置 API 直接返回数据对象
       this._sendMessage({
         type: "fetchTeamProjectConfig-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamProjectConfig-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleUpdateTeamProjectConfig(payload: { teamId: string; projects: Array<{ id: string; name: string; repo_url: string }> }): Promise<void> {
+  private async _handleUpdateTeamProjectConfig(payload: {
+    teamId: string;
+    projects: Array<{ id: string; name: string; repo_url: string }>;
+  }): Promise<void> {
     try {
       const response = await axios.post(
         `http://localhost:19960/api/v1/team/${payload.teamId}/project-config`,
         { projects: payload.projects },
-        { timeout: 10000 }
+        { timeout: 10000 },
       );
       // 更新项目配置 API 直接返回数据对象
       this._sendMessage({
         type: "updateTeamProjectConfig-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "updateTeamProjectConfig-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleAddTeamProject(payload: { teamId: string; name: string; repo_url: string }): Promise<void> {
+  private async _handleAddTeamProject(payload: {
+    teamId: string;
+    name: string;
+    repo_url: string;
+  }): Promise<void> {
     try {
       const response = await axios.post(
         `http://localhost:19960/api/v1/team/${payload.teamId}/project-config/add`,
         { name: payload.name, repo_url: payload.repo_url },
-        { timeout: 10000 }
+        { timeout: 10000 },
       );
       // 添加项目 API 直接返回数据对象
       this._sendMessage({
         type: "addTeamProject-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "addTeamProject-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleRemoveTeamProject(payload: { teamId: string; projectId: string }): Promise<void> {
+  private async _handleRemoveTeamProject(payload: {
+    teamId: string;
+    projectId: string;
+  }): Promise<void> {
     try {
       const response = await axios.post(
         `http://localhost:19960/api/v1/team/${payload.teamId}/project-config/remove`,
         { project_id: payload.projectId },
-        { timeout: 10000 }
+        { timeout: 10000 },
       );
       // 移除项目 API 直接返回数据对象
       this._sendMessage({
         type: "removeTeamProject-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "removeTeamProject-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchTeamWeeklyReport(payload: { teamId: string; weekStart: string }): Promise<void> {
+  // 选择文件夹
+  private async _handleSelectFolder(): Promise<void> {
+    try {
+      const result = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: t("vscode.selectProjectDir"),
+        title: t("vscode.selectGitProjectDir"),
+      });
+
+      if (result && result.length > 0) {
+        this._sendMessage({
+          type: "selectFolder-response",
+          data: { path: result[0].fsPath },
+        });
+      } else {
+        this._sendMessage({
+          type: "selectFolder-response",
+          data: null,
+        });
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "selectFolder-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" },
+      });
+    }
+  }
+
+  // 通过路径添加项目
+  private async _handleAddTeamProjectByPath(payload: {
+    teamId: string;
+    path: string;
+    name?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/project-config/add-by-path`,
+        { path: payload.path, name: payload.name || "" },
+        { timeout: 10000 },
+      );
+      this._sendMessage({
+        type: "addTeamProjectByPath-response",
+        data: response.data,
+      });
+    } catch (error: any) {
+      // 提取后端错误信息
+      const errMsg =
+        error.response?.data?.error ||
+        (error instanceof Error ? error.message : "未知错误");
+      this._sendMessage({
+        type: "addTeamProjectByPath-response",
+        data: { error: errMsg },
+      });
+    }
+  }
+
+  private async _handleFetchTeamWeeklyReport(payload: {
+    teamId: string;
+    weekStart: string;
+  }): Promise<void> {
     try {
       const response = await axios.get(
         `http://localhost:19960/api/v1/team/${payload.teamId}/weekly-report`,
-        { 
+        {
           params: { week_start: payload.weekStart },
-          timeout: 60000  // 周报可能需要较长时间收集数据
-        }
+          timeout: 60000, // 周报可能需要较长时间收集数据
+        },
       );
       // 周报 API 直接返回数据对象，不使用 code 包装
       this._sendMessage({
         type: "fetchTeamWeeklyReport-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchTeamWeeklyReport-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleFetchMemberDailyDetail(payload: { teamId: string; memberId: string; date: string }): Promise<void> {
+  private async _handleFetchMemberDailyDetail(payload: {
+    teamId: string;
+    memberId: string;
+    date: string;
+  }): Promise<void> {
     try {
       const response = await axios.get(
         `http://localhost:19960/api/v1/team/${payload.teamId}/members/${payload.memberId}/daily-detail`,
-        { 
+        {
           params: { date: payload.date },
-          timeout: 30000 
-        }
+          timeout: 30000,
+        },
       );
       // 日详情 API 直接返回数据对象
       this._sendMessage({
         type: "fetchMemberDailyDetail-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "fetchMemberDailyDetail-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
 
-  private async _handleRefreshTeamWeeklyStats(payload: { teamId: string; weekStart: string }): Promise<void> {
+  private async _handleRefreshTeamWeeklyStats(payload: {
+    teamId: string;
+    weekStart: string;
+  }): Promise<void> {
     try {
       const response = await axios.post(
         `http://localhost:19960/api/v1/team/${payload.teamId}/weekly-report/refresh`,
         null,
-        { 
+        {
           params: { week_start: payload.weekStart },
-          timeout: 120000  // 刷新可能需要较长时间
-        }
+          timeout: 120000, // 刷新可能需要较长时间
+        },
       );
       // 刷新 API 返回 {success: true}
       this._sendMessage({
         type: "refreshTeamWeeklyStats-response",
-        data: response.data
+        data: response.data,
       });
     } catch (error) {
       this._sendMessage({
         type: "refreshTeamWeeklyStats-response",
-        data: { error: error instanceof Error ? error.message : "未知错误" }
+        data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }
   }
@@ -2200,13 +2891,158 @@ export class WebviewPanel {
     this._panel.webview.postMessage(message);
   }
 
+  // ========== 代码分析相关处理方法 ==========
+
+  private async _handleScanEntryPoints(payload: {
+    project_path: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/scan-entry-points",
+        { project_path: payload.project_path },
+        { timeout: 30000 },
+      );
+      this._sendMessage({
+        type: "scanEntryPoints-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "scanEntryPoints-response",
+        data: {
+          error: error instanceof Error ? error.message : "扫描入口函数失败",
+        },
+      });
+    }
+  }
+
+  private async _handleRegisterProject(payload: {
+    project_path: string;
+    entry_points: string[];
+    exclude: string[];
+    algorithm: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/projects",
+        payload,
+        { timeout: 30000 },
+      );
+      this._sendMessage({
+        type: "registerProject-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "registerProject-response",
+        data: {
+          error: error instanceof Error ? error.message : "注册项目失败",
+        },
+      });
+    }
+  }
+
+  private async _handleCheckCallGraphStatus(payload: {
+    project_path: string;
+    commit?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/callgraph/status",
+        payload,
+        { timeout: 10000 },
+      );
+      this._sendMessage({
+        type: "checkCallGraphStatus-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "checkCallGraphStatus-response",
+        data: {
+          error: error instanceof Error ? error.message : "检查状态失败",
+        },
+      });
+    }
+  }
+
+  private async _handleGenerateCallGraph(payload: {
+    project_path: string;
+    commit?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/callgraph/generate",
+        payload,
+        { timeout: 300000 }, // 5分钟超时，生成可能需要较长时间
+      );
+      this._sendMessage({
+        type: "generateCallGraph-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "generateCallGraph-response",
+        data: {
+          error: error instanceof Error ? error.message : "生成调用图失败",
+        },
+      });
+    }
+  }
+
+  private async _handleGenerateCallGraphAsync(payload: {
+    project_path: string;
+    commit?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/callgraph/generate-async",
+        payload,
+        { timeout: 30000 },
+      );
+      this._sendMessage({
+        type: "generateCallGraphAsync-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "generateCallGraphAsync-response",
+        data: {
+          error: error instanceof Error ? error.message : "启动异步生成失败",
+        },
+      });
+    }
+  }
+
+  private async _handleGetGenerationProgress(payload: {
+    task_id: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/analysis/callgraph/progress/${payload.task_id}`,
+        { timeout: 10000 },
+      );
+      this._sendMessage({
+        type: "getGenerationProgress-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "getGenerationProgress-response",
+        data: {
+          error: error instanceof Error ? error.message : "获取进度失败",
+        },
+      });
+    }
+  }
+
   private _getHtmlForWebview(webview: vscode.Webview): string {
     // 获取资源 URI
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "dist", "webview", "index.js")
+      vscode.Uri.joinPath(this._extensionUri, "dist", "webview", "index.js"),
     );
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "dist", "webview", "index.css")
+      vscode.Uri.joinPath(this._extensionUri, "dist", "webview", "index.css"),
     );
 
     console.log("WebviewPanel: Script URI", scriptUri.toString());
@@ -2225,8 +3061,13 @@ export class WebviewPanel {
     }
 
     // 从 globalState 获取语言设置
-    const savedLanguage = this._context.globalState.get<string>('cocursor-language') || 'zh-CN';
+    const savedLanguage =
+      this._context.globalState.get<string>("cocursor-language") || "zh-CN";
     const languageScript = `window.__INITIAL_LANGUAGE__ = ${JSON.stringify(savedLanguage)};`;
+
+    // 注入翻译资源（避免 Webview 端运行时文件读取）
+    const translationResources = getTranslationResources();
+    const resourcesScript = `window.__I18N_RESOURCES__ = ${JSON.stringify(translationResources)};`;
 
     const html = `<!DOCTYPE html>
       <html lang="zh-CN">
@@ -2244,11 +3085,12 @@ export class WebviewPanel {
           window.__VIEW_TYPE__ = "${this._viewType}";
           ${workspacePathScript}
           ${languageScript}
+          ${resourcesScript}
         </script>
         <script nonce="${nonce}" src="${scriptUri}"></script>
       </body>
       </html>`;
-    
+
     return html;
   }
 
@@ -2264,6 +3106,8 @@ export class WebviewPanel {
       WebviewPanel.ragSearchPanel = undefined;
     } else if (this._viewType === "team") {
       WebviewPanel.teamPanel = undefined;
+    } else if (this._viewType === "codeAnalysis") {
+      WebviewPanel.codeAnalysisPanel = undefined;
     }
 
     // 清理资源
@@ -2281,7 +3125,8 @@ export class WebviewPanel {
 
 function getNonce(): string {
   let text = "";
-  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const possible =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   for (let i = 0; i < 32; i++) {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }

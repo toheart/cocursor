@@ -142,20 +142,8 @@ func (s *SkillInstaller) CheckSkillConflict(skillName string, pluginID string) e
 // force: 强制覆盖（当检测到手动安装的同名 skill 时）
 func (s *SkillInstaller) InstallSkill(pluginID string, skill *domainMarketplace.SkillComponent, workspacePath string, force bool) error {
 	// 检查冲突
-	if err := s.CheckSkillConflict(skill.SkillName, pluginID); err != nil {
-		if conflictErr, ok := err.(*SkillConflictError); ok {
-			// 如果是手动安装的冲突，且 force=true，则允许覆盖
-			if conflictErr.ConflictType == ConflictTypeManualInstall && force {
-				s.logger.Info("Force overwriting manually installed skill",
-					"skill_name", skill.SkillName,
-					"plugin_id", pluginID,
-				)
-			} else {
-				return conflictErr
-			}
-		} else {
-			return err
-		}
+	if err := s.checkConflictWithForce(skill.SkillName, pluginID, force); err != nil {
+		return err
 	}
 
 	// 获取用户主目录
@@ -207,24 +195,13 @@ func (s *SkillInstaller) InstallSkill(pluginID string, skill *domainMarketplace.
 	}
 
 	// 更新工作区的 AGENTS.md（如果提供了工作区路径）
-	if len(skillMDContent) > 0 && workspacePath != "" {
-		metadata, err := s.agentsUpdater.ParseSkillFrontmatter(skillMDContent)
-		if err == nil {
-			// 尝试查找并更新 AGENTS.md（如果找不到，静默失败，不影响安装）
-			agentsPath, err := s.agentsUpdater.FindAgentsMDFile(workspacePath)
-			if err == nil {
-				// 传递 skill.SkillName 作为目录名
-				if err := s.agentsUpdater.AddSkillToAgentsMD(agentsPath, metadata, skill.SkillName); err != nil {
-					// 记录错误但不影响安装流程
-					s.logger.Warn("Failed to add skill to AGENTS.md",
-						"skill_name", skill.SkillName,
-						"workspace_path", workspacePath,
-						"error", err,
-					)
-				}
-			}
-		}
-	}
+	s.tryUpdateAgentsMD(skillMDContent, workspacePath, skill.SkillName)
+
+	s.logger.Info("Skill installed",
+		"plugin_id", pluginID,
+		"skill_name", skill.SkillName,
+		"target_dir", targetDir,
+	)
 
 	return nil
 }
@@ -308,20 +285,8 @@ func (s *SkillInstaller) SyncSkillToAgentsMD(pluginID string, skillName string, 
 // force: 强制覆盖
 func (s *SkillInstaller) InstallSkillFromPath(sourcePath, installDirName, fullID, workspacePath string, force bool) error {
 	// 检查冲突
-	if err := s.CheckSkillConflict(installDirName, fullID); err != nil {
-		if conflictErr, ok := err.(*SkillConflictError); ok {
-			// 如果是手动安装的冲突，且 force=true，则允许覆盖
-			if conflictErr.ConflictType == ConflictTypeManualInstall && force {
-				s.logger.Info("Force overwriting manually installed skill",
-					"skill_name", installDirName,
-					"full_id", fullID,
-				)
-			} else {
-				return conflictErr
-			}
-		} else {
-			return err
-		}
+	if err := s.checkConflictWithForce(installDirName, fullID, force); err != nil {
+		return err
 	}
 
 	// 读取源目录文件
@@ -377,24 +342,7 @@ func (s *SkillInstaller) InstallSkillFromPath(sourcePath, installDirName, fullID
 	}
 
 	// 更新工作区的 AGENTS.md（如果提供了工作区路径）
-	if len(skillMDContent) > 0 && workspacePath != "" {
-		metadata, err := s.agentsUpdater.ParseSkillFrontmatter(skillMDContent)
-		if err == nil {
-			// 尝试查找并更新 AGENTS.md（如果找不到，静默失败，不影响安装）
-			agentsPath, err := s.agentsUpdater.FindAgentsMDFile(workspacePath)
-			if err == nil {
-				// 传递 installDirName 作为目录名（团队技能使用）
-				if err := s.agentsUpdater.AddSkillToAgentsMD(agentsPath, metadata, installDirName); err != nil {
-					// 记录错误但不影响安装流程
-					s.logger.Warn("Failed to add skill to AGENTS.md",
-						"skill_name", installDirName,
-						"workspace_path", workspacePath,
-						"error", err,
-					)
-				}
-			}
-		}
-	}
+	s.tryUpdateAgentsMD(skillMDContent, workspacePath, installDirName)
 
 	s.logger.Info("Skill installed from path",
 		"source", sourcePath,
@@ -403,6 +351,55 @@ func (s *SkillInstaller) InstallSkillFromPath(sourcePath, installDirName, fullID
 	)
 
 	return nil
+}
+
+// checkConflictWithForce 检查冲突，如果 force=true 则允许覆盖手动安装的 skill
+func (s *SkillInstaller) checkConflictWithForce(skillName, pluginID string, force bool) error {
+	err := s.CheckSkillConflict(skillName, pluginID)
+	if err == nil {
+		return nil
+	}
+
+	conflictErr, ok := err.(*SkillConflictError)
+	if !ok {
+		return err
+	}
+
+	// 如果是手动安装的冲突，且 force=true，则允许覆盖
+	if conflictErr.ConflictType == ConflictTypeManualInstall && force {
+		s.logger.Info("Force overwriting manually installed skill",
+			"skill_name", skillName,
+			"plugin_id", pluginID,
+		)
+		return nil
+	}
+
+	return conflictErr
+}
+
+// tryUpdateAgentsMD 尝试更新工作区的 AGENTS.md（失败不影响安装）
+func (s *SkillInstaller) tryUpdateAgentsMD(skillMDContent []byte, workspacePath, skillName string) {
+	if len(skillMDContent) == 0 || workspacePath == "" {
+		return
+	}
+
+	metadata, err := s.agentsUpdater.ParseSkillFrontmatter(skillMDContent)
+	if err != nil {
+		return
+	}
+
+	agentsPath, err := s.agentsUpdater.FindAgentsMDFile(workspacePath)
+	if err != nil {
+		return
+	}
+
+	if err := s.agentsUpdater.AddSkillToAgentsMD(agentsPath, metadata, skillName); err != nil {
+		s.logger.Warn("Failed to add skill to AGENTS.md",
+			"skill_name", skillName,
+			"workspace_path", workspacePath,
+			"error", err,
+		)
+	}
 }
 
 // ReadSkillFilesFromPath 从本地路径读取技能文件

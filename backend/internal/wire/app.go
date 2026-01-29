@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"time"
 
+	"log/slog"
+
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
+	appLifecycle "github.com/cocursor/backend/internal/application/lifecycle"
 	appRAG "github.com/cocursor/backend/internal/application/rag"
 	"github.com/cocursor/backend/internal/domain/events"
 	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
@@ -13,7 +16,6 @@ import (
 	"github.com/cocursor/backend/internal/infrastructure/watcher"
 	"github.com/cocursor/backend/internal/infrastructure/websocket"
 	"github.com/cocursor/backend/internal/interfaces"
-	"log/slog"
 )
 
 // App 应用主结构，组合所有服务
@@ -26,6 +28,7 @@ type App struct {
 	scanScheduler         *appRAG.ScanScheduler
 	ragInitializer        *appRAG.RAGInitializer // 用于管理 Qdrant 生命周期
 	mcpInitializer        *infraMarketplace.MCPInitializer
+	windowManager         *appLifecycle.WindowManager // 窗口生命周期管理
 	db                    *sql.DB
 	logger                *slog.Logger
 
@@ -45,6 +48,7 @@ func NewApp(
 	scanScheduler *appRAG.ScanScheduler,
 	ragInitializer *appRAG.RAGInitializer,
 	mcpInitializer *infraMarketplace.MCPInitializer,
+	windowManager *appLifecycle.WindowManager,
 	db *sql.DB,
 ) *App {
 	logger := applog.NewModuleLogger("app", "main")
@@ -78,6 +82,7 @@ func NewApp(
 		scanScheduler:         scanScheduler,
 		ragInitializer:        ragInitializer,
 		mcpInitializer:        mcpInitializer,
+		windowManager:         windowManager,
 		db:                    db,
 		logger:                logger,
 		eventBus:              eventBus,
@@ -88,6 +93,12 @@ func NewApp(
 // Start 启动所有服务
 func (a *App) Start() error {
 	a.logger.Info("Starting CoCursor backend application")
+
+	// 启动窗口生命周期管理器
+	if a.windowManager != nil {
+		a.windowManager.Start()
+		a.logger.Info("Window manager started")
+	}
 
 	// 初始化项目管理器（扫描所有工作区）
 	if a.projectManager != nil {
@@ -218,6 +229,12 @@ func (a *App) GetShutdownChan() <-chan struct{} {
 // Stop 停止所有服务
 func (a *App) Stop() error {
 	a.logger.Info("Stopping CoCursor backend application")
+
+	// 停止窗口生命周期管理器
+	if a.windowManager != nil {
+		a.windowManager.Stop()
+		a.logger.Info("Window manager stopped")
+	}
 
 	// 停止文件监听器
 	if a.fileWatcher != nil {

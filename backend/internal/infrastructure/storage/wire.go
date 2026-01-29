@@ -12,4 +12,5 @@ var ProviderSet = wire.NewSet(
 	NewChunkRepository,                 // RAG 知识片段仓储
 	NewIndexStatusRepository,           // RAG 索引状态仓储
 	NewEnrichmentQueueRepository,       // RAG 增强队列仓储
+	NewTodoRepository,                  // 待办事项仓储
 )

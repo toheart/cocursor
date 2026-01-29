@@ -55,43 +55,6 @@ func NewCollaborationService(teamService *TeamService, dailySummaryRepo storage.
 	}
 }
 
-// ShareCode 分享代码片段
-func (s *CollaborationService) ShareCode(ctx context.Context, snippet *domainTeam.CodeSnippet) error {
-	// 验证代码片段
-	if err := snippet.Validate(); err != nil {
-		return fmt.Errorf("invalid code snippet: %w", err)
-	}
-
-	// 获取团队信息
-	team, err := s.teamService.GetTeam(snippet.TeamID)
-	if err != nil {
-		return fmt.Errorf("team not found: %w", err)
-	}
-
-	// 创建事件 payload
-	payload := &p2p.CodeSharedPayload{
-		ID:         snippet.ID,
-		SenderID:   snippet.SenderID,
-		SenderName: snippet.SenderName,
-		FileName:   snippet.FileName,
-		FilePath:   snippet.FilePath,
-		Language:   snippet.Language,
-		StartLine:  snippet.StartLine,
-		EndLine:    snippet.EndLine,
-		Code:       snippet.Code,
-		Message:    snippet.Message,
-		CreatedAt:  snippet.CreatedAt,
-	}
-
-	// 如果是 Leader，直接广播
-	if team.IsLeader {
-		return s.teamService.BroadcastEvent(snippet.TeamID, p2p.EventCodeShared, payload)
-	}
-
-	// 否则发送到 Leader
-	return s.sendToLeader(ctx, team.LeaderEndpoint, snippet.TeamID, "share-code", payload)
-}
-
 // UpdateWorkStatus 更新工作状态
 func (s *CollaborationService) UpdateWorkStatus(ctx context.Context, teamID string, status *p2p.MemberWorkStatusPayload) error {
 	// 获取团队信息
@@ -309,12 +272,6 @@ func (s *CollaborationService) GetDailySummaryDetail(ctx context.Context, teamID
 	}
 
 	return summary, nil
-}
-
-// HandleCodeSharedEvent 处理代码分享事件（Leader 调用）
-func (s *CollaborationService) HandleCodeSharedEvent(teamID string, payload *p2p.CodeSharedPayload) error {
-	// Leader 收到成员的代码分享请求后，广播给所有成员
-	return s.teamService.BroadcastEvent(teamID, p2p.EventCodeShared, payload)
 }
 
 // HandleWorkStatusEvent 处理工作状态事件（Leader 调用）

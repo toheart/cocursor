@@ -50,9 +50,8 @@ func (s *Service) CreateAndPush(dto *CreateNotificationDTO) (*NotificationDTO, e
 	}
 
 	// 4. 推送到团队（技术能力）
-	if err := s.pusher.PushToTeam(dto.TeamCode, notif); err != nil {
-		// 推送失败不影响保存
-	}
+	// 推送失败不影响保存，忽略错误
+	_ = s.pusher.PushToTeam(dto.TeamCode, notif)
 
 	// 5. 返回 DTO
 	return toDTO(notif), nil

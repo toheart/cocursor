@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sourcegraph/conc/pool"
 
 	"github.com/cocursor/backend/internal/domain/p2p"
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
@@ -82,32 +83,24 @@ func (s *WeeklyReportService) GetProjectConfig(teamID string) (*domainTeam.TeamP
 // fetchProjectConfigFromLeader 从 Leader 拉取项目配置
 func (s *WeeklyReportService) fetchProjectConfigFromLeader(teamID, leaderEndpoint string) (*domainTeam.TeamProjectConfig, error) {
 	url := fmt.Sprintf("http://%s/api/v1/team/%s/project-config", leaderEndpoint, teamID)
-	
+
 	resp, err := s.httpClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("leader returned status %d", resp.StatusCode)
 	}
-	
-	var result struct {
-		Code    int                           `json:"code"`
-		Data    domainTeam.TeamProjectConfig  `json:"data"`
-		Message string                        `json:"message"`
+
+	// Leader 的 GetProjectConfig API 直接返回 TeamProjectConfig 对象，没有 code/data 包装
+	var config domainTeam.TeamProjectConfig
+	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
+		return nil, fmt.Errorf("failed to decode project config: %w", err)
 	}
-	
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	
-	if result.Code != 0 {
-		return nil, fmt.Errorf("leader returned error: %s", result.Message)
-	}
-	
-	return &result.Data, nil
+
+	return &config, nil
 }
 
 // UpdateProjectConfig 更新项目配置
@@ -256,6 +249,7 @@ func (s *WeeklyReportService) GetWeeklyReport(ctx context.Context, teamID, weekS
 
 	// 收集所有成员的统计数据
 	memberStats := make(map[string]*domainTeam.MemberWeeklyStats)
+	var statsMu sync.Mutex
 
 	// 获取本地身份，用于判断是否需要跳过自己
 	localIdentity, _ := s.teamService.GetIdentity()
@@ -264,48 +258,69 @@ func (s *WeeklyReportService) GetWeeklyReport(ctx context.Context, teamID, weekS
 		localMemberID = localIdentity.ID
 	}
 
+	// 使用 conc 库并发获取所有成员的统计数据
+	p := pool.New().WithContext(ctx)
 	for _, member := range members {
 		// 先检查缓存
 		cached, expired, _ := statsStore.Get(member.ID, weekStart)
 		if cached != nil && !expired {
+			statsMu.Lock()
 			memberStats[member.ID] = cached
+			statsMu.Unlock()
 			continue
 		}
 
-		// 如果是本地成员，使用 localhost 而不是远程 endpoint
-		endpoint := member.Endpoint
-		if member.ID == localMemberID {
-			endpoint = "127.0.0.1:19960"
+		// 成员离线且有缓存，使用缓存
+		if !member.IsOnline {
+			if cached != nil {
+				statsMu.Lock()
+				memberStats[member.ID] = cached
+				statsMu.Unlock()
+			}
+			continue
 		}
 
-		// 缓存过期或不存在，尝试从成员拉取
-		if member.IsOnline {
+		// 在线成员，并发拉取数据
+		m := member
+		cachedStats := cached
+		p.Go(func(ctx context.Context) error {
+			// 如果是本地成员，使用 localhost 而不是远程 endpoint
+			endpoint := m.Endpoint
+			if m.ID == localMemberID {
+				endpoint = "127.0.0.1:19960"
+			}
+
 			stats, err := s.fetchMemberStats(ctx, endpoint, weekStart, config.GetRepoURLs())
 			if err != nil {
 				s.logger.Warn("failed to fetch member stats",
-					"memberID", member.ID,
-					"endpoint", member.Endpoint,
+					"memberID", m.ID,
+					"endpoint", m.Endpoint,
 					"error", err,
 				)
 				// 使用过期缓存
-				if cached != nil {
-					memberStats[member.ID] = cached
+				if cachedStats != nil {
+					statsMu.Lock()
+					memberStats[m.ID] = cachedStats
+					statsMu.Unlock()
 				}
-				continue
+				// 返回 nil，不中断其他任务
+				return nil
 			}
-			stats.MemberID = member.ID
-			stats.MemberName = member.Name
+			stats.MemberID = m.ID
+			stats.MemberName = m.Name
 
 			// 更新缓存
 			if err := statsStore.Set(stats); err != nil {
 				s.logger.Warn("failed to cache member stats", "error", err)
 			}
-			memberStats[member.ID] = stats
-		} else if cached != nil {
-			// 成员离线，使用缓存
-			memberStats[member.ID] = cached
-		}
+
+			statsMu.Lock()
+			memberStats[m.ID] = stats
+			statsMu.Unlock()
+			return nil
+		})
 	}
+	_ = p.Wait()
 
 	// 构建周视图
 	view := s.buildWeeklyView(teamID, weekStart, weekEnd, members, memberStats, config)
@@ -432,17 +447,15 @@ func (s *WeeklyReportService) RefreshWeeklyStats(ctx context.Context, teamID, we
 		localMemberID = localIdentity.ID
 	}
 
-	// 并发刷新所有在线成员
-	var wg sync.WaitGroup
+	// 使用 conc 库并发刷新所有在线成员
+	p := pool.New().WithContext(ctx)
 	for _, member := range members {
 		if !member.IsOnline {
 			continue
 		}
 
-		wg.Add(1)
-		go func(m *domainTeam.TeamMember) {
-			defer wg.Done()
-
+		m := member
+		p.Go(func(ctx context.Context) error {
 			// 如果是本地成员，使用 localhost
 			endpoint := m.Endpoint
 			if m.ID == localMemberID {
@@ -455,7 +468,8 @@ func (s *WeeklyReportService) RefreshWeeklyStats(ctx context.Context, teamID, we
 					"memberID", m.ID,
 					"error", err,
 				)
-				return
+				// 返回 nil，不中断其他任务
+				return nil
 			}
 			stats.MemberID = m.ID
 			stats.MemberName = m.Name
@@ -463,10 +477,11 @@ func (s *WeeklyReportService) RefreshWeeklyStats(ctx context.Context, teamID, we
 			if err := statsStore.Set(stats); err != nil {
 				s.logger.Warn("failed to cache member stats", "error", err)
 			}
-		}(member)
+			return nil
+		})
 	}
 
-	wg.Wait()
+	_ = p.Wait()
 	return nil
 }
 

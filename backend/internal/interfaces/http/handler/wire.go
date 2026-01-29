@@ -15,4 +15,7 @@ var ProviderSet = wire.NewSet(
 	NewWeeklySummaryHandler,
 	NewProfileHandler,
 	NewOpenSpecHandler,
+	NewTodoHandler,
+	NewCodeAnalysisHandler,
+	NewLifecycleHandler,
 )

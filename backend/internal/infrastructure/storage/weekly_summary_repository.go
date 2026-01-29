@@ -48,7 +48,7 @@ func (r *weeklySummaryRepository) Save(summary *domainCursor.WeeklySummary) erro
 
 	// 序列化 projects 为 JSON
 	var projectsJSON string
-	if summary.Projects != nil && len(summary.Projects) > 0 {
+	if len(summary.Projects) > 0 {
 		projectsBytes, err := json.Marshal(summary.Projects)
 		if err == nil {
 			projectsJSON = string(projectsBytes)
@@ -66,7 +66,7 @@ func (r *weeklySummaryRepository) Save(summary *domainCursor.WeeklySummary) erro
 
 	// 序列化 key_accomplishments 为 JSON
 	var keyAccomplishmentsJSON string
-	if summary.KeyAccomplishments != nil && len(summary.KeyAccomplishments) > 0 {
+	if len(summary.KeyAccomplishments) > 0 {
 		keyAccomplishmentsBytes, err := json.Marshal(summary.KeyAccomplishments)
 		if err == nil {
 			keyAccomplishmentsJSON = string(keyAccomplishmentsBytes)
@@ -149,32 +149,24 @@ func (r *weeklySummaryRepository) FindByWeekStart(weekStart string) (*domainCurs
 		return nil, fmt.Errorf("failed to query weekly summary: %w", err)
 	}
 
-	// 反序列化 work_categories
+	// 反序列化 work_categories（忽略反序列化错误）
 	if categoriesJSON != "" {
-		if err := json.Unmarshal([]byte(categoriesJSON), &summary.WorkCategories); err != nil {
-			// 忽略反序列化错误
-		}
+		_ = json.Unmarshal([]byte(categoriesJSON), &summary.WorkCategories)
 	}
 
-	// 反序列化 projects
+	// 反序列化 projects（忽略反序列化错误）
 	if projectsJSON.Valid && projectsJSON.String != "" {
-		if err := json.Unmarshal([]byte(projectsJSON.String), &summary.Projects); err != nil {
-			// 忽略反序列化错误
-		}
+		_ = json.Unmarshal([]byte(projectsJSON.String), &summary.Projects)
 	}
 
-	// 反序列化 code_changes
+	// 反序列化 code_changes（忽略反序列化错误）
 	if codeChangesJSON.Valid && codeChangesJSON.String != "" {
-		if err := json.Unmarshal([]byte(codeChangesJSON.String), &summary.CodeChanges); err != nil {
-			// 忽略反序列化错误
-		}
+		_ = json.Unmarshal([]byte(codeChangesJSON.String), &summary.CodeChanges)
 	}
 
-	// 反序列化 key_accomplishments
+	// 反序列化 key_accomplishments（忽略反序列化错误）
 	if keyAccomplishmentsJSON.Valid && keyAccomplishmentsJSON.String != "" {
-		if err := json.Unmarshal([]byte(keyAccomplishmentsJSON.String), &summary.KeyAccomplishments); err != nil {
-			// 忽略反序列化错误
-		}
+		_ = json.Unmarshal([]byte(keyAccomplishmentsJSON.String), &summary.KeyAccomplishments)
 	}
 
 	// 设置 data_hash

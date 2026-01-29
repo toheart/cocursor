@@ -40,48 +40,6 @@ type MemberWorkStatus struct {
 	StatusVisible bool      `json:"status_visible"` // 是否公开状态
 }
 
-// CodeSnippet 代码片段
-type CodeSnippet struct {
-	ID         string    `json:"id"`          // 唯一标识
-	TeamID     string    `json:"team_id"`     // 团队 ID
-	SenderID   string    `json:"sender_id"`   // 发送者 ID
-	SenderName string    `json:"sender_name"` // 发送者名称
-	FileName   string    `json:"file_name"`   // 文件名
-	FilePath   string    `json:"file_path"`   // 相对路径
-	Language   string    `json:"language"`    // 编程语言
-	StartLine  int       `json:"start_line"`  // 起始行号
-	EndLine    int       `json:"end_line"`    // 结束行号
-	Code       string    `json:"code"`        // 代码内容
-	Message    string    `json:"message"`     // 附加消息（可选）
-	CreatedAt  time.Time `json:"created_at"`  // 创建时间
-}
-
-// MaxCodeSnippetSize 代码片段最大大小（10KB）
-const MaxCodeSnippetSize = 10 * 1024
-
-// Validate 验证代码片段
-func (s *CodeSnippet) Validate() error {
-	if s.Code == "" {
-		return fmt.Errorf("code content is required")
-	}
-	if len(s.Code) > MaxCodeSnippetSize {
-		return fmt.Errorf("code snippet exceeds maximum size of %d bytes", MaxCodeSnippetSize)
-	}
-	if s.FileName == "" {
-		return fmt.Errorf("file name is required")
-	}
-	return nil
-}
-
-// Truncate 截断代码片段到最大大小
-func (s *CodeSnippet) Truncate() bool {
-	if len(s.Code) > MaxCodeSnippetSize {
-		s.Code = s.Code[:MaxCodeSnippetSize]
-		return true
-	}
-	return false
-}
-
 // TeamDailySummary 团队日报
 type TeamDailySummary struct {
 	MemberID      string    `json:"member_id"`      // 成员 ID

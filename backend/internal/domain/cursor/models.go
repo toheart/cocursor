@@ -105,15 +105,17 @@ func (s *DailyAcceptanceStats) CalculateAcceptanceRate() {
 	}
 
 	// 计算 Composer 接受率
+	s.calculateComposerAcceptanceRate()
+}
+
+// calculateComposerAcceptanceRate 计算 Composer 接受率
+func (s *DailyAcceptanceStats) calculateComposerAcceptanceRate() {
 	if s.ComposerSuggestedLines > 0 {
 		s.ComposerAcceptanceRate = float64(s.ComposerAcceptedLines) / float64(s.ComposerSuggestedLines) * 100
 		if s.ComposerAcceptanceRate > 100 {
 			s.ComposerAcceptanceRate = 100
 			s.DataQuality = "warning"
-			if s.WarningMessage != "" {
-				s.WarningMessage += "; "
-			}
-			s.WarningMessage += fmt.Sprintf("Composer 接受率异常：建议 %d 行，接受 %d 行", s.ComposerSuggestedLines, s.ComposerAcceptedLines)
+			s.appendWarning(fmt.Sprintf("Composer 接受率异常：建议 %d 行，接受 %d 行", s.ComposerSuggestedLines, s.ComposerAcceptedLines))
 		}
 	} else if s.ComposerAcceptedLines > 0 && s.ComposerSuggestedLines == 0 {
 		// 建议行数为 0 但有接受行数
@@ -122,6 +124,14 @@ func (s *DailyAcceptanceStats) CalculateAcceptanceRate() {
 		s.ComposerAcceptanceRate = -1
 		// 不再标记为 warning，因为这是 Cursor 的正常行为
 	}
+}
+
+// appendWarning 追加警告信息
+func (s *DailyAcceptanceStats) appendWarning(msg string) {
+	if s.WarningMessage != "" {
+		s.WarningMessage += "; "
+	}
+	s.WarningMessage += msg
 }
 
 // GetOverallAcceptanceRate 获取整体接受率
@@ -260,14 +270,14 @@ type WorkAnalysis struct {
 
 // DailyAnalysis 每日分析详情
 type DailyAnalysis struct {
-	Date             string `json:"date"`               // 日期 YYYY-MM-DD
-	LinesAdded       int    `json:"lines_added"`        // 添加行数
-	LinesRemoved     int    `json:"lines_removed"`      // 删除行数
-	FilesChanged     int    `json:"files_changed"`      // 变更文件数
-	ActiveSessions   int    `json:"active_sessions"`    // 活跃会话数
-	TokenUsage       int    `json:"token_usage"`        // 当日 Token 消耗
-	HasDailyReport   bool   `json:"has_daily_report"`   // 是否有日报
-	CompletedChanges int    `json:"completed_changes"`  // 当日完成的 OpenSpec 变更数量
+	Date             string `json:"date"`              // 日期 YYYY-MM-DD
+	LinesAdded       int    `json:"lines_added"`       // 添加行数
+	LinesRemoved     int    `json:"lines_removed"`     // 删除行数
+	FilesChanged     int    `json:"files_changed"`     // 变更文件数
+	ActiveSessions   int    `json:"active_sessions"`   // 活跃会话数
+	TokenUsage       int    `json:"token_usage"`       // 当日 Token 消耗
+	HasDailyReport   bool   `json:"has_daily_report"`  // 是否有日报
+	CompletedChanges int    `json:"completed_changes"` // 当日完成的 OpenSpec 变更数量
 }
 
 // WorkAnalysisOverview 工作分析概览

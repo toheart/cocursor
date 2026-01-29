@@ -56,26 +56,28 @@ func getDaemonStatusTool(
 
 	// 读取今日统计数据
 	if dbPath != "" && err == nil {
-		// 获取今天的日期
-		today := time.Now().Format("2006-01-02")
-		key := fmt.Sprintf("aiCodeTracking.dailyStats.v1.5.%s", today)
-
-		// 读取统计数据
-		value, err := dbReader.ReadValueFromTable(dbPath, key)
-		if err == nil && len(value) > 0 {
-			var stats DailyStats
-			if err := json.Unmarshal(value, &stats); err == nil {
-				output.DailyStats = &stats
-			}
-		}
-
-		// 读取缓存的邮箱
-		emailValue, err := dbReader.ReadValueFromTable(dbPath, "cursorAuth/cachedEmail")
-		if err == nil && len(emailValue) > 0 {
-			output.CachedEmail = string(emailValue)
-		}
+		populateDailyStats(&output, dbReader, dbPath)
 	}
 
 	// 返回 nil result，SDK 会自动处理输出
 	return nil, output, nil
+}
+
+// populateDailyStats 填充每日统计数据
+func populateDailyStats(output *DaemonStatusOutput, dbReader *infraCursor.DBReader, dbPath string) {
+	today := time.Now().Format("2006-01-02")
+	key := fmt.Sprintf("aiCodeTracking.dailyStats.v1.5.%s", today)
+
+	value, err := dbReader.ReadValueFromTable(dbPath, key)
+	if err == nil && len(value) > 0 {
+		var stats DailyStats
+		if err := json.Unmarshal(value, &stats); err == nil {
+			output.DailyStats = &stats
+		}
+	}
+
+	emailValue, err := dbReader.ReadValueFromTable(dbPath, "cursorAuth/cachedEmail")
+	if err == nil && len(emailValue) > 0 {
+		output.CachedEmail = string(emailValue)
+	}
 }

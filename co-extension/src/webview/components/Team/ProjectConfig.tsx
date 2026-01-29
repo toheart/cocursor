@@ -29,6 +29,7 @@ export const ProjectConfig: React.FC<ProjectConfigProps> = ({
   const [projectName, setProjectName] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
   const [adding, setAdding] = useState(false);
+  const [selectingFolder, setSelectingFolder] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   // 项目列表
@@ -82,6 +83,24 @@ export const ProjectConfig: React.FC<ProjectConfigProps> = ({
     }
   }, [teamId, showToast, onUpdated, t]);
 
+  // 选择文件夹添加项目
+  const handleSelectFolder = useCallback(async () => {
+    setSelectingFolder(true);
+    try {
+      const result = await apiService.selectFolder();
+      if (result && result.path) {
+        // 调用后端 API 通过路径添加项目
+        await apiService.addTeamProjectByPath(teamId, result.path);
+        showToast(t("weeklyReport.addProjectSuccess"), "success");
+        onUpdated();
+      }
+    } catch (err: any) {
+      showToast(err.message || t("weeklyReport.addProjectFailed"), "error");
+    } finally {
+      setSelectingFolder(false);
+    }
+  }, [teamId, showToast, onUpdated, t]);
+
   return (
     <div className="cocursor-modal-overlay" onClick={onClose}>
       <div
@@ -103,9 +122,21 @@ export const ProjectConfig: React.FC<ProjectConfigProps> = ({
             <p>{t("weeklyReport.projectConfigDesc")}</p>
           </div>
 
-          {/* 添加项目表单 */}
-          <div className="cocursor-project-config-form">
-            <h3>{t("weeklyReport.addProject")}</h3>
+          {/* 选择文件夹快捷方式 */}
+          <div className="cocursor-project-config-quick">
+            <button
+              className="cocursor-btn primary cocursor-btn-full-width"
+              onClick={handleSelectFolder}
+              disabled={selectingFolder}
+            >
+              {selectingFolder ? t("common.loading") : `📁 ${t("weeklyReport.selectFolder")}`}
+            </button>
+            <p className="cocursor-form-hint">{t("weeklyReport.selectFolderHint")}</p>
+          </div>
+
+          {/* 手动添加项目表单（可折叠） */}
+          <details className="cocursor-project-config-form">
+            <summary>{t("weeklyReport.manualAdd")}</summary>
             <div className="cocursor-form-row">
               <div className="cocursor-form-group">
                 <label>{t("weeklyReport.projectName")}</label>
@@ -134,7 +165,7 @@ export const ProjectConfig: React.FC<ProjectConfigProps> = ({
               </button>
             </div>
             <p className="cocursor-form-hint">{t("weeklyReport.repoUrlHint")}</p>
-          </div>
+          </details>
 
           {/* 项目列表 */}
           <div className="cocursor-project-config-list">

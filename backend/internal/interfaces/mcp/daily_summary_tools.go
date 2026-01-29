@@ -259,44 +259,7 @@ func (s *MCPServer) getSessionContentTool(
 	// 获取项目名称：通过查找所有项目，找到包含此会话的项目
 	projectName := ""
 	if sessionDetail.Session != nil {
-		projects := s.projectManager.ListAllProjects()
-		pathResolver := infraCursor.NewPathResolver()
-		dbReader := infraCursor.NewDBReader()
-
-		for _, project := range projects {
-			for _, ws := range project.Workspaces {
-				// 读取此工作区的 composer 数据
-				workspaceDBPath, err := pathResolver.GetWorkspaceDBPath(ws.WorkspaceID)
-				if err != nil {
-					continue
-				}
-
-				composerDataValue, err := dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "composer.composerData")
-				if err != nil {
-					continue
-				}
-
-				composers, err := domainCursor.ParseComposerData(string(composerDataValue))
-				if err != nil {
-					continue
-				}
-
-				// 检查是否包含此会话
-				for _, composer := range composers {
-					if composer.ComposerID == input.SessionID {
-						projectName = project.ProjectName
-						break
-					}
-				}
-
-				if projectName != "" {
-					break
-				}
-			}
-			if projectName != "" {
-				break
-			}
-		}
+		projectName = s.findProjectNameBySessionID(input.SessionID)
 	}
 
 	// 转换为 TextMessage 格式
@@ -554,4 +517,50 @@ func (s *MCPServer) getDailyConversationsTool(
 	}
 
 	return nil, output, nil
+}
+
+// findProjectNameBySessionID 通过会话 ID 查找项目名称
+func (s *MCPServer) findProjectNameBySessionID(sessionID string) string {
+	projects := s.projectManager.ListAllProjects()
+	pathResolver := infraCursor.NewPathResolver()
+	dbReader := infraCursor.NewDBReader()
+
+	for _, project := range projects {
+		if name := findSessionInProject(project, sessionID, pathResolver, dbReader); name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
+// findSessionInProject 在项目中查找会话
+func findSessionInProject(
+	project *domainCursor.ProjectInfo,
+	sessionID string,
+	pathResolver *infraCursor.PathResolver,
+	dbReader *infraCursor.DBReader,
+) string {
+	for _, ws := range project.Workspaces {
+		workspaceDBPath, err := pathResolver.GetWorkspaceDBPath(ws.WorkspaceID)
+		if err != nil {
+			continue
+		}
+
+		composerDataValue, err := dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "composer.composerData")
+		if err != nil {
+			continue
+		}
+
+		composers, err := domainCursor.ParseComposerData(string(composerDataValue))
+		if err != nil {
+			continue
+		}
+
+		for _, composer := range composers {
+			if composer.ComposerID == sessionID {
+				return project.ProjectName
+			}
+		}
+	}
+	return ""
 }

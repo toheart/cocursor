@@ -4,6 +4,7 @@ import { WebviewPanel } from "./webviewPanel";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
 import { DaemonManager } from "./daemon/daemonManager";
 import { ReminderService } from "./reminder/reminderService";
+import { TodoModule } from "./todo";
 import { checkAndReportProject } from "./utils/projectReporter";
 import { watchWorkspaceChanges } from "./utils/workspaceDetector";
 import { initI18n } from "./utils/i18n";
@@ -13,6 +14,7 @@ let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
 let daemonManager: DaemonManager | null = null;
 let reminderService: ReminderService | null = null;
+let todoModule: TodoModule | null = null;
 let windowStateListener: vscode.Disposable | null = null;
 let activeEditorListener: vscode.Disposable | null = null;
 let statusReportThrottle: NodeJS.Timeout | null = null;
@@ -21,28 +23,33 @@ let lastReportedStatus: { project: string; file: string } | null = null;
 export function activate(context: vscode.ExtensionContext): void {
   // 初始化 Logger（优先初始化，确保后续日志可见）
   Logger.init(context);
-  
+
   // 自动显示两个 Output 面板（不抢占焦点）
   Logger.showMain(true);
   Logger.showBackend(true);
-  
+
   // 初始化 i18n
   initI18n(context);
-  
+
   // 输出扩展激活日志
   Logger.info("========================================");
   Logger.info("CoCursor Extension 已激活！");
   Logger.info(`Extension URI: ${context.extensionUri.toString()}`);
   Logger.info("========================================");
-  
+
   // 只在首次激活时显示通知
-  const isFirstActivation = context.globalState.get<boolean>("cocursor.firstActivation", true);
+  const isFirstActivation = context.globalState.get<boolean>(
+    "cocursor.firstActivation",
+    true,
+  );
   if (isFirstActivation) {
-    vscode.window.showInformationMessage("CoCursor 扩展已激活！", "打开仪表板").then((selection) => {
-      if (selection === "打开仪表板") {
-        vscode.commands.executeCommand("cocursor.openDashboard");
-      }
-    });
+    vscode.window
+      .showInformationMessage("CoCursor 扩展已激活！", "打开仪表板")
+      .then((selection) => {
+        if (selection === "打开仪表板") {
+          vscode.commands.executeCommand("cocursor.openDashboard");
+        }
+      });
     // 标记为已激活过
     context.globalState.update("cocursor.firstActivation", false);
   }
@@ -50,7 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // 创建状态栏项
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
-    100
+    100,
   );
   statusBarItem.text = "$(check) CoCursor";
   statusBarItem.tooltip = "点击打开 CoCursor 仪表板";
@@ -104,13 +111,22 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("cocursor.openDashboard", () => {
       Logger.debug("命令 cocursor.openDashboard 被调用");
       try {
-        WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", context, "/");
+        WebviewPanel.createOrShow(
+          context.extensionUri,
+          "workAnalysis",
+          context,
+          "/",
+        );
         Logger.debug("WebviewPanel.createOrShow 调用成功");
       } catch (error) {
-        Logger.error(`打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`);
-        vscode.window.showErrorMessage(`打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`);
+        Logger.error(
+          `打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        vscode.window.showErrorMessage(
+          `打开工作分析失败: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -118,15 +134,18 @@ export function activate(context: vscode.ExtensionContext): void {
       // 刷新所有 Webview 面板的数据
       WebviewPanel.notifyRefresh();
       Logger.debug("已发送刷新通知到所有 Webview 面板");
-    })
+    }),
   );
 
   // 刷新 Webview 数据的命令（支持指定数据类型）
   context.subscriptions.push(
-    vscode.commands.registerCommand("cocursor.refreshWebview", (dataType?: string) => {
-      WebviewPanel.notifyRefresh(undefined, dataType);
-      Logger.debug(`已发送刷新通知 (dataType: ${dataType || "all"})`);
-    })
+    vscode.commands.registerCommand(
+      "cocursor.refreshWebview",
+      (dataType?: string) => {
+        WebviewPanel.notifyRefresh(undefined, dataType);
+        Logger.debug(`已发送刷新通知 (dataType: ${dataType || "all"})`);
+      },
+    ),
   );
 
   context.subscriptions.push(
@@ -134,82 +153,102 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window
         .showInputBox({
           prompt: "输入任务名称",
-          placeHolder: "例如：完成项目文档"
+          placeHolder: "例如：完成项目文档",
         })
         .then((taskName) => {
           if (taskName) {
             vscode.window.showInformationMessage(`添加任务: ${taskName}`);
           }
         });
-    })
+    }),
   );
 
   // 注册侧边栏提供者
   sidebarProvider = new SidebarProvider(context);
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("cocursor.sidebar", sidebarProvider)
+    vscode.window.registerTreeDataProvider("cocursor.sidebar", sidebarProvider),
   );
 
   // 注册侧边栏相关命令
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.refreshSidebar", () => {
       sidebarProvider.refresh();
-    })
+    }),
   );
 
   // 注册侧边栏语言刷新命令
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.refreshSidebarLanguage", () => {
       sidebarProvider.refreshLanguage();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openWorkAnalysis", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "workAnalysis", context, "/");
-    })
+      WebviewPanel.createOrShow(
+        context.extensionUri,
+        "workAnalysis",
+        context,
+        "/",
+      );
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openSessions", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "recentSessions", context);
-    })
+      WebviewPanel.createOrShow(
+        context.extensionUri,
+        "recentSessions",
+        context,
+      );
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openMarketplace", () => {
       WebviewPanel.createOrShow(context.extensionUri, "marketplace", context);
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openRAGSearch", () => {
-      WebviewPanel.createOrShow(context.extensionUri, "ragSearch", context, "/");
-    })
+      WebviewPanel.createOrShow(
+        context.extensionUri,
+        "ragSearch",
+        context,
+        "/",
+      );
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.openTeam", () => {
       WebviewPanel.createOrShow(context.extensionUri, "team", context, "/");
-    })
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.openCodeAnalysis", () => {
+      WebviewPanel.createOrShow(context.extensionUri, "codeAnalysis", context, "/");
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.showPeers", () => {
       vscode.window.showInformationMessage("显示节点列表功能开发中...");
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.showStats", () => {
       vscode.window.showInformationMessage("显示使用统计功能开发中...");
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.showCurrentTeam", () => {
       vscode.window.showInformationMessage("显示当前团队功能开发中...");
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -217,47 +256,50 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window
         .showInputBox({
           prompt: "输入团队码",
-          placeHolder: "例如: ABC123"
+          placeHolder: "例如: ABC123",
         })
         .then((teamCode) => {
           if (teamCode) {
             vscode.window.showInformationMessage(`加入团队: ${teamCode}`);
           }
         });
-    })
-  );
-
-  // 注册代码分享命令（右键菜单和命令面板）
-  context.subscriptions.push(
-    vscode.commands.registerCommand("cocursor.shareCodeToTeam", () => {
-      shareSelectedCode();
-    })
+    }),
   );
 
   // 监听活动编辑器变化，用于工作状态上报
-  const statusSharingEnabled = context.globalState.get<boolean>("cocursor.statusSharingEnabled", false);
+  const statusSharingEnabled = context.globalState.get<boolean>(
+    "cocursor.statusSharingEnabled",
+    false,
+  );
   if (statusSharingEnabled) {
-    activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (editor) {
-        throttledReportWorkStatus(editor);
-      }
-    });
+    activeEditorListener = vscode.window.onDidChangeActiveTextEditor(
+      (editor) => {
+        if (editor) {
+          throttledReportWorkStatus(editor);
+        }
+      },
+    );
     context.subscriptions.push(activeEditorListener);
   }
 
   // 注册状态分享开关命令
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.toggleStatusSharing", () => {
-      const current = context.globalState.get<boolean>("cocursor.statusSharingEnabled", false);
+      const current = context.globalState.get<boolean>(
+        "cocursor.statusSharingEnabled",
+        false,
+      );
       const newValue = !current;
       context.globalState.update("cocursor.statusSharingEnabled", newValue);
 
       if (newValue && !activeEditorListener) {
-        activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-          if (editor) {
-            throttledReportWorkStatus(editor);
-          }
-        });
+        activeEditorListener = vscode.window.onDidChangeActiveTextEditor(
+          (editor) => {
+            if (editor) {
+              throttledReportWorkStatus(editor);
+            }
+          },
+        );
         context.subscriptions.push(activeEditorListener);
         vscode.window.showInformationMessage("工作状态分享已开启");
       } else if (!newValue && activeEditorListener) {
@@ -265,7 +307,7 @@ export function activate(context: vscode.ExtensionContext): void {
         activeEditorListener = null;
         vscode.window.showInformationMessage("工作状态分享已关闭");
       }
-    })
+    }),
   );
 
   // 初始化并启动提醒服务
@@ -278,106 +320,23 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration("cocursor.reminder")) {
         Logger.debug("提醒配置已变更");
       }
-    })
+    }),
   );
+
+  // 初始化待办事项模块
+  todoModule = new TodoModule();
+  todoModule.activate(context).catch((err) => {
+    Logger.warn(`待办模块初始化失败: ${err instanceof Error ? err.message : String(err)}`);
+  });
 
   Logger.info("所有命令已注册完成");
 }
 
-// 分享选中的代码到团队
-async function shareSelectedCode(): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    vscode.window.showWarningMessage("请先打开一个文件并选择代码");
-    return;
-  }
-
-  const selection = editor.selection;
-  if (selection.isEmpty) {
-    vscode.window.showWarningMessage("请先选择要分享的代码");
-    return;
-  }
-
-  const selectedText = editor.document.getText(selection);
-  if (!selectedText.trim()) {
-    vscode.window.showWarningMessage("选中的代码为空");
-    return;
-  }
-
-  // 检查代码大小（10KB 限制）
-  if (selectedText.length > 10 * 1024) {
-    vscode.window.showWarningMessage("选中的代码过大（超过 10KB），请选择较小的片段");
-    return;
-  }
-
-  // 获取文件信息
-  const fileName = editor.document.fileName.split(/[\\/]/).pop() || "unknown";
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
-  const relativePath = workspaceFolder
-    ? vscode.workspace.asRelativePath(editor.document.uri)
-    : fileName;
-  const language = editor.document.languageId;
-  const startLine = selection.start.line + 1;
-  const endLine = selection.end.line + 1;
-
-  // 询问附加消息（可选）
-  const message = await vscode.window.showInputBox({
-    prompt: "添加说明（可选）",
-    placeHolder: "如：这段代码有问题，帮我看看",
-  });
-
-  try {
-    // 调用后端 API 分享代码
-    // 需要先获取当前加入的团队 ID
-    const teamsResp = await axios.get("http://localhost:19960/api/v1/team/list", { timeout: 5000 });
-    const teams = teamsResp.data?.teams || [];
-
-    if (teams.length === 0) {
-      vscode.window.showWarningMessage("您尚未加入任何团队，请先加入或创建团队");
-      return;
-    }
-
-    // 如果加入了多个团队，让用户选择
-    let teamId: string;
-    if (teams.length === 1) {
-      teamId = teams[0].id;
-    } else {
-      interface TeamQuickPickItem extends vscode.QuickPickItem {
-        id: string;
-      }
-      const teamOptions: TeamQuickPickItem[] = teams.map((t: { id: string; name: string }) => ({ label: t.name, id: t.id }));
-      const selected = await vscode.window.showQuickPick(teamOptions, { placeHolder: "选择要分享到的团队" });
-      if (!selected) {
-        return;
-      }
-      teamId = selected.id;
-    }
-
-    // 调用分享 API
-    await axios.post(
-      `http://localhost:19960/api/v1/team/${teamId}/share-code`,
-      {
-        file_name: fileName,
-        file_path: relativePath,
-        language: language,
-        start_line: startLine,
-        end_line: endLine,
-        code: selectedText,
-        message: message || "",
-      },
-      { timeout: 10000 }
-    );
-
-    vscode.window.showInformationMessage(`代码已分享到团队 (${fileName}:${startLine}-${endLine})`);
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    vscode.window.showErrorMessage(`分享代码失败: ${errorMsg}`);
-  }
-}
-
 // 节流上报工作状态（30 秒）
 function throttledReportWorkStatus(editor: vscode.TextEditor): void {
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(
+    editor.document.uri,
+  );
   const projectName = workspaceFolder?.name || "unknown";
   const relativePath = workspaceFolder
     ? vscode.workspace.asRelativePath(editor.document.uri)
@@ -401,8 +360,12 @@ function throttledReportWorkStatus(editor: vscode.TextEditor): void {
   statusReportThrottle = setTimeout(async () => {
     try {
       // 获取当前加入的团队
-      const teamsResp = await axios.get("http://localhost:19960/api/v1/team/list", { timeout: 5000 });
-      const teams = teamsResp.data?.teams || [];
+      const teamsResp = await axios.get(
+        "http://localhost:19960/api/v1/team/list",
+        { timeout: 5000 },
+      );
+      // API 返回格式: { code: 0, message: "success", data: { teams: [...], total: N } }
+      const teams = teamsResp.data?.data?.teams || [];
 
       // 向所有加入的团队上报状态
       for (const team of teams) {
@@ -413,19 +376,23 @@ function throttledReportWorkStatus(editor: vscode.TextEditor): void {
             current_file: relativePath,
             status_visible: true,
           },
-          { timeout: 5000 }
+          { timeout: 5000 },
         );
       }
 
       lastReportedStatus = { project: projectName, file: relativePath };
     } catch (error) {
       // 静默失败
-      Logger.debug(`工作状态上报失败: ${error instanceof Error ? error.message : String(error)}`);
+      Logger.debug(
+        `工作状态上报失败: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }, 30000); // 30 秒节流
 }
 
-async function startBackendServer(_context: vscode.ExtensionContext): Promise<void> {
+async function startBackendServer(
+  _context: vscode.ExtensionContext,
+): Promise<void> {
   if (!daemonManager) {
     Logger.error("DaemonManager 未初始化");
     return;
@@ -442,7 +409,7 @@ async function startBackendServer(_context: vscode.ExtensionContext): Promise<vo
     // 启动后端服务器
     await daemonManager.start();
     Logger.info("后端服务器启动成功");
-    
+
     // 等待服务器完全启动（给一点时间）
     await new Promise((resolve) => setTimeout(resolve, 1000));
   } catch (error) {
@@ -468,7 +435,7 @@ async function registerWorkspace(): Promise<void> {
     const response = await axios.post(
       "http://localhost:19960/api/v1/workspace/register",
       { path: fsPath },
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
 
     if (response.data.workspaceID) {
@@ -496,9 +463,8 @@ async function updateWorkspaceFocus(): Promise<void> {
     await axios.post(
       "http://localhost:19960/api/v1/workspace/focus",
       { path: fsPath },
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
-      
   } catch (error) {
     // 静默失败
     const message = error instanceof Error ? error.message : String(error);
@@ -534,6 +500,12 @@ export function deactivate(): void {
   if (reminderService) {
     reminderService.stop();
     reminderService = null;
+  }
+
+  // 销毁待办模块
+  if (todoModule) {
+    todoModule.dispose();
+    todoModule = null;
   }
 
   // 停止后端服务器

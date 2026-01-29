@@ -42,7 +42,8 @@ func PairMessages(messages []*domainCursor.Message, sessionID string) []*Convers
 	for i, msg := range messages {
 		messageID := fmt.Sprintf("%s-%d-%d", sessionID, i, msg.Timestamp)
 
-		if msg.Type == domainCursor.MessageTypeUser {
+		switch msg.Type {
+		case domainCursor.MessageTypeUser:
 			// 如果之前有未配对的 AI 消息，先创建对话对
 			if len(currentAIMsgs) > 0 {
 				turn := createTurn(currentUserMsgs, currentAIMsgs, len(turns))
@@ -57,7 +58,7 @@ func PairMessages(messages []*domainCursor.Message, sessionID string) []*Convers
 				Index:     i,
 			})
 
-		} else if msg.Type == domainCursor.MessageTypeAI {
+		case domainCursor.MessageTypeAI:
 			// 累积 AI 消息（可能连续多条）
 			// 注意：即使有 tool call，也属于同一个对话对
 			currentAIMsgs = append(currentAIMsgs, &IndexedMessage{

@@ -96,7 +96,7 @@ func (h *RAGHandler) getServices() (*appRAG.ChunkService, *appRAG.SearchService,
 		return nil, nil, nil, err
 	}
 	if chunkService == nil {
-		return nil, nil, nil, fmt.Errorf("RAG services not initialized. Please configure RAG first.")
+		return nil, nil, nil, fmt.Errorf("RAG services not initialized, please configure RAG first")
 	}
 	return chunkService, searchService, scanScheduler, nil
 }
@@ -192,22 +192,7 @@ func (h *RAGHandler) Stats(c *gin.Context) {
 	}
 
 	// 尝试从 Qdrant 获取实际索引数量
-	totalIndexed := 0
-	if h.ragInitializer != nil {
-		qdrantManager := h.ragInitializer.GetQdrantManager()
-		if qdrantManager != nil {
-			count, err := qdrantManager.GetCollectionPointsCount("cursor_knowledge")
-			if err == nil {
-				totalIndexed = int(count)
-			} else {
-				h.logger.Debug("Failed to get collection points count, using config value",
-					"error", err,
-				)
-				// 回退到配置文件中的值
-				totalIndexed = config.TotalIndexed
-			}
-		}
-	}
+	totalIndexed := h.getTotalIndexedCount(config.TotalIndexed)
 
 	c.JSON(http.StatusOK, gin.H{
 		"total_indexed":  totalIndexed,
@@ -217,6 +202,25 @@ func (h *RAGHandler) Stats(c *gin.Context) {
 			"concurrency": config.IndexConfig.Concurrency,
 		},
 	})
+}
+
+// getTotalIndexedCount 获取总索引数量
+func (h *RAGHandler) getTotalIndexedCount(fallback int) int {
+	if h.ragInitializer == nil {
+		return 0
+	}
+
+	qdrantManager := h.ragInitializer.GetQdrantManager()
+	if qdrantManager == nil {
+		return 0
+	}
+
+	count, err := qdrantManager.GetCollectionPointsCount("cursor_knowledge")
+	if err != nil {
+		h.logger.Debug("Failed to get collection points count, using config value", "error", err)
+		return fallback
+	}
+	return int(count)
 }
 
 // ProjectInfo 项目信息

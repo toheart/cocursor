@@ -1,0 +1,580 @@
+/* ========== 代码分析配置样式 ========== */
+
+.cocursor-code-analysis {
+  padding: 0;
+  min-height: 100vh;
+  background: var(--vscode-editor-background);
+}
+
+/* 页面标题区域 */
+.cocursor-code-analysis-header {
+  padding: 32px 24px 24px;
+  text-align: center;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: linear-gradient(
+    180deg,
+    var(--vscode-sideBar-background) 0%,
+    var(--vscode-editor-background) 100%
+  );
+}
+
+.cocursor-code-analysis-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.cocursor-code-analysis-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.cocursor-code-analysis-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--vscode-foreground);
+  letter-spacing: -0.5px;
+}
+
+.cocursor-code-analysis-subtitle {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}
+
+/* 空状态 */
+.cocursor-code-analysis-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.cocursor-code-analysis-empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.cocursor-code-analysis-empty h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-code-analysis-empty p {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}
+
+/* 卡片样式 */
+.cocursor-code-analysis-card {
+  margin: 16px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cocursor-code-analysis-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-code-analysis-card-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-code-analysis-card-body {
+  padding: 20px;
+}
+
+/* 信息行 */
+.cocursor-code-analysis-info-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.cocursor-code-analysis-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.cocursor-code-analysis-info-label {
+  flex: 0 0 100px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-code-analysis-info-value {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-code-analysis-path {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  word-break: break-all;
+  opacity: 0.8;
+}
+
+.cocursor-code-analysis-commit {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  padding: 2px 8px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+  color: var(--vscode-textLink-foreground);
+}
+
+/* 状态徽章 */
+.cocursor-code-analysis-status-badge {
+  font-size: 12px;
+}
+
+.cocursor-code-analysis-badge-success {
+  color: var(--vscode-testing-iconPassed);
+  padding: 4px 10px;
+  background: rgba(40, 167, 69, 0.1);
+  border-radius: 12px;
+}
+
+.cocursor-code-analysis-badge-warning {
+  color: var(--vscode-editorWarning-foreground);
+  padding: 4px 10px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 12px;
+}
+
+.cocursor-code-analysis-badge-info {
+  color: var(--vscode-descriptionForeground);
+  padding: 4px 10px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 12px;
+}
+
+/* 操作按钮区域 */
+.cocursor-code-analysis-actions {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-panel-border);
+  display: flex;
+  gap: 12px;
+}
+
+/* 入口函数列表 */
+.cocursor-code-analysis-hint {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0 0 16px;
+}
+
+.cocursor-code-analysis-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cocursor-code-analysis-entry-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cocursor-code-analysis-entry-item:hover {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cocursor-code-analysis-entry-item.selected {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-activeSelectionBackground);
+}
+
+.cocursor-code-analysis-entry-checkbox {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--vscode-foreground);
+  opacity: 0.6;
+}
+
+.cocursor-code-analysis-entry-item.selected
+  .cocursor-code-analysis-entry-checkbox {
+  color: var(--vscode-textLink-foreground);
+  opacity: 1;
+}
+
+.cocursor-code-analysis-entry-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cocursor-code-analysis-entry-file {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.cocursor-code-analysis-entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cocursor-code-analysis-entry-func {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-code-analysis-entry-type {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  text-transform: uppercase;
+}
+
+.cocursor-code-analysis-entry-type.cmd {
+  background: rgba(40, 167, 69, 0.15);
+  color: var(--vscode-testing-iconPassed);
+}
+
+.cocursor-code-analysis-entry-type.root {
+  background: rgba(0, 123, 255, 0.15);
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-code-analysis-entry-recommended {
+  font-size: 11px;
+  color: var(--vscode-editorWarning-foreground);
+}
+
+/* 表单元素 */
+.cocursor-code-analysis-form-group {
+  margin-bottom: 20px;
+}
+
+.cocursor-code-analysis-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.cocursor-code-analysis-form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  margin-bottom: 8px;
+}
+
+.cocursor-code-analysis-select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  color: var(--vscode-input-foreground);
+  cursor: pointer;
+}
+
+.cocursor-code-analysis-select:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-code-analysis-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--vscode-editor-font-family);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  color: var(--vscode-input-foreground);
+  resize: vertical;
+  min-height: 80px;
+}
+
+.cocursor-code-analysis-textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-code-analysis-form-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 6px;
+}
+
+/* 统计卡片 */
+.cocursor-code-analysis-result {
+  border-color: var(--vscode-testing-iconPassed);
+}
+
+.cocursor-code-analysis-result-warning {
+  border-color: var(--vscode-editorWarning-foreground);
+}
+
+/* 算法徽章 */
+.cocursor-code-analysis-algorithm-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+/* 降级警告 */
+.cocursor-code-analysis-fallback-warning {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid var(--vscode-editorWarning-foreground);
+  border-radius: 8px;
+}
+
+.cocursor-code-analysis-fallback-icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cocursor-code-analysis-fallback-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cocursor-code-analysis-fallback-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-editorWarning-foreground);
+  margin-bottom: 6px;
+}
+
+.cocursor-code-analysis-fallback-reason {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+.cocursor-code-analysis-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-code-analysis-stat {
+  text-align: center;
+  padding: 16px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 8px;
+}
+
+.cocursor-code-analysis-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--vscode-textLink-foreground);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.cocursor-code-analysis-stat-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 进度条样式 */
+.cocursor-code-analysis-progress {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-code-analysis-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cocursor-code-analysis-progress-status {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cocursor-code-analysis-progress-percent {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+}
+
+.cocursor-code-analysis-progress-bar {
+  height: 8px;
+  background: var(--vscode-input-background);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cocursor-code-analysis-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-progressBar-background) 0%,
+    var(--vscode-textLink-foreground) 100%
+  );
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* 进度条动画 */
+@keyframes progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.cocursor-code-analysis-progress-fill {
+  background: linear-gradient(
+    90deg,
+    var(--vscode-progressBar-background) 0%,
+    var(--vscode-textLink-foreground) 50%,
+    var(--vscode-progressBar-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s linear infinite;
+}
+
+/* 错误卡片样式 */
+.cocursor-code-analysis-error-card {
+  border-color: var(--vscode-inputValidation-errorBorder, #f14c4c);
+}
+
+.cocursor-code-analysis-error-card .cocursor-code-analysis-card-header {
+  background: rgba(241, 76, 76, 0.1);
+}
+
+.cocursor-code-analysis-error-card .cocursor-code-analysis-card-header h2 {
+  color: var(--vscode-inputValidation-errorBorder, #f14c4c);
+}
+
+.cocursor-code-analysis-error-content {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.cocursor-code-analysis-error-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cocursor-code-analysis-error-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.cocursor-code-analysis-error-message p {
+  font-size: 14px;
+  color: var(--vscode-foreground);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.cocursor-code-analysis-error-message p:last-child {
+  margin-bottom: 0;
+}
+
+.cocursor-code-analysis-error-detail {
+  font-size: 12px;
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-descriptionForeground);
+  padding: 12px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+  border-left: 3px solid var(--vscode-inputValidation-errorBorder, #f14c4c);
+  word-break: break-word;
+}
+
+/* 使用说明卡片 */
+.cocursor-code-analysis-tips {
+  margin-bottom: 32px;
+}
+
+.cocursor-code-analysis-steps {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: decimal;
+}
+
+.cocursor-code-analysis-steps li {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.cocursor-code-analysis-steps li:last-child {
+  margin-bottom: 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 400px) {
+  .cocursor-code-analysis-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .cocursor-code-analysis-info-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .cocursor-code-analysis-info-label {
+    flex: none;
+  }
+}

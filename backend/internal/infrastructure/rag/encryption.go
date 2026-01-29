@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -142,14 +141,4 @@ func (ek *EncryptionKey) Decrypt(ciphertext string) (string, error) {
 	}
 
 	return string(plaintext), nil
-}
-
-// deriveKeyFromUser 从用户信息派生密钥（备用方案，当前未使用）
-func deriveKeyFromUser() []byte {
-	homeDir, _ := os.UserHomeDir()
-	
-	// 组合用户信息并生成哈希
-	data := fmt.Sprintf("%s:cocursor-rag-key", homeDir)
-	hash := sha256.Sum256([]byte(data))
-	return hash[:]
 }

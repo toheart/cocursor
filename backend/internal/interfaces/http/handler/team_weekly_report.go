@@ -2,22 +2,26 @@ package handler
 
 import (
 	"net/http"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 
 	appTeam "github.com/cocursor/backend/internal/application/team"
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
+	"github.com/cocursor/backend/internal/infrastructure/git"
 )
 
 // TeamWeeklyReportHandler 团队周报处理器
 type TeamWeeklyReportHandler struct {
 	weeklyReportService *appTeam.WeeklyReportService
+	gitCollector        *git.StatsCollector
 }
 
 // NewTeamWeeklyReportHandler 创建团队周报处理器
 func NewTeamWeeklyReportHandler(weeklyReportService *appTeam.WeeklyReportService) *TeamWeeklyReportHandler {
 	return &TeamWeeklyReportHandler{
 		weeklyReportService: weeklyReportService,
+		gitCollector:        git.NewStatsCollector(),
 	}
 }
 
@@ -158,6 +162,101 @@ func (h *TeamWeeklyReportHandler) AddProject(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, project)
+}
+
+// AddProjectByPathRequest 通过路径添加项目请求
+type AddProjectByPathRequest struct {
+	Path string `json:"path" binding:"required"` // 本地项目路径
+	Name string `json:"name"`                    // 可选，默认使用目录名
+}
+
+// AddProjectByPath 通过本地路径添加项目
+// @Summary 通过本地路径添加项目
+// @Description 通过选择本地目录，自动读取 .git/config 获取 remote URL（仅 Leader 可操作）
+// @Tags Team Weekly Report
+// @Accept json
+// @Produce json
+// @Param id path string true "团队 ID"
+// @Param request body AddProjectByPathRequest true "项目路径"
+// @Success 200 {object} domainTeam.ProjectMatcher
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/team/{id}/project-config/add-by-path [post]
+func (h *TeamWeeklyReportHandler) AddProjectByPath(c *gin.Context) {
+	teamID := c.Param("id")
+	if teamID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "team id is required"})
+		return
+	}
+
+	var req AddProjectByPathRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 读取 .git/config 获取 remote URL
+	remoteURL, err := h.gitCollector.GetRemoteURL(req.Path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "指定路径不是 Git 仓库或无法读取 remote URL: " + err.Error()})
+		return
+	}
+
+	if remoteURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无法获取 Git remote URL"})
+		return
+	}
+
+	// 规范化 URL
+	normalizedURL := normalizeRepoURL(remoteURL)
+
+	// 确定项目名称
+	projectName := req.Name
+	if projectName == "" {
+		projectName = filepath.Base(req.Path)
+	}
+
+	// 添加项目
+	project, err := h.weeklyReportService.AddProject(c.Request.Context(), teamID, projectName, normalizedURL)
+	if err != nil {
+		if err.Error() == "only leader can add project" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, project)
+}
+
+// normalizeRepoURL 规范化仓库 URL
+func normalizeRepoURL(url string) string {
+	normalized := url
+	// 移除 .git 后缀
+	if len(normalized) > 4 && normalized[len(normalized)-4:] == ".git" {
+		normalized = normalized[:len(normalized)-4]
+	}
+	// 移除协议前缀
+	for _, prefix := range []string{"https://", "http://", "ssh://"} {
+		if len(normalized) > len(prefix) && normalized[:len(prefix)] == prefix {
+			normalized = normalized[len(prefix):]
+			break
+		}
+	}
+	// 处理 git@ 格式
+	if len(normalized) > 4 && normalized[:4] == "git@" {
+		normalized = normalized[4:]
+		// 替换第一个 : 为 /
+		for i, ch := range normalized {
+			if ch == ':' {
+				normalized = normalized[:i] + "/" + normalized[i+1:]
+				break
+			}
+		}
+	}
+	return normalized
 }
 
 // RemoveProjectRequest 移除项目请求

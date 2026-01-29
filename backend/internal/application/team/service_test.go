@@ -1,6 +1,7 @@
 package team
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -130,7 +131,7 @@ func TestTeamService_CreateTeam(t *testing.T) {
 	assert.Error(t, err)
 
 	// 解散团队
-	err = service.DissolveTeam(nil, team.ID)
+	err = service.DissolveTeam(context.TODO(), team.ID)
 	require.NoError(t, err)
 
 	teams = service.GetTeamList()
@@ -152,7 +153,7 @@ func TestTeamService_GetTeam(t *testing.T) {
 	// 创建身份和团队
 	_, _ = service.CreateIdentity("Leader")
 	team, _ := service.CreateTeam("MyTeam", "", "")
-	defer service.DissolveTeam(nil, team.ID)
+	defer service.DissolveTeam(context.TODO(), team.ID)
 
 	// 获取存在的团队
 	got, err := service.GetTeam(team.ID)
@@ -171,7 +172,7 @@ func TestTeamService_HandleJoinRequest(t *testing.T) {
 	// 创建身份和团队
 	_, _ = service.CreateIdentity("Leader")
 	team, _ := service.CreateTeam("MyTeam", "", "")
-	defer service.DissolveTeam(nil, team.ID)
+	defer service.DissolveTeam(context.TODO(), team.ID)
 
 	// 模拟加入请求
 	joinReq := &domainTeam.JoinRequest{

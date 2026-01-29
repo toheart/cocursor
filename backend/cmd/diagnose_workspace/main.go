@@ -352,56 +352,12 @@ func diagnoseDatabase(dbPath string) {
 
 	// 检查表结构
 	fmt.Println("5. 检查表结构...")
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
-	if err != nil {
-		fmt.Printf("⚠️  无法查询表: %v\n", err)
-	} else {
-		defer rows.Close()
-		tableCount := 0
-		for rows.Next() {
-			var tableName string
-			if err := rows.Scan(&tableName); err != nil {
-				continue
-			}
-			tableCount++
-			fmt.Printf("  - %s\n", tableName)
-
-			// 获取表的记录数
-			var count int
-			countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)
-			if err := db.QueryRow(countQuery).Scan(&count); err == nil {
-				fmt.Printf("    记录数: %d\n", count)
-			}
-		}
-		if tableCount == 0 {
-			fmt.Println("  ⚠️  没有找到表")
-		}
-	}
+	printTableStructure(db)
 	fmt.Println()
 
 	// 尝试读取一些数据
 	fmt.Println("6. 测试数据读取...")
-	var keyCount int
-	err = db.QueryRow("SELECT COUNT(*) FROM ItemTable").Scan(&keyCount)
-	if err != nil {
-		fmt.Printf("⚠️  无法读取 ItemTable: %v\n", err)
-		fmt.Println("   这可能是正常的，如果数据库中没有这个表")
-	} else {
-		fmt.Printf("✅ ItemTable 中有 %d 条记录\n", keyCount)
-
-		// 尝试读取一些键
-		rows, err := db.Query("SELECT key FROM ItemTable LIMIT 10")
-		if err == nil {
-			defer rows.Close()
-			fmt.Println("   示例键:")
-			for rows.Next() {
-				var key string
-				if err := rows.Scan(&key); err == nil {
-					fmt.Printf("     - %s\n", key)
-				}
-			}
-		}
-	}
+	testItemTableRead(db)
 	fmt.Println()
 
 	// 测试使用 DBReader 读取（模拟实际使用场景）
@@ -460,4 +416,65 @@ func diagnoseWorkspaceByID(workspaceID string) {
 
 	// 调用数据库诊断
 	diagnoseDatabase(dbPath)
+}
+
+// printTableStructure 打印数据库表结构
+func printTableStructure(db *sql.DB) {
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
+	if err != nil {
+		fmt.Printf("⚠️  无法查询表: %v\n", err)
+		return
+	}
+	defer rows.Close()
+
+	tableCount := 0
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			continue
+		}
+		tableCount++
+		fmt.Printf("  - %s\n", tableName)
+
+		// 获取表的记录数
+		var count int
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)
+		if err := db.QueryRow(countQuery).Scan(&count); err == nil {
+			fmt.Printf("    记录数: %d\n", count)
+		}
+	}
+	if tableCount == 0 {
+		fmt.Println("  ⚠️  没有找到表")
+	}
+}
+
+// testItemTableRead 测试 ItemTable 读取
+func testItemTableRead(db *sql.DB) {
+	var keyCount int
+	err := db.QueryRow("SELECT COUNT(*) FROM ItemTable").Scan(&keyCount)
+	if err != nil {
+		fmt.Printf("⚠️  无法读取 ItemTable: %v\n", err)
+		fmt.Println("   这可能是正常的，如果数据库中没有这个表")
+		return
+	}
+
+	fmt.Printf("✅ ItemTable 中有 %d 条记录\n", keyCount)
+	printSampleKeys(db)
+}
+
+// printSampleKeys 打印示例键
+func printSampleKeys(db *sql.DB) {
+	rows, err := db.Query("SELECT key FROM ItemTable LIMIT 10")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	fmt.Println("   示例键:")
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err == nil {
+			fmt.Printf("     - %s\n", key)
+		}
+	}
 }

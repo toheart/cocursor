@@ -279,32 +279,40 @@ func (s *ScanScheduler) processBatch(batch []*FileToUpdate, concurrency int) int
 				return
 			}
 
-			// 检查内容哈希（精确检测）
-			if s.needsReindex(f.SessionID, f.FilePath) {
-				count, err := s.chunkService.IndexSessionWithCount(f.SessionID, f.FilePath)
-				if err != nil {
-					s.logger.Error("Failed to index session",
-						"session_id", f.SessionID,
-						"file_path", f.FilePath,
-						"error", err,
-					)
-				} else {
-					countMu.Lock()
-					indexedCount += count
-					countMu.Unlock()
-				}
-			} else {
-				// 只更新文件修改时间
-				fileInfo, _ := os.Stat(f.FilePath)
-				if fileInfo != nil {
-					s.indexStatusRepo.UpdateFileMtime(f.FilePath, fileInfo.ModTime().Unix())
-				}
+			// 检查内容哈希并处理索引
+			count := s.processFileForIndex(f)
+			if count > 0 {
+				countMu.Lock()
+				indexedCount += count
+				countMu.Unlock()
 			}
 		}(file)
 	}
 
 	wg.Wait()
 	return indexedCount
+}
+
+// processFileForIndex 处理单个文件的索引
+func (s *ScanScheduler) processFileForIndex(f *FileToUpdate) int {
+	if !s.needsReindex(f.SessionID, f.FilePath) {
+		// 只更新文件修改时间
+		if fileInfo, _ := os.Stat(f.FilePath); fileInfo != nil {
+			s.indexStatusRepo.UpdateFileMtime(f.FilePath, fileInfo.ModTime().Unix())
+		}
+		return 0
+	}
+
+	count, err := s.chunkService.IndexSessionWithCount(f.SessionID, f.FilePath)
+	if err != nil {
+		s.logger.Error("Failed to index session",
+			"session_id", f.SessionID,
+			"file_path", f.FilePath,
+			"error", err,
+		)
+		return 0
+	}
+	return count
 }
 
 // needsReindex 检查是否需要重新索引（精确检测：检查内容哈希）

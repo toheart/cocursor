@@ -15,7 +15,6 @@ export type TeamEventType =
   | "skill_deleted"
   | "skill_index_updated"
   | "team_dissolved"
-  | "code_shared"
   | "member_status_changed"
   | "daily_summary_shared"
   | "pong";
@@ -62,24 +61,6 @@ export interface TeamDissolvedEvent extends TeamEvent {
   type: "team_dissolved";
   payload: {
     reason?: string;
-  };
-}
-
-// 代码分享事件
-export interface CodeSharedEvent extends TeamEvent {
-  type: "code_shared";
-  payload: {
-    id: string;
-    sender_id: string;
-    sender_name: string;
-    file_name: string;
-    file_path: string;
-    language: string;
-    start_line: number;
-    end_line: number;
-    code: string;
-    message?: string;
-    created_at: string;
   };
 }
 

@@ -45,7 +45,7 @@ func (r *dailySummaryRepository) Save(summary *domainCursor.DailySummary) error 
 
 	// 序列化 projects 为 JSON
 	var projectsJSON string
-	if summary.Projects != nil && len(summary.Projects) > 0 {
+	if len(summary.Projects) > 0 {
 		projectsBytes, err := json.Marshal(summary.Projects)
 		if err == nil {
 			projectsJSON = string(projectsBytes)
@@ -150,28 +150,20 @@ func (r *dailySummaryRepository) FindByDate(date string) (*domainCursor.DailySum
 		return nil, fmt.Errorf("failed to unmarshal work_categories: %w", err)
 	}
 
-	// 反序列化 projects
+	// 反序列化 projects（忽略反序列化错误，字段可为空）
 	if projectsJSON.Valid && projectsJSON.String != "" {
-		if err := json.Unmarshal([]byte(projectsJSON.String), &summary.Projects); err != nil {
-			// 忽略反序列化错误，字段可为空
-		}
+		_ = json.Unmarshal([]byte(projectsJSON.String), &summary.Projects)
 	}
 
-	// 反序列化新字段（如果存在）
+	// 反序列化新字段（如果存在，忽略反序列化错误，字段可为空）
 	if codeChangesJSON.Valid && codeChangesJSON.String != "" {
-		if err := json.Unmarshal([]byte(codeChangesJSON.String), &summary.CodeChanges); err != nil {
-			// 忽略反序列化错误，字段可为空
-		}
+		_ = json.Unmarshal([]byte(codeChangesJSON.String), &summary.CodeChanges)
 	}
 	if timeDistributionJSON.Valid && timeDistributionJSON.String != "" {
-		if err := json.Unmarshal([]byte(timeDistributionJSON.String), &summary.TimeDistribution); err != nil {
-			// 忽略反序列化错误，字段可为空
-		}
+		_ = json.Unmarshal([]byte(timeDistributionJSON.String), &summary.TimeDistribution)
 	}
 	if efficiencyMetricsJSON.Valid && efficiencyMetricsJSON.String != "" {
-		if err := json.Unmarshal([]byte(efficiencyMetricsJSON.String), &summary.EfficiencyMetrics); err != nil {
-			// 忽略反序列化错误，字段可为空
-		}
+		_ = json.Unmarshal([]byte(efficiencyMetricsJSON.String), &summary.EfficiencyMetrics)
 	}
 
 	// 转换时间戳

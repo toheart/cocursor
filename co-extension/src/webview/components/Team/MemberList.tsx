@@ -5,12 +5,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
-import { Team, TeamMember, TeamSkillEntry, CodeSnippet } from "../../types";
+import { Team, TeamMember, TeamSkillEntry } from "../../types";
 import { useApi, useToast, useTeamWebSocket } from "../../hooks";
-import { TeamEvent, CodeSharedEvent, MemberStatusChangedEvent } from "../../services/teamWebSocket";
+import { TeamEvent, MemberStatusChangedEvent } from "../../services/teamWebSocket";
 import { SkillPublish } from "./SkillPublish";
 import { ToastContainer } from "../shared/ToastContainer";
-import { CodeShareList } from "./CodeShareNotification";
 import { WeeklyReport } from "./WeeklyReport";
 
 interface MemberListProps {
@@ -24,7 +23,6 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
   const { showToast, toasts } = useToast();
   const [activeTab, setActiveTab] = useState<"members" | "skills" | "weekly">("members");
   const [showPublish, setShowPublish] = useState(false);
-  const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>([]);
   const [memberStatuses, setMemberStatuses] = useState<Record<string, { project: string; file: string }>>({});
 
   // 获取成员列表
@@ -67,27 +65,6 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
         onBack();
         onRefresh();
         break;
-      case "code_shared": {
-        // 代码分享事件
-        const codeEvent = event as CodeSharedEvent;
-        const snippet: CodeSnippet = {
-          id: codeEvent.payload.id,
-          team_id: event.team_id,
-          sender_id: codeEvent.payload.sender_id,
-          sender_name: codeEvent.payload.sender_name,
-          file_name: codeEvent.payload.file_name,
-          file_path: codeEvent.payload.file_path,
-          language: codeEvent.payload.language,
-          start_line: codeEvent.payload.start_line,
-          end_line: codeEvent.payload.end_line,
-          code: codeEvent.payload.code,
-          message: codeEvent.payload.message,
-          created_at: codeEvent.payload.created_at,
-        };
-        setCodeSnippets(prev => [snippet, ...prev].slice(0, 50)); // 最多保留 50 条
-        showToast(`${snippet.sender_name} ${t("team.sharedCode")} (${snippet.file_name})`, "success");
-        break;
-      }
       case "member_status_changed": {
         // 成员状态变更事件
         const statusEvent = event as MemberStatusChangedEvent;
@@ -191,15 +168,6 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
           <span className="cocursor-team-detail-info-value">{skills?.length || 0}</span>
         </div>
       </div>
-
-      {/* 代码分享通知 */}
-      {codeSnippets.length > 0 && (
-        <CodeShareList
-          snippets={codeSnippets}
-          onDismiss={(id) => setCodeSnippets(prev => prev.filter(s => s.id !== id))}
-          onClear={() => setCodeSnippets([])}
-        />
-      )}
 
       {/* 选项卡 */}
       <div className="cocursor-team-detail-tabs">

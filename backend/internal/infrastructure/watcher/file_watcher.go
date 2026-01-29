@@ -43,7 +43,7 @@ func GetCursorProjectsDir() string {
 func DefaultWatchConfig() WatchConfig {
 	return WatchConfig{
 		SessionDir:        GetCursorProjectsDir(),
-		WorkspaceDir:      "", // 需要通过 PathResolver 获取
+		WorkspaceDir:      "",              // 需要通过 PathResolver 获取
 		DebounceDelay:     1 * time.Minute, // 1 分钟防抖，避免频繁触发
 		FullScanThreshold: 24 * time.Hour,
 	}
@@ -225,8 +225,8 @@ func (fw *FileWatcher) scanSessionDirectory() int {
 
 			// 发布 Created 事件
 			fw.eventBus.Publish(&events.SessionFileEvent{
-				EventType: events.SessionFileCreated,
-				SessionID: sessionID,
+				EventType:  events.SessionFileCreated,
+				SessionID:  sessionID,
 				ProjectKey: projectKey,
 				FilePath:   filePath,
 				ModTime:    fileInfo.ModTime(),
@@ -320,20 +320,24 @@ func (fw *FileWatcher) addDirRecursive(dir string) error {
 		}
 
 		if info.IsDir() {
-			// 只监听 agent-transcripts 目录
-			if strings.HasSuffix(path, "agent-transcripts") || path == dir {
-				if err := fw.watcher.Add(path); err != nil {
-					fw.logger.Debug("Failed to add directory to watch",
-						"path", path,
-						"error", err,
-					)
-				} else {
-					fw.logger.Debug("Added directory to watch", "path", path)
-				}
-			}
+			fw.tryAddDirToWatch(path, dir)
 		}
 		return nil
 	})
+}
+
+// tryAddDirToWatch 尝试将目录添加到监控列表
+func (fw *FileWatcher) tryAddDirToWatch(path, baseDir string) {
+	// 只监听 agent-transcripts 目录
+	if !strings.HasSuffix(path, "agent-transcripts") && path != baseDir {
+		return
+	}
+
+	if err := fw.watcher.Add(path); err != nil {
+		fw.logger.Debug("Failed to add directory to watch", "path", path, "error", err)
+	} else {
+		fw.logger.Debug("Added directory to watch", "path", path)
+	}
 }
 
 // watchLoop 事件监听循环
@@ -471,8 +475,8 @@ func (fw *FileWatcher) parseSessionFilePath(path string) (sessionID, projectKey 
 	sessionID = strings.TrimSuffix(fileName, ".txt")
 
 	// 获取 agent-transcripts 的父目录作为 projectKey
-	dir := filepath.Dir(path)                     // .../agent-transcripts
-	projectDir := filepath.Dir(dir)               // .../Users-xibaobao-code-cocursor
+	dir := filepath.Dir(path)       // .../agent-transcripts
+	projectDir := filepath.Dir(dir) // .../Users-xibaobao-code-cocursor
 	projectKey = filepath.Base(projectDir)
 
 	return sessionID, projectKey

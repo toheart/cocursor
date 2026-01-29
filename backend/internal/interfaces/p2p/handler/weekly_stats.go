@@ -174,6 +174,7 @@ func (h *WeeklyStatsHandler) collectWeeklyStats(startDate time.Time, repoURLs []
 }
 
 // collectGitStats 收集 Git 统计
+// 优先通过 ProjectManager 获取项目路径，如果找不到则跳过
 func (h *WeeklyStatsHandler) collectGitStats(date string, repoURLs []string, userEmail string) *domainTeam.GitDailyStats {
 	stats := &domainTeam.GitDailyStats{
 		TotalCommits: 0,
@@ -183,13 +184,10 @@ func (h *WeeklyStatsHandler) collectGitStats(date string, repoURLs []string, use
 	}
 
 	for _, repoURL := range repoURLs {
-		// 在本地查找仓库
-		repoPath, err := h.gitCollector.FindRepoByRemoteURL(repoURL)
-		if err != nil {
-			h.logger.Debug("repo not found locally",
-				"repo_url", repoURL,
-				"error", err,
-			)
+		// 通过 ProjectManager 查找项目（从已注册的工作区中查找）
+		repoPath := h.findRepoPath(repoURL)
+		if repoPath == "" {
+			// 项目不在 ProjectManager 中是正常情况，成员可能没有在 Cursor 中打开过该项目
 			continue
 		}
 
@@ -219,6 +217,42 @@ func (h *WeeklyStatsHandler) collectGitStats(date string, repoURLs []string, use
 	}
 
 	return stats
+}
+
+// findRepoPath 通过 ProjectManager 查找仓库路径
+func (h *WeeklyStatsHandler) findRepoPath(repoURL string) string {
+	if h.projectManager == nil {
+		h.logger.Warn("projectManager is nil, cannot find repo path")
+		return ""
+	}
+
+	// 通过 ProjectManager 查找项目
+	project, err := h.projectManager.FindProjectByRemoteURL(repoURL)
+	if err != nil || project == nil {
+		// 列出所有已注册的项目，帮助排查 URL 匹配问题
+		allProjects := h.projectManager.ListAllProjects()
+		h.logger.Debug("project not found in ProjectManager",
+			"requested_url", repoURL,
+			"registered_project_count", len(allProjects),
+		)
+		return ""
+	}
+
+	// 返回第一个工作区的路径
+	if len(project.Workspaces) > 0 {
+		path := project.Workspaces[0].Path
+		h.logger.Info("found project path",
+			"repo_url", repoURL,
+			"path", path,
+		)
+		return path
+	}
+
+	h.logger.Warn("project found but has no workspaces",
+		"repo_url", repoURL,
+		"project_name", project.ProjectName,
+	)
+	return ""
 }
 
 // collectCursorStats 收集 Cursor 统计
@@ -270,6 +304,7 @@ func (h *WeeklyStatsHandler) collectCursorStats(date string, repoURLs []string) 
 }
 
 // collectWorkItems 收集工作条目
+// 返回值：workItems 是匹配的工作条目，hasReport 表示当天是否存在日报记录
 func (h *WeeklyStatsHandler) collectWorkItems(date string, repoURLs []string) ([]domainTeam.WorkItemSummary, bool) {
 	if h.dailySummaryRepo == nil {
 		return nil, false
@@ -281,6 +316,24 @@ func (h *WeeklyStatsHandler) collectWorkItems(date string, repoURLs []string) ([
 		return nil, false
 	}
 
+	// 日报存在，hasReport = true（不管是否有匹配的工作条目）
+	hasReport := true
+
+	// 如果没有指定 repoURLs，返回所有工作条目
+	if len(repoURLs) == 0 {
+		var workItems []domainTeam.WorkItemSummary
+		for _, project := range summary.Projects {
+			for _, item := range project.WorkItems {
+				workItems = append(workItems, domainTeam.WorkItemSummary{
+					Project:     project.ProjectName,
+					Category:    item.Category,
+					Description: item.Description,
+				})
+			}
+		}
+		return workItems, hasReport
+	}
+
 	// 创建 repoURL 集合用于匹配
 	repoURLSet := make(map[string]bool)
 	for _, url := range repoURLs {
@@ -289,27 +342,23 @@ func (h *WeeklyStatsHandler) collectWorkItems(date string, repoURLs []string) ([
 
 	var workItems []domainTeam.WorkItemSummary
 
-	// 遍历项目提取工作条目
+	// 遍历项目提取匹配的工作条目
 	for _, project := range summary.Projects {
-		// 检查是否匹配请求的项目
-		// 这里简化处理，如果没有指定 repoURLs 则返回所有
-		if len(repoURLs) > 0 {
-			// 尝试匹配项目（通过项目名或路径）
-			matched := false
-			if h.projectManager != nil {
-				projects := h.projectManager.ListAllProjects()
-				for _, p := range projects {
-					if p.ProjectName == project.ProjectName {
-						if repoURLSet[normalizeURL(p.GitRemoteURL)] {
-							matched = true
-							break
-						}
+		// 尝试匹配项目（通过项目名查找对应的 GitRemoteURL）
+		matched := false
+		if h.projectManager != nil {
+			projects := h.projectManager.ListAllProjects()
+			for _, p := range projects {
+				if p.ProjectName == project.ProjectName {
+					if repoURLSet[normalizeURL(p.GitRemoteURL)] {
+						matched = true
+						break
 					}
 				}
 			}
-			if !matched {
-				continue
-			}
+		}
+		if !matched {
+			continue
 		}
 
 		for _, item := range project.WorkItems {
@@ -321,7 +370,7 @@ func (h *WeeklyStatsHandler) collectWorkItems(date string, repoURLs []string) ([
 		}
 	}
 
-	return workItems, true
+	return workItems, hasReport
 }
 
 // collectDailyDetail 收集日详情

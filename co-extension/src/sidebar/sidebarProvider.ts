@@ -158,6 +158,17 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
             arguments: []
           },
           "organization"
+        ),
+        // 代码分析功能
+        new SidebarItem(
+          t("sidebar.codeAnalysis"),
+          vscode.TreeItemCollapsibleState.None,
+          {
+            command: "cocursor.openCodeAnalysis",
+            title: t("sidebar.openCodeAnalysis"),
+            arguments: []
+          },
+          "symbol-class"
         )
       );
 

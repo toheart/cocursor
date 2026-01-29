@@ -108,9 +108,10 @@ func getSessionHealthTool(
 
 	// 构建消息
 	message := fmt.Sprintf("当前会话熵值为 %.2f", entropy)
-	if status == appCursor.HealthStatusDangerous {
+	switch status {
+	case appCursor.HealthStatusDangerous:
 		message += "，建议执行 /openspec-archive"
-	} else if status == appCursor.HealthStatusSubHealthy {
+	case appCursor.HealthStatusSubHealthy:
 		message += "，建议总结当前会话"
 	}
 

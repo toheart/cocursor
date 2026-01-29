@@ -327,64 +327,87 @@ func (s *StatsService) GenerateDailyReport(workspaceID, date string, topNSession
 		}
 	}
 
-	// 3. 获取工作区数据库路径
+	// 3. 获取工作区数据库路径并统计代码变更
 	workspaceDBPath, err := pathResolver.GetWorkspaceDBPath(workspaceID)
 	if err == nil {
-		// 4. 读取 composer 数据统计代码变更和 Top 会话
-		composerDataValue, err := dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "composer.composerData")
-		if err == nil && len(composerDataValue) > 0 {
-			composers, err := domainCursor.ParseComposerData(string(composerDataValue))
-			if err == nil {
-				// 统计代码变更汇总
-				codeChanges := &domainCursor.CodeChangeSummary{}
-				var sessionSummaries []*domainCursor.SessionSummary
+		s.populateComposerStats(report, dbReader, workspaceDBPath, date, topNSessions)
 
-				for _, composer := range composers {
-					// 过滤指定日期的会话（根据创建时间或更新时间）
-					createdDate := composer.GetCreatedAtTime().Format("2006-01-02")
-					updatedDate := composer.GetLastUpdatedAtTime().Format("2006-01-02")
-					if createdDate != date && updatedDate != date {
-						continue
-					}
-
-					codeChanges.TotalLinesAdded += composer.TotalLinesAdded
-					codeChanges.TotalLinesRemoved += composer.TotalLinesRemoved
-					if composer.FilesChangedCount > 0 {
-						codeChanges.FilesChanged++
-					}
-
-					// 构建会话摘要
-					entropy := s.CalculateSessionEntropy(composer)
-					sessionSummary := &domainCursor.SessionSummary{
-						ComposerID:   composer.ComposerID,
-						Name:         composer.Name,
-						TotalLines:   composer.GetTotalLinesChanged(),
-						FilesChanged: composer.FilesChangedCount,
-						Entropy:      entropy,
-						Duration:     composer.GetDurationMinutes(),
-					}
-					sessionSummaries = append(sessionSummaries, sessionSummary)
-				}
-
-				report.CodeChanges = codeChanges
-
-				// 按总变更行数排序，取 TopN
-				sort.Slice(sessionSummaries, func(i, j int) bool {
-					return sessionSummaries[i].TotalLines > sessionSummaries[j].TotalLines
-				})
-				if len(sessionSummaries) > topNSessions {
-					sessionSummaries = sessionSummaries[:topNSessions]
-				}
-				report.TopSessions = sessionSummaries
-			}
-		}
-
-		// 5. 获取 Top 文件引用
-		topFiles, err := s.GetFileReferences(workspaceID, topNFiles)
-		if err == nil {
+		// 4. 获取 Top 文件引用
+		if topFiles, err := s.GetFileReferences(workspaceID, topNFiles); err == nil {
 			report.TopFiles = topFiles
 		}
 	}
 
 	return report, nil
+}
+
+// populateComposerStats 从 composer 数据填充报告的代码变更和 Top 会话
+func (s *StatsService) populateComposerStats(
+	report *domainCursor.DailyReport,
+	dbReader *infraCursor.DBReader,
+	workspaceDBPath, date string,
+	topNSessions int,
+) {
+	composerDataValue, err := dbReader.ReadValueFromWorkspaceDB(workspaceDBPath, "composer.composerData")
+	if err != nil || len(composerDataValue) == 0 {
+		return
+	}
+
+	composers, err := domainCursor.ParseComposerData(string(composerDataValue))
+	if err != nil {
+		return
+	}
+
+	codeChanges, sessionSummaries := s.aggregateComposerData(composers, date)
+	report.CodeChanges = codeChanges
+	report.TopSessions = s.getTopSessions(sessionSummaries, topNSessions)
+}
+
+// aggregateComposerData 聚合 composer 数据，返回代码变更汇总和会话摘要列表
+func (s *StatsService) aggregateComposerData(
+	composers []domainCursor.ComposerData,
+	date string,
+) (*domainCursor.CodeChangeSummary, []*domainCursor.SessionSummary) {
+	codeChanges := &domainCursor.CodeChangeSummary{}
+	var sessionSummaries []*domainCursor.SessionSummary
+
+	for _, composer := range composers {
+		// 过滤指定日期的会话（根据创建时间或更新时间）
+		createdDate := composer.GetCreatedAtTime().Format("2006-01-02")
+		updatedDate := composer.GetLastUpdatedAtTime().Format("2006-01-02")
+		if createdDate != date && updatedDate != date {
+			continue
+		}
+
+		codeChanges.TotalLinesAdded += composer.TotalLinesAdded
+		codeChanges.TotalLinesRemoved += composer.TotalLinesRemoved
+		if composer.FilesChangedCount > 0 {
+			codeChanges.FilesChanged++
+		}
+
+		// 构建会话摘要
+		entropy := s.CalculateSessionEntropy(composer)
+		sessionSummary := &domainCursor.SessionSummary{
+			ComposerID:   composer.ComposerID,
+			Name:         composer.Name,
+			TotalLines:   composer.GetTotalLinesChanged(),
+			FilesChanged: composer.FilesChangedCount,
+			Entropy:      entropy,
+			Duration:     composer.GetDurationMinutes(),
+		}
+		sessionSummaries = append(sessionSummaries, sessionSummary)
+	}
+
+	return codeChanges, sessionSummaries
+}
+
+// getTopSessions 按总变更行数排序并返回 Top N 会话
+func (s *StatsService) getTopSessions(sessions []*domainCursor.SessionSummary, topN int) []*domainCursor.SessionSummary {
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].TotalLines > sessions[j].TotalLines
+	})
+	if len(sessions) > topN {
+		return sessions[:topN]
+	}
+	return sessions
 }

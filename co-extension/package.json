@@ -87,8 +87,8 @@
         "title": "打开技能市场"
       },
       {
-        "command": "cocursor.shareCodeToTeam",
-        "title": "CoCursor: 分享代码到团队"
+        "command": "cocursor.openCodeAnalysis",
+        "title": "打开代码分析"
       },
       {
         "command": "cocursor.toggleStatusSharing",
@@ -97,17 +97,24 @@
       {
         "command": "cocursor.refreshWebview",
         "title": "CoCursor: 刷新 Webview 数据"
+      },
+      {
+        "command": "cocursor.todoQuickPick",
+        "title": "CoCursor: 待办事项"
+      },
+      {
+        "command": "cocursor.todoAdd",
+        "title": "CoCursor: 添加待办"
       }
     ],
-    "menus": {
-      "editor/context": [
-        {
-          "command": "cocursor.shareCodeToTeam",
-          "group": "cocursor@1",
-          "when": "editorHasSelection"
-        }
-      ]
-    },
+    "keybindings": [
+      {
+        "command": "cocursor.todoQuickPick",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t"
+      }
+    ],
+    "menus": {},
     "views": {
       "cocursor": [
         {

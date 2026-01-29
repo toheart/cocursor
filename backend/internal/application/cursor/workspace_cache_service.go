@@ -621,31 +621,12 @@ func (s *WorkspaceCacheService) HandleWorkspaceEvent(workspaceID, projectPath st
 
 	// 如果路径为空，尝试从 workspace.json 获取
 	if folderPath == "" {
-		workspaceDir, err := s.pathResolver.GetWorkspaceStorageDir()
+		var err error
+		folderPath, err = s.getFolderPathFromWorkspaceJSON(workspaceID)
 		if err != nil {
 			return err
 		}
-
-		workspaceJSONPath := filepath.Join(workspaceDir, workspaceID, "workspace.json")
-		data, err := os.ReadFile(workspaceJSONPath)
-		if err != nil {
-			log.Printf("[WorkspaceCacheService] Failed to read workspace.json: %v", err)
-			return nil // 不是错误，可能只是工作区还没准备好
-		}
-
-		var workspace struct {
-			Folder string `json:"folder"`
-		}
-		if err := json.Unmarshal(data, &workspace); err != nil {
-			return nil
-		}
-
-		if workspace.Folder == "" {
-			return nil
-		}
-
-		folderPath, err = s.parseFolderURI(workspace.Folder)
-		if err != nil {
+		if folderPath == "" {
 			return nil
 		}
 	}
@@ -659,6 +640,34 @@ func (s *WorkspaceCacheService) HandleWorkspaceEvent(workspaceID, projectPath st
 
 	log.Printf("[WorkspaceCacheService] Workspace registered from event: %s -> %s", workspaceID, folderPath)
 	return nil
+}
+
+// getFolderPathFromWorkspaceJSON 从 workspace.json 获取文件夹路径
+func (s *WorkspaceCacheService) getFolderPathFromWorkspaceJSON(workspaceID string) (string, error) {
+	workspaceDir, err := s.pathResolver.GetWorkspaceStorageDir()
+	if err != nil {
+		return "", err
+	}
+
+	workspaceJSONPath := filepath.Join(workspaceDir, workspaceID, "workspace.json")
+	data, err := os.ReadFile(workspaceJSONPath)
+	if err != nil {
+		log.Printf("[WorkspaceCacheService] Failed to read workspace.json: %v", err)
+		return "", nil // 不是错误，可能只是工作区还没准备好
+	}
+
+	var workspace struct {
+		Folder string `json:"folder"`
+	}
+	if err := json.Unmarshal(data, &workspace); err != nil {
+		return "", nil
+	}
+
+	if workspace.Folder == "" {
+		return "", nil
+	}
+
+	return s.parseFolderURI(workspace.Folder)
 }
 
 // ===== 运行时状态扫描 =====
@@ -829,10 +838,7 @@ func (s *WorkspaceCacheService) readVisiblePanels(workspaceDBPath string) (map[s
 	for _, panel := range panels {
 		if panel.Visible {
 			// 提取面板 ID（去掉 workbench.panel.aichat. 前缀）
-			panelID := panel.ID
-			if strings.HasPrefix(panelID, "workbench.panel.aichat.") {
-				panelID = strings.TrimPrefix(panelID, "workbench.panel.aichat.")
-			}
+			panelID := strings.TrimPrefix(panel.ID, "workbench.panel.aichat.")
 			result[panelID] = true
 		}
 	}
@@ -854,9 +860,7 @@ func (s *WorkspaceCacheService) readFocusedPanel(workspaceDBPath string) (string
 	panelID := strings.Trim(string(value), "\"")
 
 	// 提取面板 ID（去掉 workbench.panel.aichat. 前缀）
-	if strings.HasPrefix(panelID, "workbench.panel.aichat.") {
-		panelID = strings.TrimPrefix(panelID, "workbench.panel.aichat.")
-	}
+	panelID = strings.TrimPrefix(panelID, "workbench.panel.aichat.")
 
 	return panelID, nil
 }

@@ -350,19 +350,6 @@ class ApiService {
 
   // ========== 团队协作 API ==========
 
-  // 分享代码片段
-  async shareCode(teamId: string, snippet: {
-    file_name: string;
-    file_path?: string;
-    language?: string;
-    start_line?: number;
-    end_line?: number;
-    code: string;
-    message?: string;
-  }): Promise<unknown> {
-    return this.postMessage("shareCode", { teamId, ...snippet });
-  }
-
   // 更新工作状态
   async updateWorkStatus(teamId: string, status: {
     project_name?: string;
@@ -422,8 +409,9 @@ class ApiService {
   }
 
   // 获取团队周报
+  // 周报需要收集所有成员数据，使用较长超时（90秒）
   async getTeamWeeklyReport(teamId: string, weekStart: string): Promise<TeamWeeklyView> {
-    return this.postMessage("fetchTeamWeeklyReport", { teamId, weekStart }) as Promise<TeamWeeklyView>;
+    return this.postMessage("fetchTeamWeeklyReport", { teamId, weekStart }, 90000) as Promise<TeamWeeklyView>;
   }
 
   // 获取成员日详情
@@ -434,6 +422,49 @@ class ApiService {
   // 刷新团队周统计
   async refreshTeamWeeklyStats(teamId: string, weekStart: string): Promise<unknown> {
     return this.postMessage("refreshTeamWeeklyStats", { teamId, weekStart });
+  }
+
+  // 选择文件夹（调用 VSCode 文件选择对话框）
+  async selectFolder(): Promise<{ path: string } | null> {
+    return this.postMessage("selectFolder", {}) as Promise<{ path: string } | null>;
+  }
+
+  // 通过路径添加项目（自动读取 Git 信息）
+  async addTeamProjectByPath(teamId: string, path: string, name?: string): Promise<ProjectMatcher> {
+    return this.postMessage("addTeamProjectByPath", { teamId, path, name }) as Promise<ProjectMatcher>;
+  }
+
+  // ========== 代码分析相关 API ==========
+
+  // 扫描入口函数
+  async scanEntryPoints(projectPath: string): Promise<ScanEntryPointsResponse> {
+    return this.postMessage("scanEntryPoints", { project_path: projectPath }) as Promise<ScanEntryPointsResponse>;
+  }
+
+  // 注册项目
+  async registerProject(request: RegisterProjectRequest): Promise<unknown> {
+    return this.postMessage("registerProject", request);
+  }
+
+  // 检查调用图状态
+  async checkCallGraphStatus(projectPath: string, commit?: string): Promise<CallGraphStatus> {
+    return this.postMessage("checkCallGraphStatus", { project_path: projectPath, commit }) as Promise<CallGraphStatus>;
+  }
+
+  // 生成调用图（同步）
+  async generateCallGraph(projectPath: string, commit?: string): Promise<GenerateResponse> {
+    // 生成调用图可能需要较长时间，设置 5 分钟超时
+    return this.postMessage("generateCallGraph", { project_path: projectPath, commit }, 300000) as Promise<GenerateResponse>;
+  }
+
+  // 生成调用图（异步）
+  async generateCallGraphAsync(projectPath: string, commit?: string): Promise<{ task_id: string; status: string }> {
+    return this.postMessage("generateCallGraphAsync", { project_path: projectPath, commit }) as Promise<{ task_id: string; status: string }>;
+  }
+
+  // 获取生成进度
+  async getGenerationProgress(taskId: string): Promise<unknown> {
+    return this.postMessage("getGenerationProgress", { task_id: taskId });
   }
 }
 
@@ -535,6 +566,49 @@ export interface SessionHealth {
   entropy: number;
   status: "healthy" | "sub_healthy" | "dangerous";
   warning?: string;
+}
+
+// 代码分析相关类型
+export interface EntryPointCandidate {
+  file: string;
+  function: string;
+  type: string;
+  priority: number;
+  recommended: boolean;
+}
+
+export interface ScanEntryPointsResponse {
+  project_name: string;
+  remote_url: string;
+  candidates: EntryPointCandidate[];
+  default_exclude: string[];
+}
+
+export interface CallGraphStatus {
+  exists: boolean;
+  up_to_date: boolean;
+  current_commit?: string;
+  head_commit?: string;
+  commits_behind?: number;
+  project_registered: boolean;
+  db_path?: string;
+  created_at?: string;
+  func_count?: number;
+}
+
+export interface RegisterProjectRequest {
+  project_path: string;
+  entry_points: string[];
+  exclude: string[];
+  algorithm: string;
+}
+
+export interface GenerateResponse {
+  commit: string;
+  func_count: number;
+  edge_count: number;
+  generation_time_ms: number;
+  db_path: string;
 }
 
 export const apiService = new ApiService();

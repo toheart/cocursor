@@ -132,7 +132,7 @@
       "thisWeek": "This Week",
       "lastWeek": "Last Week",
       "twoWeeksAgo": "Two Weeks Ago",
-    "custom": "Custom Week"
+      "custom": "Custom Week"
     },
     "startDate": "Start Date",
     "endDate": "End Date",
@@ -289,10 +289,34 @@
     "ragSearch": "RAG Search",
     "ragConfig": "RAG Config",
     "team": "Team",
+    "codeAnalysis": "Code Analysis",
     "switchToChinese": "Switch to Chinese",
     "switchToEnglish": "Switch to English",
     "chinese": "中文",
     "english": "English"
+  },
+  "panel": {
+    "workAnalysis": "Work Analysis - CoCursor",
+    "recentSessions": "Recent Sessions - CoCursor",
+    "marketplace": "Skills Market - CoCursor",
+    "ragSearch": "RAG Search - CoCursor",
+    "team": "Team - CoCursor",
+    "codeAnalysis": "Code Analysis - CoCursor"
+  },
+  "vscode": {
+    "saveScreenshot": "Save Daily Report Screenshot",
+    "screenshotSaved": "Screenshot saved to: {{path}}",
+    "screenshotSaveFailed": "Failed to save screenshot: {{error}}",
+    "selectSkillDir": "Select Skill Directory",
+    "selectProjectDir": "Select Project Directory",
+    "selectGitProjectDir": "Select Git Project Directory",
+    "pluginInstallSuccess": "Plugin installed successfully",
+    "pluginInstallFailed": "Failed to install plugin: {{error}}",
+    "pluginUninstallSuccess": "Plugin uninstalled successfully",
+    "pluginUninstallFailed": "Failed to uninstall plugin: {{error}}",
+    "configureEnvVars": "Plugin installed successfully. Please configure the following environment variables: {{vars}}",
+    "viewDetails": "View Details",
+    "ok": "OK"
   },
   "sidebar": {
     "todayToken": "Today Token",
@@ -308,6 +332,8 @@
     "openMarketplace": "Open Marketplace",
     "team": "Team",
     "openTeam": "Open Team",
+    "codeAnalysis": "Code Analysis",
+    "openCodeAnalysis": "Open Code Analysis",
     "recentSessions": "Recent Sessions",
     "openSessions": "Open Recent Sessions",
     "tokenTypes": {
@@ -370,6 +396,10 @@
     "leaderLabel": "Leader",
     "online": "Online",
     "offline": "Offline",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "wsConnected": "WebSocket connection to Leader is active",
+    "wsDisconnected": "WebSocket connection to Leader is disconnected",
     "members": "Members",
     "skills": "Skills",
     "leave": "Leave",
@@ -513,6 +543,9 @@
       "other": "Other"
     },
     "projectConfigDesc": "Configure team projects to track. The system will collect members' Git commits and Cursor activities on these projects.",
+    "selectFolder": "Select Project Folder",
+    "selectFolderHint": "Select a local Git project folder, the system will automatically read repository info and add the project",
+    "manualAdd": "Manually Enter Repository URL",
     "addProject": "Add Project",
     "projectName": "Project Name",
     "projectNamePlaceholder": "e.g., CoCursor Main",
@@ -623,7 +656,7 @@
       "failed": "Failed to save configuration",
       "embeddingRequired": "Please fill in Embedding API configuration"
     },
-      "search": {
+    "search": {
       "title": "RAG Search",
       "placeholder": "Enter search keywords...",
       "queryRequired": "Please enter search keywords",
@@ -856,5 +889,59 @@
       "concurrencyHelper": "Number of concurrent tasks (1-10)",
       "saveWarning": "After saving configuration, the system will start scanning the workspace and creating the index, which may take some time"
     }
+  },
+  "codeAnalysis": {
+    "title": "Code Impact Analysis",
+    "subtitle": "Analyze how Go code changes affect upstream functions",
+    "noWorkspace": "No Workspace Open",
+    "noWorkspaceDesc": "Please open a Go project in VS Code to use this feature",
+    "projectInfo": "Project Info",
+    "projectName": "Project Name",
+    "projectPath": "Project Path",
+    "remoteUrl": "Remote URL",
+    "callGraphStatus": "Call Graph Status",
+    "upToDate": "Up to Date",
+    "outdated": "{{count}} commits behind",
+    "notGenerated": "Not Generated",
+    "currentCommit": "Current Commit",
+    "funcCount": "Function Count",
+    "entryPoints": "Entry Points",
+    "entryPointsHint": "Select entry points for the project. Analysis will build call graph starting from these functions",
+    "recommended": "Recommended",
+    "advancedConfig": "Advanced Configuration",
+    "algorithm": "Analysis Algorithm",
+    "excludePaths": "Exclude Paths",
+    "excludePathsHint": "One pattern per line, wildcards supported",
+    "registerAndGenerate": "Register Project & Generate",
+    "generate": "Generate Call Graph",
+    "regenerate": "Regenerate",
+    "generating": "Generating call graph, this may take a while...",
+    "scanning": "Scanning entry points...",
+    "generateResult": "Generation Result",
+    "functions": "Functions",
+    "edges": "Call Edges",
+    "generationTime": "Generation Time",
+    "howToUse": "How to Use",
+    "step1": "After generating call graph, use \"code-impact-analysis\" Skill in Cursor",
+    "step2": "The skill will automatically analyze Git diff and identify changed functions",
+    "step3": "Query impact surface using call graph and generate analysis report",
+    "success": {
+      "register": "Project registered successfully",
+      "generate": "Call graph generated: {{funcCount}} functions, {{edgeCount}} edges, took {{time}}s"
+    },
+    "error": {
+      "checkStatus": "Failed to check status",
+      "scan": "Failed to scan entry points",
+      "register": "Failed to register project",
+      "generate": "Failed to generate call graph",
+      "noEntryPoints": "Please select at least one entry point",
+      "invalidGoModule": "Invalid Go Module",
+      "noGoMod": "This directory is not a Go module. Please ensure the project has a go.mod file.",
+      "noGoFiles": "No Go source files found in the project."
+    },
+    "taskStarting": "Starting task...",
+    "taskRunning": "Analyzing...",
+    "algorithmFallback": "Algorithm Fallback Occurred",
+    "fallbackWarning": "Algorithm automatically switched to {{algorithm}} due to analysis issues"
   }
 }

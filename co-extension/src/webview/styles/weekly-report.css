@@ -860,3 +860,31 @@
 .cocursor-error-icon {
   font-size: 32px;
 }
+
+/* ===== 项目配置样式增强 ===== */
+.cocursor-project-config-quick {
+  margin-bottom: 16px;
+}
+
+.cocursor-btn-full-width {
+  width: 100%;
+  justify-content: center;
+}
+
+.cocursor-project-config-form {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.cocursor-project-config-form summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--vscode-textLink-foreground);
+  margin-bottom: 8px;
+}
+
+.cocursor-project-config-form[open] summary {
+  margin-bottom: 12px;
+}

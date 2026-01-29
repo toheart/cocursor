@@ -13,7 +13,7 @@ import (
 
 // DataMerger 数据合并器
 type DataMerger struct {
-	dbReader      *infraCursor.DBReader
+	dbReader       *infraCursor.DBReader
 	globalDBReader domainCursor.GlobalDBReader
 }
 
@@ -23,7 +23,7 @@ func NewDataMerger(
 	globalDBReader domainCursor.GlobalDBReader,
 ) *DataMerger {
 	return &DataMerger{
-		dbReader:      dbReader,
+		dbReader:       dbReader,
 		globalDBReader: globalDBReader,
 	}
 }
@@ -181,7 +181,7 @@ func (m *DataMerger) MergeGenerations(workspaces []*domainCursor.WorkspaceInfo) 
 		if allGenerations[i].GenerationData == nil || allGenerations[j].GenerationData == nil {
 			return false
 		}
-		return allGenerations[i].GenerationData.UnixMs > allGenerations[j].GenerationData.UnixMs
+		return allGenerations[i].UnixMs > allGenerations[j].UnixMs
 	})
 
 	return allGenerations, nil
@@ -226,7 +226,7 @@ func (m *DataMerger) MergeSessions(workspaces []*domainCursor.WorkspaceInfo) ([]
 		if allSessions[i].ComposerData == nil || allSessions[j].ComposerData == nil {
 			return false
 		}
-		return allSessions[i].ComposerData.LastUpdatedAt > allSessions[j].ComposerData.LastUpdatedAt
+		return allSessions[i].LastUpdatedAt > allSessions[j].LastUpdatedAt
 	})
 
 	return allSessions, nil
@@ -235,7 +235,7 @@ func (m *DataMerger) MergeSessions(workspaces []*domainCursor.WorkspaceInfo) ([]
 // PromptWithSource 带来源的 Prompt
 type PromptWithSource struct {
 	Prompt map[string]interface{} `json:"prompt"`
-	Source string                  `json:"source"` // 工作区 ID
+	Source string                 `json:"source"` // 工作区 ID
 }
 
 // GenerationWithSource 带来源的 Generation

@@ -124,33 +124,7 @@ func openspecListTool(
 
 	// 扫描 specs 目录
 	if input.Type == "specs" || input.Type == "all" || input.Type == "" {
-		specsDir := filepath.Join(openspecDir, "specs")
-		if entries, err := os.ReadDir(specsDir); err == nil {
-			for _, entry := range entries {
-				if !entry.IsDir() {
-					continue
-				}
-
-				capability := entry.Name()
-				capabilityPath := filepath.Join(specsDir, capability)
-
-				hasSpec := fileExists(filepath.Join(capabilityPath, "spec.md"))
-				hasDesign := fileExists(filepath.Join(capabilityPath, "design.md"))
-
-				info, _ := entry.Info()
-				updatedAt := getLatestModTime(capabilityPath)
-				if updatedAt.IsZero() {
-					updatedAt = info.ModTime()
-				}
-
-				specs = append(specs, SpecItem{
-					Capability: capability,
-					HasSpec:    hasSpec,
-					HasDesign:  hasDesign,
-					UpdatedAt:  updatedAt,
-				})
-			}
-		}
+		specs = scanSpecsDir(filepath.Join(openspecDir, "specs"))
 	}
 
 	return nil, OpenSpecListOutput{
@@ -184,43 +158,9 @@ func openspecValidateTool(
 	}
 
 	// 验证 spec delta 文件
-	specsDir := filepath.Join(changePath, "specs")
-	if entries, err := os.ReadDir(specsDir); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			specPath := filepath.Join(specsDir, entry.Name(), "spec.md")
-			if !fileExists(specPath) {
-				warnings = append(warnings, fmt.Sprintf("spec delta %s/spec.md not found", entry.Name()))
-				continue
-			}
-
-			// 验证格式
-			content, err := os.ReadFile(specPath)
-			if err != nil {
-				errors = append(errors, fmt.Sprintf("failed to read %s/spec.md: %v", entry.Name(), err))
-				continue
-			}
-
-			// 检查是否有 ADDED|MODIFIED|REMOVED Requirements
-			contentStr := string(content)
-			hasOperation := strings.Contains(contentStr, "## ADDED Requirements") ||
-				strings.Contains(contentStr, "## MODIFIED Requirements") ||
-				strings.Contains(contentStr, "## REMOVED Requirements")
-
-			if !hasOperation {
-				errors = append(errors, fmt.Sprintf("%s/spec.md must contain ## ADDED|MODIFIED|REMOVED Requirements", entry.Name()))
-			}
-
-			// 检查每个 requirement 是否有 scenario
-			if !strings.Contains(contentStr, "#### Scenario:") {
-				errors = append(errors, fmt.Sprintf("%s/spec.md must have at least one #### Scenario: per requirement", entry.Name()))
-			}
-		}
-	} else if input.Strict {
-		warnings = append(warnings, "no spec deltas found")
-	}
+	specErrors, specWarnings := validateSpecDeltaFiles(filepath.Join(changePath, "specs"), input.Strict)
+	errors = append(errors, specErrors...)
+	warnings = append(warnings, specWarnings...)
 
 	// 验证 proposal.md 格式
 	proposalPath := filepath.Join(changePath, "proposal.md")
@@ -306,3 +246,85 @@ func getLatestModTime(dirPath string) time.Time {
 	return latestTime
 }
 
+// scanSpecsDir 扫描 specs 目录并返回规范列表
+func scanSpecsDir(specsDir string) []SpecItem {
+	var specs []SpecItem
+
+	entries, err := os.ReadDir(specsDir)
+	if err != nil {
+		return specs
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		capability := entry.Name()
+		capabilityPath := filepath.Join(specsDir, capability)
+
+		info, _ := entry.Info()
+		updatedAt := getLatestModTime(capabilityPath)
+		if updatedAt.IsZero() && info != nil {
+			updatedAt = info.ModTime()
+		}
+
+		specs = append(specs, SpecItem{
+			Capability: capability,
+			HasSpec:    fileExists(filepath.Join(capabilityPath, "spec.md")),
+			HasDesign:  fileExists(filepath.Join(capabilityPath, "design.md")),
+			UpdatedAt:  updatedAt,
+		})
+	}
+	return specs
+}
+
+// validateSpecDeltaFiles 验证 spec delta 文件
+func validateSpecDeltaFiles(specsDir string, strict bool) (errors, warnings []string) {
+	entries, err := os.ReadDir(specsDir)
+	if err != nil {
+		if strict {
+			warnings = append(warnings, "no spec deltas found")
+		}
+		return
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		errs, warns := validateSpecDelta(specsDir, entry.Name())
+		errors = append(errors, errs...)
+		warnings = append(warnings, warns...)
+	}
+	return
+}
+
+// validateSpecDelta 验证单个 spec delta
+func validateSpecDelta(specsDir, name string) (errors, warnings []string) {
+	specPath := filepath.Join(specsDir, name, "spec.md")
+	if !fileExists(specPath) {
+		warnings = append(warnings, fmt.Sprintf("spec delta %s/spec.md not found", name))
+		return
+	}
+
+	content, err := os.ReadFile(specPath)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("failed to read %s/spec.md: %v", name, err))
+		return
+	}
+
+	contentStr := string(content)
+	hasOperation := strings.Contains(contentStr, "## ADDED Requirements") ||
+		strings.Contains(contentStr, "## MODIFIED Requirements") ||
+		strings.Contains(contentStr, "## REMOVED Requirements")
+
+	if !hasOperation {
+		errors = append(errors, fmt.Sprintf("%s/spec.md must contain ## ADDED|MODIFIED|REMOVED Requirements", name))
+	}
+
+	if !strings.Contains(contentStr, "#### Scenario:") {
+		errors = append(errors, fmt.Sprintf("%s/spec.md must have at least one #### Scenario: per requirement", name))
+	}
+	return
+}

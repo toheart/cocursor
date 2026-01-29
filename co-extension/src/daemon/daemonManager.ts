@@ -1,27 +1,38 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { spawn, ChildProcess, execSync } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import axios, { AxiosInstance } from "axios";
 import { Logger } from "../utils/logger";
 
 /**
  * DaemonManager 负责启动和管理后端进程
+ *
+ * 生命周期管理策略：
+ * - 使用心跳机制维护窗口活跃状态
+ * - 窗口关闭时只停止心跳，不主动关闭后端
+ * - 后端通过心跳超时自动退出（所有窗口关闭 5 分钟后）
  */
 export class DaemonManager {
   private process: ChildProcess | null = null;
+  private healthCheckTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
-  private readonly healthCheckInterval = 5000; // 5秒
+  private readonly healthCheckInterval = 5000; // 5秒健康检查
+  private readonly heartbeatInterval = 30000; // 30秒心跳间隔
   private readonly healthCheckUrl = "http://localhost:19960/health";
-  private readonly shutdownUrl = "http://localhost:19960/api/v1/shutdown";
+  private readonly heartbeatUrl = "http://localhost:19960/api/v1/heartbeat";
   private readonly context: vscode.ExtensionContext;
   private axiosInstance: AxiosInstance;
+  private readonly windowId: string; // 唯一窗口标识
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.axiosInstance = axios.create({
       timeout: 2000, // 2秒超时
     });
+    // 使用 vscode.env.sessionId 作为窗口唯一标识
+    this.windowId = vscode.env.sessionId;
+    Logger.backendDebug(`Window ID: ${this.windowId}`);
   }
 
   /**
@@ -60,9 +71,13 @@ export class DaemonManager {
       // 处理进程退出
       this.process.on("exit", (code, signal) => {
         if (code === 0) {
-          Logger.backendInfo(`后端进程正常退出: code=${code}, signal=${signal}`);
+          Logger.backendInfo(
+            `后端进程正常退出: code=${code}, signal=${signal}`,
+          );
         } else {
-          Logger.backendWarn(`后端进程异常退出: code=${code}, signal=${signal}`);
+          Logger.backendWarn(
+            `后端进程异常退出: code=${code}, signal=${signal}`,
+          );
         }
         this.process = null;
         this.stopHeartbeat();
@@ -71,21 +86,19 @@ export class DaemonManager {
       this.process.on("error", (error) => {
         Logger.error(`启动后端进程失败: ${error.message}`);
         Logger.backendError(`启动后端进程失败: ${error.message}`);
-        vscode.window.showErrorMessage(
-          `启动后端服务器失败: ${error.message}`
-        );
+        vscode.window.showErrorMessage(`启动后端服务器失败: ${error.message}`);
         this.process = null;
         this.stopHeartbeat();
       });
 
-      // 等待进程启动后开始心跳检测
-      // 使用 setTimeout 而非 Promise，因为这是延迟启动心跳，不阻塞启动流程
+      // 等待进程启动后开始健康检查和心跳
+      // 使用 setTimeout 而非 Promise，因为这是延迟启动，不阻塞启动流程
       setTimeout(() => {
+        this.startHealthCheck();
         this.startHeartbeat();
       }, 2000); // 等待2秒让进程启动
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       Logger.error(`启动后端服务器失败: ${message}`);
       Logger.backendError(`启动后端服务器失败: ${message}`);
       vscode.window.showErrorMessage(`启动后端服务器失败: ${message}`);
@@ -95,199 +108,35 @@ export class DaemonManager {
 
   /**
    * 停止后端服务器（同步方法，用于 deactivate）
+   *
+   * 重要：窗口关闭时只停止心跳，不主动关闭后端
+   * 后端通过心跳超时机制自动管理生命周期：
+   * - 所有窗口心跳超时后 5 分钟自动退出
+   * - 避免多窗口场景下误关其他窗口正在使用的后端
    */
   stop(): void {
+    Logger.backendInfo("窗口关闭，停止心跳（后端将在空闲后自动退出）");
     this.stopHeartbeat();
+    this.stopHealthCheck();
 
-    // 首先尝试通过 HTTP API 优雅关闭
-    this.sendShutdownRequest();
-
-    // 然后强制终止进程
-    this.killProcess();
-
-    // 清理可能的残留进程（通过端口查找）
-    this.killProcessByPort(19960);
+    // 清理本地进程引用（不终止后端进程）
+    // 后端会通过心跳超时机制自动退出
+    this.process = null;
   }
 
   /**
    * 异步停止后端服务器（用于需要等待的场景）
+   *
+   * 重要：窗口关闭时只停止心跳，不主动关闭后端
+   * 后端通过心跳超时机制自动管理生命周期
    */
   async stopAsync(): Promise<void> {
+    Logger.backendInfo("窗口关闭，停止心跳（后端将在空闲后自动退出）");
     this.stopHeartbeat();
+    this.stopHealthCheck();
 
-    // 首先尝试通过 HTTP API 优雅关闭
-    await this.sendShutdownRequestAsync();
-
-    // 等待进程退出
-    if (this.process && !this.process.killed) {
-      const exitPromise = new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          Logger.backendWarn("等待进程退出超时，强制终止");
-          resolve();
-        }, 3000); // 最多等待 3 秒
-
-        this.process?.once("exit", () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
-
-      // 发送 SIGTERM
-      this.process.kill("SIGTERM");
-      await exitPromise;
-
-      // 如果进程仍在运行，强制终止
-      if (this.process && !this.process.killed) {
-        this.killProcess();
-      }
-    }
-
+    // 清理本地进程引用（不终止后端进程）
     this.process = null;
-
-    // 清理可能的残留进程
-    this.killProcessByPort(19960);
-  }
-
-  /**
-   * 同步发送关闭请求（不等待响应）
-   */
-  private sendShutdownRequest(): void {
-    try {
-      // 使用 XMLHttpRequest 同步请求（Node.js 环境下使用 execSync + curl）
-      if (process.platform === "win32") {
-        execSync(`curl -s -X POST "${this.shutdownUrl}" --max-time 1`, {
-          stdio: "ignore",
-          timeout: 2000,
-        });
-      } else {
-        execSync(`curl -s -X POST "${this.shutdownUrl}" --max-time 1 2>/dev/null || true`, {
-          stdio: "ignore",
-          timeout: 2000,
-        });
-      }
-      Logger.backendInfo("已发送关闭请求到后端");
-    } catch {
-      // 忽略错误，可能后端已经关闭
-      Logger.backendDebug("发送关闭请求失败（后端可能已关闭）");
-    }
-  }
-
-  /**
-   * 异步发送关闭请求
-   */
-  private async sendShutdownRequestAsync(): Promise<void> {
-    try {
-      await this.axiosInstance.post(this.shutdownUrl, {}, { timeout: 2000 });
-      Logger.backendInfo("已发送关闭请求到后端");
-      // 等待一小段时间让后端处理关闭
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } catch {
-      // 忽略错误，可能后端已经关闭
-      Logger.backendDebug("发送关闭请求失败（后端可能已关闭）");
-    }
-  }
-
-  /**
-   * 强制终止当前管理的进程
-   */
-  private killProcess(): void {
-    if (!this.process) {
-      return;
-    }
-
-    const pid = this.process.pid;
-    if (!pid) {
-      this.process = null;
-      return;
-    }
-
-    Logger.backendInfo(`强制终止进程 PID=${pid}`);
-
-    try {
-      if (process.platform === "win32") {
-        // Windows: 使用 taskkill 强制终止进程树（同步执行）
-        try {
-          execSync(`taskkill /F /T /PID ${pid}`, {
-            stdio: "ignore",
-            timeout: 5000,
-          });
-        } catch {
-          // 进程可能已经退出
-        }
-      } else {
-        // Unix/Linux/Mac: 先尝试 SIGTERM，再 SIGKILL
-        try {
-          this.process.kill("SIGTERM");
-          // 给进程一点时间响应 SIGTERM
-          execSync("sleep 0.5", { stdio: "ignore" });
-        } catch {
-          // 忽略
-        }
-
-        // 检查进程是否仍在运行，如果是则发送 SIGKILL
-        try {
-          process.kill(pid, 0); // 测试进程是否存在
-          this.process.kill("SIGKILL");
-          Logger.backendInfo(`已发送 SIGKILL 到进程 PID=${pid}`);
-        } catch {
-          // 进程已经不存在，这是好事
-          Logger.backendDebug(`进程 PID=${pid} 已退出`);
-        }
-      }
-    } catch (error) {
-      Logger.backendWarn(`终止进程失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    this.process = null;
-  }
-
-  /**
-   * 通过端口查找并终止占用该端口的进程
-   */
-  private killProcessByPort(port: number): void {
-    try {
-      if (process.platform === "win32") {
-        // Windows: 使用 netstat 查找并终止
-        try {
-          const result = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
-            encoding: "utf-8",
-            timeout: 5000,
-          });
-          const lines = result.trim().split("\n");
-          for (const line of lines) {
-            const parts = line.trim().split(/\s+/);
-            const pid = parts[parts.length - 1];
-            if (pid && /^\d+$/.test(pid)) {
-              Logger.backendInfo(`通过端口 ${port} 发现残留进程 PID=${pid}，正在终止`);
-              execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore", timeout: 5000 });
-            }
-          }
-        } catch {
-          // 没有找到占用端口的进程，这是正常的
-        }
-      } else {
-        // Unix/Linux/Mac: 使用 lsof 查找并终止
-        try {
-          const result = execSync(`lsof -ti:${port}`, {
-            encoding: "utf-8",
-            timeout: 5000,
-          });
-          const pids = result.trim().split("\n").filter((p) => p && /^\d+$/.test(p));
-          for (const pid of pids) {
-            Logger.backendInfo(`通过端口 ${port} 发现残留进程 PID=${pid}，正在终止`);
-            try {
-              execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 2000 });
-            } catch {
-              // 进程可能已经退出
-            }
-          }
-        } catch {
-          // 没有找到占用端口的进程，这是正常的
-        }
-      }
-    } catch (error) {
-      Logger.backendDebug(`端口清理失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
 
   /**
@@ -307,7 +156,7 @@ export class DaemonManager {
       "..",
       "backend",
       "bin",
-      `cocursor${ext}`
+      `cocursor${ext}`,
     );
     if (fs.existsSync(devPath)) {
       Logger.backendDebug(`找到开发环境二进制: ${devPath}`);
@@ -328,11 +177,7 @@ export class DaemonManager {
     const platformName = platformMap[platform] || platform;
     const archName = archMap[arch] || arch;
     const binaryName = `cocursor-${platformName}-${archName}${ext}`;
-    const prodPath = path.join(
-      this.context.extensionPath,
-      "bin",
-      binaryName
-    );
+    const prodPath = path.join(this.context.extensionPath, "bin", binaryName);
 
     if (fs.existsSync(prodPath)) {
       Logger.backendDebug(`找到生产环境二进制: ${prodPath}`);
@@ -364,27 +209,81 @@ export class DaemonManager {
   }
 
   /**
-   * 开始心跳检测
+   * 开始健康检查（检测后端是否存活）
+   */
+  private startHealthCheck(): void {
+    if (this.healthCheckTimer) {
+      return; // 已经在运行
+    }
+
+    Logger.backendDebug("开始健康检查");
+    this.healthCheckTimer = setInterval(async () => {
+      await this.checkHealth();
+    }, this.healthCheckInterval);
+  }
+
+  /**
+   * 停止健康检查
+   */
+  private stopHealthCheck(): void {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+      Logger.backendDebug("停止健康检查");
+    }
+  }
+
+  /**
+   * 开始心跳发送（向后端注册窗口活跃状态）
    */
   private startHeartbeat(): void {
     if (this.heartbeatTimer) {
       return; // 已经在运行
     }
 
-    Logger.backendDebug("开始心跳检测");
+    Logger.backendDebug("开始心跳发送");
+
+    // 立即发送一次心跳
+    this.sendHeartbeat();
+
+    // 然后定期发送
     this.heartbeatTimer = setInterval(async () => {
-      await this.checkHealth();
-    }, this.healthCheckInterval);
+      await this.sendHeartbeat();
+    }, this.heartbeatInterval);
   }
 
   /**
-   * 停止心跳检测
+   * 停止心跳发送
    */
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
-      Logger.backendDebug("停止心跳检测");
+      Logger.backendDebug("停止心跳发送");
+    }
+  }
+
+  /**
+   * 发送心跳到后端
+   */
+  private async sendHeartbeat(): Promise<void> {
+    try {
+      const projectPath =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+      const response = await this.axiosInstance.post(this.heartbeatUrl, {
+        window_id: this.windowId,
+        project_path: projectPath,
+      });
+
+      if (response.status === 200) {
+        const data = response.data?.data;
+        Logger.backendTrace(
+          `心跳发送成功，活跃窗口数: ${data?.active_windows || "unknown"}`,
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      Logger.backendWarn(`心跳发送失败: ${message}`);
     }
   }
 
@@ -403,6 +302,7 @@ export class DaemonManager {
       // 如果进程已退出，清理资源
       if (this.process && this.process.killed) {
         this.stopHeartbeat();
+        this.stopHealthCheck();
         this.process = null;
       }
     }

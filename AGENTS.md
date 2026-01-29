@@ -144,13 +144,6 @@ Usage notes:
 </skill>
 
 <skill>
-<name>daily-summary</name>
-<description>Automatically summarize Cursor chat records to generate daily work reports. Supports querying sessions by date, reading text-only dialogues, identifying work types, extracting tech debt, and saving summaries to database. Can optionally integrate git commit analysis for comprehensive work tracking. Use this skill when users request work summaries, daily reports, or need to review daily work content.</description>
-<path>/Users/xibaobao/.claude/skills/daily-summary/SKILL.md</path>
-<location>global</location>
-</skill>
-
-<skill>
 <name>go-react-stack</name>
 <description>Create a new Go+React full-stack project with DDD architecture, OpenSpec specifications, and React best practices. Includes complete project scaffolding with backend (Go with Gin), frontend (React with TypeScript), OpenSpec structure, and example code following project conventions. Use this skill when users request creating a new full-stack project, scaffolding a Go+React application, or setting up a project with OpenSpec specifications.</description>
 <path>/Users/xibaobao/.claude/skills/go-react-stack/SKILL.md</path>
@@ -165,8 +158,15 @@ Usage notes:
 </skill>
 
 <skill>
+<name>daily-summary</name>
+<description>Automatically summarize Cursor chat records to generate daily work reports. Supports querying sessions by date, reading text-only dialogues, identifying work types, extracting tech debt, and saving summaries to database. Can optionally integrate git commit analysis for comprehensive work tracking. Use this skill when users request work summaries, daily reports, or need to review daily work content.</description>
+<path>/Users/xibaobao/.claude/skills/daily-summary/SKILL.md</path>
+<location>global</location>
+</skill>
+
+<skill>
 <name>user-profile</name>
-<description>Generate personalized user profile from Cursor chat history to help AI understand user's coding style, technical preferences, and communication habits. Use this skill when users want to create or update their profile, or when they say "let Cursor know me better", "analyze my habits", "generate my profile", "分析我的画像", "更新用户画像". Profile is saved as Cursor Rule for auto-loading.</description>
+<description>Generate personalized user profile from Cursor chat history to help AI understand user's coding style, technical preferences, and communication habits. Use this skill when users want to create or update their profile, or when they say "let Cursor know me better", "analyze my habits", "generate my profile", "分析我的画像", "更新用户画像". This skill requires the cocursor MCP server.</description>
 <path>/Users/xibaobao/.claude/skills/user-profile/SKILL.md</path>
 <location>global</location>
 </skill>

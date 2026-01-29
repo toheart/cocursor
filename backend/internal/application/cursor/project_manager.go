@@ -96,32 +96,36 @@ func (pm *ProjectManager) Start() error {
 	}
 
 	// 设置初始活跃工作区（选择第一个项目的主工作区）
-	if len(projectGroups) > 0 {
-		for _, project := range projectGroups {
-			for _, ws := range project.Workspaces {
-				if ws.IsPrimary {
-					pm.activeWorkspaceID = ws.WorkspaceID
-					break
-				}
-			}
-			if pm.activeWorkspaceID != "" {
-				break
-			}
-		}
-		// 如果没有主工作区，选择第一个工作区
-		if pm.activeWorkspaceID == "" {
-			for _, project := range projectGroups {
-				if len(project.Workspaces) > 0 {
-					pm.activeWorkspaceID = project.Workspaces[0].WorkspaceID
-					break
-				}
-			}
-		}
-	}
+	pm.activeWorkspaceID = pm.findInitialActiveWorkspace(projectGroups)
 
 	log.Printf("项目管理器启动完成: 发现 %d 个项目, %d 个工作区", len(pm.projects), len(workspaces))
 
 	return nil
+}
+
+// findInitialActiveWorkspace 查找初始活跃工作区
+func (pm *ProjectManager) findInitialActiveWorkspace(projectGroups map[string]*domainCursor.ProjectInfo) string {
+	if len(projectGroups) == 0 {
+		return ""
+	}
+
+	// 优先选择主工作区
+	for _, project := range projectGroups {
+		for _, ws := range project.Workspaces {
+			if ws.IsPrimary {
+				return ws.WorkspaceID
+			}
+		}
+	}
+
+	// 如果没有主工作区，选择第一个工作区
+	for _, project := range projectGroups {
+		if len(project.Workspaces) > 0 {
+			return project.Workspaces[0].WorkspaceID
+		}
+	}
+
+	return ""
 }
 
 // groupBySameProject 按"同一项目"规则分组
@@ -279,24 +283,27 @@ func (pm *ProjectManager) extractRepoNameFromURL(gitURL string) string {
 	// 移除域名部分，获取路径
 	// https://github.com/user/repo -> user/repo
 	// git@github.com:user/repo -> user/repo
-	if strings.Contains(url, "/") {
-		// 找到第一个 / 或 : 之后的部分
-		idx := strings.Index(url, "/")
-		if idx == -1 {
-			idx = strings.Index(url, ":")
-		}
-		if idx >= 0 && idx < len(url)-1 {
-			path := url[idx+1:]
-			// 移除末尾的 .git
-			path = strings.TrimSuffix(path, ".git")
-			// 获取最后一部分（仓库名）
-			parts := strings.Split(path, "/")
-			if len(parts) > 0 {
-				return parts[len(parts)-1]
-			}
-		}
+	if !strings.Contains(url, "/") {
+		return ""
 	}
 
+	// 找到第一个 / 或 : 之后的部分
+	idx := strings.Index(url, "/")
+	if idx == -1 {
+		idx = strings.Index(url, ":")
+	}
+	if idx < 0 || idx >= len(url)-1 {
+		return ""
+	}
+
+	path := url[idx+1:]
+	// 移除末尾的 .git
+	path = strings.TrimSuffix(path, ".git")
+	// 获取最后一部分（仓库名）
+	parts := strings.Split(path, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
 	return ""
 }
 
@@ -525,29 +532,19 @@ func (pm *ProjectManager) UpdateWorkspaceFocus(workspaceID string, path string) 
 	var targetWorkspaceID string
 	var state *WorkspaceState
 
-	if workspaceID != "" {
+	switch {
+	case workspaceID != "":
 		// 直接使用提供的 workspaceID
 		targetWorkspaceID = workspaceID
-		state, _ = pm.workspaceStates[targetWorkspaceID]
-	} else if path != "" {
+		state = pm.workspaceStates[targetWorkspaceID]
+	case path != "":
 		// 通过路径查找 workspaceID
-		id, err := pm.pathResolver.GetWorkspaceIDByPath(path)
+		var err error
+		targetWorkspaceID, state, err = pm.resolveWorkspaceByPath(path)
 		if err != nil {
-			// 如果找不到工作区 ID，尝试注册（可能是新工作区）
-			log.Printf("[ProjectManager.UpdateWorkspaceFocus] 通过路径查找工作区 ID 失败，尝试注册: path=%s, error=%v", path, err)
-			pm.mu.Unlock()
-			registeredState, registerErr := pm.RegisterWorkspace(path)
-			pm.mu.Lock()
-			if registerErr != nil {
-				return fmt.Errorf("failed to get workspace ID from path and register failed: %w (register error: %v)", err, registerErr)
-			}
-			targetWorkspaceID = registeredState.WorkspaceID
-			state = registeredState
-		} else {
-			targetWorkspaceID = id
-			state, _ = pm.workspaceStates[targetWorkspaceID]
+			return err
 		}
-	} else {
+	default:
 		return fmt.Errorf("either workspaceID or path must be provided")
 	}
 
@@ -578,6 +575,24 @@ func (pm *ProjectManager) UpdateWorkspaceFocus(workspaceID string, path string) 
 	pm.updateActiveWorkspaceInProjects(targetWorkspaceID)
 
 	return nil
+}
+
+// resolveWorkspaceByPath 通过路径解析工作区 ID 和状态
+func (pm *ProjectManager) resolveWorkspaceByPath(path string) (string, *WorkspaceState, error) {
+	id, err := pm.pathResolver.GetWorkspaceIDByPath(path)
+	if err == nil {
+		return id, pm.workspaceStates[id], nil
+	}
+
+	// 如果找不到工作区 ID，尝试注册（可能是新工作区）
+	log.Printf("[ProjectManager.UpdateWorkspaceFocus] 通过路径查找工作区 ID 失败，尝试注册: path=%s, error=%v", path, err)
+	pm.mu.Unlock()
+	registeredState, registerErr := pm.RegisterWorkspace(path)
+	pm.mu.Lock()
+	if registerErr != nil {
+		return "", nil, fmt.Errorf("failed to get workspace ID from path and register failed: %w (register error: %v)", err, registerErr)
+	}
+	return registeredState.WorkspaceID, registeredState, nil
 }
 
 // updateActiveWorkspaceInProjects 更新项目中的活跃工作区标记

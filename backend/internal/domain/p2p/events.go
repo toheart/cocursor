@@ -36,7 +36,6 @@ const (
 	EventSyncResponse EventType = "sync_response" // 同步响应
 
 	// 协作相关事件
-	EventCodeShared          EventType = "code_shared"           // 代码片段分享
 	EventMemberStatusChanged EventType = "member_status_changed" // 成员工作状态变更
 	EventDailySummaryShared  EventType = "daily_summary_shared"  // 日报分享
 
@@ -156,21 +155,6 @@ type SyncResponsePayload struct {
 	Deleted  []string                `json:"deleted"`   // 已删除的技能 ID
 	SyncTime time.Time               `json:"sync_time"`
 	HasMore  bool                    `json:"has_more"`
-}
-
-// CodeSharedPayload 代码片段分享事件数据
-type CodeSharedPayload struct {
-	ID         string    `json:"id"`          // 片段唯一标识
-	SenderID   string    `json:"sender_id"`   // 发送者 ID
-	SenderName string    `json:"sender_name"` // 发送者名称
-	FileName   string    `json:"file_name"`   // 文件名
-	FilePath   string    `json:"file_path"`   // 相对路径
-	Language   string    `json:"language"`    // 编程语言
-	StartLine  int       `json:"start_line"`  // 起始行号
-	EndLine    int       `json:"end_line"`    // 结束行号
-	Code       string    `json:"code"`        // 代码内容
-	Message    string    `json:"message"`     // 附加消息（可选）
-	CreatedAt  time.Time `json:"created_at"`  // 创建时间
 }
 
 // MemberWorkStatusPayload 成员工作状态变更事件数据

@@ -38,29 +38,7 @@ func (h *StatsHandler) resolveWorkspaceID(c *gin.Context) (string, error) {
 	projectName := c.Query("project_name")
 
 	if projectName != "" {
-		// 使用项目名查询
-		projectInfo := h.projectManager.GetProject(projectName)
-		if projectInfo == nil {
-			return "", fmt.Errorf("项目不存在: %s（可通过 GET /api/v1/project/list 查看所有项目）", projectName)
-		}
-
-		// 使用主工作区或第一个工作区
-		var primaryWorkspace *domainCursor.WorkspaceInfo
-		for _, ws := range projectInfo.Workspaces {
-			if ws.IsPrimary {
-				primaryWorkspace = ws
-				break
-			}
-		}
-		if primaryWorkspace == nil && len(projectInfo.Workspaces) > 0 {
-			primaryWorkspace = projectInfo.Workspaces[0]
-		}
-
-		if primaryWorkspace == nil {
-			return "", fmt.Errorf("项目没有可用的工作区")
-		}
-
-		return primaryWorkspace.WorkspaceID, nil
+		return h.resolveWorkspaceIDByProject(projectName)
 	}
 
 	// 尝试从当前工作目录自动检测
@@ -76,6 +54,34 @@ func (h *StatsHandler) resolveWorkspaceID(c *gin.Context) (string, error) {
 	}
 
 	return "", fmt.Errorf("无法从当前目录自动检测项目，请提供 project_name 参数（可通过 GET /api/v1/project/list 查看所有项目）")
+}
+
+// resolveWorkspaceIDByProject 通过项目名解析工作区 ID
+func (h *StatsHandler) resolveWorkspaceIDByProject(projectName string) (string, error) {
+	projectInfo := h.projectManager.GetProject(projectName)
+	if projectInfo == nil {
+		return "", fmt.Errorf("项目不存在: %s（可通过 GET /api/v1/project/list 查看所有项目）", projectName)
+	}
+
+	primaryWorkspace := h.findPrimaryWorkspace(projectInfo)
+	if primaryWorkspace == nil {
+		return "", fmt.Errorf("项目没有可用的工作区")
+	}
+
+	return primaryWorkspace.WorkspaceID, nil
+}
+
+// findPrimaryWorkspace 查找主工作区或第一个工作区
+func (h *StatsHandler) findPrimaryWorkspace(projectInfo *domainCursor.ProjectInfo) *domainCursor.WorkspaceInfo {
+	for _, ws := range projectInfo.Workspaces {
+		if ws.IsPrimary {
+			return ws
+		}
+	}
+	if len(projectInfo.Workspaces) > 0 {
+		return projectInfo.Workspaces[0]
+	}
+	return nil
 }
 
 // CurrentSession 获取当前会话的健康状态

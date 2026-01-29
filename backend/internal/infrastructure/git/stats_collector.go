@@ -105,6 +105,7 @@ func (c *StatsCollector) GetRepoUserEmail(repoPath string) (string, error) {
 }
 
 // FindRepoByRemoteURL 在本地查找匹配指定远程 URL 的仓库
+// 注意：此方法仅作为 fallback，建议优先使用 ProjectManager.FindProjectByRemoteURL
 // 搜索用户常见项目目录
 func (c *StatsCollector) FindRepoByRemoteURL(repoURL string) (string, error) {
 	// 规范化目标 URL
@@ -158,6 +159,11 @@ func (c *StatsCollector) FindRepoByRemoteURL(repoURL string) (string, error) {
 	}
 
 	return "", fmt.Errorf("repository not found for URL: %s", repoURL)
+}
+
+// GetRemoteURL 获取仓库的 remote origin URL（公开方法）
+func (c *StatsCollector) GetRemoteURL(repoPath string) (string, error) {
+	return c.getRemoteURL(repoPath)
 }
 
 // getRemoteURL 获取仓库的 remote origin URL

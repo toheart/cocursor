@@ -229,6 +229,40 @@
   color: var(--vscode-descriptionForeground);
 }
 
+/* WebSocket 连接状态指示器 */
+.cocursor-team-card-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.cocursor-team-card-connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.cocursor-team-card-connection.connected .cocursor-team-card-connection-dot {
+  background-color: #4caf50;
+  box-shadow: 0 0 4px #4caf50;
+}
+
+.cocursor-team-card-connection.connected {
+  color: #4caf50;
+}
+
+.cocursor-team-card-connection.disconnected .cocursor-team-card-connection-dot {
+  background-color: #f44336;
+  box-shadow: 0 0 4px #f44336;
+}
+
+.cocursor-team-card-connection.disconnected {
+  color: #f44336;
+}
+
 .cocursor-team-card-stats {
   display: flex;
   gap: 24px;

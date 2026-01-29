@@ -22,13 +22,13 @@ type RAGInitializer struct {
 	chunkRepo         domainRAG.ChunkRepository
 	indexStatusRepo   domainRAG.IndexStatusRepository
 	enrichmentQueue   domainRAG.EnrichmentQueueRepository
-	qdrantManager     *vector.QdrantManager  // Qdrant 管理器
-	chunkService      *ChunkService          // 知识片段服务
-	searchService     *SearchService         // 搜索服务
-	enrichmentService *EnrichmentService     // 增强服务
-	embeddingClient   *embedding.Client      // Embedding 客户端
-	llmClient         *LLMClient             // LLM 客户端（可选）
-	initialized       bool                   // 是否已初始化
+	qdrantManager     *vector.QdrantManager // Qdrant 管理器
+	chunkService      *ChunkService         // 知识片段服务
+	searchService     *SearchService        // 搜索服务
+	enrichmentService *EnrichmentService    // 增强服务
+	embeddingClient   *embedding.Client     // Embedding 客户端
+	llmClient         *LLMClient            // LLM 客户端（可选）
+	initialized       bool                  // 是否已初始化
 	logger            *slog.Logger
 }
 
@@ -113,25 +113,7 @@ func (i *RAGInitializer) InitializeServices() (*ChunkService, *SearchService, *S
 	i.qdrantManager = vector.NewQdrantManager(binaryPath, dataPath)
 
 	// 启动 Qdrant（如果二进制文件存在）
-	if _, err := os.Stat(binaryPath); err == nil {
-		if err := i.qdrantManager.Start(); err != nil {
-			// 记录错误但不阻止初始化
-			i.logger.Warn("Failed to start Qdrant",
-				"error", err,
-			)
-		} else {
-			// 获取向量维度并确保集合存在
-			dimension, err := i.embeddingClient.GetVectorDimension()
-			if err == nil {
-				if err := i.qdrantManager.EnsureCollections(uint64(dimension)); err != nil {
-					i.logger.Warn("Failed to ensure Qdrant collections",
-						"vector_dimension", dimension,
-						"error", err,
-					)
-				}
-			}
-		}
-	}
+	i.tryStartQdrant(binaryPath)
 
 	// 创建 ChunkService（核心索引服务）
 	i.chunkService = NewChunkService(
@@ -185,6 +167,35 @@ func (i *RAGInitializer) InitializeServices() (*ChunkService, *SearchService, *S
 	i.logger.Info("RAG services initialized successfully")
 
 	return i.chunkService, i.searchService, scanScheduler, i.enrichmentService, i.qdrantManager, nil
+}
+
+// tryStartQdrant 尝试启动 Qdrant 并初始化集合
+func (i *RAGInitializer) tryStartQdrant(binaryPath string) {
+	if _, err := os.Stat(binaryPath); err != nil {
+		return
+	}
+
+	if err := i.qdrantManager.Start(); err != nil {
+		i.logger.Warn("Failed to start Qdrant", "error", err)
+		return
+	}
+
+	i.ensureQdrantCollections()
+}
+
+// ensureQdrantCollections 确保 Qdrant 集合存在
+func (i *RAGInitializer) ensureQdrantCollections() {
+	dimension, err := i.embeddingClient.GetVectorDimension()
+	if err != nil {
+		return
+	}
+
+	if err := i.qdrantManager.EnsureCollections(uint64(dimension)); err != nil {
+		i.logger.Warn("Failed to ensure Qdrant collections",
+			"vector_dimension", dimension,
+			"error", err,
+		)
+	}
 }
 
 // GetChunkService 获取 ChunkService（延迟初始化时使用）

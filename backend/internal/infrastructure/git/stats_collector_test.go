@@ -223,12 +223,8 @@ func TestStatsCollector_ParseGitLogOutput_MaxCommits(t *testing.T) {
 	input := ""
 	for i := 0; i < 15; i++ {
 		// 生成有效的 7 位 hash（如 abc0001, abc0002, ...）
-		hash := fmt.Sprintf("abc%04d", i)
-		if len(hash) > 7 {
-			hash = hash[:7]
-		}
-		// 将数字替换为有效十六进制
-		hash = "a" + string(hexChars[i%16]) + "c" + fmt.Sprintf("%04x", i)
+		// 生成有效的 7 位 hash（如 a0c0000, a1c0001, ...）
+		hash := "a" + string(hexChars[i%16]) + "c" + fmt.Sprintf("%04x", i)
 		input += hash[:7] + " Commit message " + fmt.Sprintf("%d", i) + "\n"
 		input += " file.go | 1 +\n"
 		input += " 1 file changed, 1 insertion(+)\n\n"

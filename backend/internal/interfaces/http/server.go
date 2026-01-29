@@ -15,6 +15,7 @@ import (
 	infraP2P "github.com/cocursor/backend/internal/infrastructure/p2p"
 	"github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/cocursor/backend/internal/interfaces/http/handler"
+	"github.com/cocursor/backend/internal/interfaces/http/middleware"
 	"github.com/cocursor/backend/internal/interfaces/mcp"
 	p2pHandler "github.com/cocursor/backend/internal/interfaces/p2p/handler"
 	"github.com/gin-gonic/gin"
@@ -51,6 +52,9 @@ func NewServer(
 	weeklySummaryHandler *handler.WeeklySummaryHandler,
 	profileHandler *handler.ProfileHandler,
 	openspecHandler *handler.OpenSpecHandler,
+	todoHandler *handler.TodoHandler,
+	codeAnalysisHandler *handler.CodeAnalysisHandler,
+	lifecycleHandler *handler.LifecycleHandler,
 	mcpServer *mcp.MCPServer,
 	pluginService *appMarketplace.PluginService,
 	dailySummaryRepo storage.DailySummaryRepository,
@@ -58,6 +62,10 @@ func NewServer(
 	projectManager *appCursor.ProjectManager,
 ) *HTTPServer {
 	router := gin.Default()
+
+	// 添加编码转换中间件，确保请求体是 UTF-8 编码
+	// 解决 Windows 下 curl 使用 GBK 编码导致的中文乱码问题
+	router.Use(middleware.EnsureUTF8Body())
 
 	logger := log.NewModuleLogger("http", "server")
 
@@ -130,10 +138,37 @@ func NewServer(
 			}
 		}
 
+		// 待办事项相关路由
+		if todoHandler != nil {
+			todos := api.Group("/todos")
+			{
+				todos.GET("", todoHandler.List)
+				todos.POST("", todoHandler.Create)
+				todos.PATCH("/:id", todoHandler.Update)
+				todos.DELETE("/completed", todoHandler.DeleteCompleted)
+				todos.DELETE("/:id", todoHandler.Delete)
+			}
+		}
+
 		// 周报相关路由
 		if weeklySummaryHandler != nil {
 			api.GET("/weekly-summary", weeklySummaryHandler.GetWeeklySummary)
 			api.POST("/weekly-summary", weeklySummaryHandler.SaveWeeklySummary)
+		}
+
+		// 代码分析相关路由
+		if codeAnalysisHandler != nil {
+			analysis := api.Group("/analysis")
+			{
+				analysis.POST("/scan-entry-points", codeAnalysisHandler.ScanEntryPoints)
+				analysis.POST("/projects", codeAnalysisHandler.RegisterProject)
+				analysis.POST("/callgraph/status", codeAnalysisHandler.CheckCallGraphStatus)
+				analysis.POST("/callgraph/generate", codeAnalysisHandler.GenerateCallGraph)
+				analysis.POST("/callgraph/generate-async", codeAnalysisHandler.GenerateCallGraphAsync)
+				analysis.GET("/callgraph/progress/:task_id", codeAnalysisHandler.GetGenerationProgress)
+				analysis.POST("/diff", codeAnalysisHandler.AnalyzeDiff)
+				analysis.POST("/impact", codeAnalysisHandler.QueryImpact)
+			}
 		}
 
 		// 设置相关路由
@@ -178,6 +213,15 @@ func NewServer(
 				// 增强队列相关
 				rag.GET("/enrichment/stats", ragHandler.GetEnrichmentStats)
 				rag.POST("/enrichment/retry", ragHandler.RetryEnrichment)
+			}
+		}
+
+		// 生命周期管理相关路由
+		if lifecycleHandler != nil {
+			api.POST("/heartbeat", lifecycleHandler.Heartbeat)
+			lifecycle := api.Group("/lifecycle")
+			{
+				lifecycle.GET("/status", lifecycleHandler.GetStatus)
 			}
 		}
 	}
@@ -303,7 +347,6 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 			components.TeamService,
 			components.CollaborationService,
 		)
-		team.POST("/:id/share-code", collaborationHandler.ShareCode)
 		team.POST("/:id/status", collaborationHandler.UpdateWorkStatus)
 		team.POST("/:id/daily-summaries/share", collaborationHandler.ShareDailySummary)
 		team.GET("/:id/daily-summaries", collaborationHandler.GetDailySummaries)
@@ -314,6 +357,7 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		team.GET("/:id/project-config", weeklyReportHandler.GetProjectConfig)
 		team.POST("/:id/project-config", weeklyReportHandler.UpdateProjectConfig)
 		team.POST("/:id/project-config/add", weeklyReportHandler.AddProject)
+		team.POST("/:id/project-config/add-by-path", weeklyReportHandler.AddProjectByPath)
 		team.POST("/:id/project-config/remove", weeklyReportHandler.RemoveProject)
 		team.GET("/:id/weekly-report", weeklyReportHandler.GetWeeklyReport)
 		team.GET("/:id/members/:member_id/daily-detail", weeklyReportHandler.GetMemberDailyDetail)
@@ -343,8 +387,8 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 
 	// 注册团队 P2P 路由（用于团队加入、成员管理等）
 	var wsServer *infraP2P.WebSocketServer
-	if ws := components.TeamService.GetWebSocketServer(); ws != nil {
-		wsServer = ws.(*infraP2P.WebSocketServer)
+	if ws, ok := components.TeamService.GetWebSocketServer().(*infraP2P.WebSocketServer); ok && ws != nil {
+		wsServer = ws
 	}
 	p2pTeamHandler := p2pHandler.NewP2PTeamHandler(
 		components.TeamService,

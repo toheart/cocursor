@@ -143,10 +143,8 @@ func (t *FileTransfer) UnpackArchive(data []byte, destDir string) error {
 			}
 			_ = file.Close()
 
-			// 设置文件权限
-			if err := os.Chmod(targetPath, os.FileMode(header.Mode)); err != nil {
-				// 忽略权限设置错误（Windows 上可能失败）
-			}
+			// 设置文件权限（忽略权限设置错误，Windows 上可能失败）
+			_ = os.Chmod(targetPath, os.FileMode(header.Mode))
 		}
 	}
 

@@ -383,24 +383,10 @@ func (s *SessionService) combineMessages(
 			continue
 		}
 
-		// 改进时间戳估算：
-		// 1. 如果有 generations，尝试在它们之间分配 prompts
-		// 2. 否则，按会话时长均匀分配
-		var estimatedTime int64
-		if len(genTimestamps) > 0 && promptIndex < len(genTimestamps) {
-			// 在对应的 generation 之前 10 秒
-			estimatedTime = genTimestamps[promptIndex] - 10000
-			if estimatedTime < sessionStart {
-				estimatedTime = sessionStart + int64(promptIndex)*1000*30 // 30秒间隔
-			}
-		} else {
-			// 均匀分布在会话时长内
-			if len(prompts) > 1 {
-				estimatedTime = sessionStart + int64(i)*sessionDuration/int64(len(prompts))
-			} else {
-				estimatedTime = sessionStart
-			}
-		}
+		// 改进时间戳估算
+		estimatedTime := s.estimatePromptTimestamp(
+			genTimestamps, promptIndex, sessionStart, sessionDuration, i, len(prompts),
+		)
 
 		// 只包含会话时间范围内的消息
 		if estimatedTime < sessionStart || estimatedTime > sessionEnd {
@@ -519,54 +505,100 @@ func (s *SessionService) combineMessages(
 	return messages
 }
 
+// estimatePromptTimestamp 估算 prompt 的时间戳
+func (s *SessionService) estimatePromptTimestamp(
+	genTimestamps []int64, promptIndex int,
+	sessionStart, sessionDuration int64,
+	currentIndex, totalPrompts int,
+) int64 {
+	// 如果有 generations，尝试在它们之间分配 prompts
+	if len(genTimestamps) > 0 && promptIndex < len(genTimestamps) {
+		// 在对应的 generation 之前 10 秒
+		estimatedTime := genTimestamps[promptIndex] - 10000
+		if estimatedTime >= sessionStart {
+			return estimatedTime
+		}
+		return sessionStart + int64(promptIndex)*1000*30 // 30秒间隔
+	}
+
+	// 均匀分布在会话时长内
+	if totalPrompts > 1 {
+		return sessionStart + int64(currentIndex)*sessionDuration/int64(totalPrompts)
+	}
+	return sessionStart
+}
+
+// codeBlockParser 代码块解析器状态
+type codeBlockParser struct {
+	blocks          []*domainCursor.CodeBlock
+	inCodeBlock     bool
+	currentLanguage string
+	currentCode     []string
+}
+
 // extractCodeBlocks 从文本中提取代码块
 // 支持 Markdown 格式：```language\ncode\n```
 func (s *SessionService) extractCodeBlocks(text string) []*domainCursor.CodeBlock {
-	var blocks []*domainCursor.CodeBlock
-
-	// 查找代码块（Markdown 格式）
+	parser := &codeBlockParser{}
 	lines := strings.Split(text, "\n")
-	inCodeBlock := false
-	currentLanguage := ""
-	currentCode := []string{}
 
 	for _, line := range lines {
-		if strings.HasPrefix(line, "```") {
-			if inCodeBlock {
-				// 结束代码块
-				if len(currentCode) > 0 {
-					blocks = append(blocks, &domainCursor.CodeBlock{
-						Language: currentLanguage,
-						Code:     strings.Join(currentCode, "\n"),
-					})
-				}
-				currentCode = []string{}
-				currentLanguage = ""
-				inCodeBlock = false
-			} else {
-				// 开始代码块
-				language := strings.TrimPrefix(line, "```")
-				language = strings.TrimSpace(language)
-				currentLanguage = language
-				if currentLanguage == "" {
-					currentLanguage = "text"
-				}
-				inCodeBlock = true
-			}
-		} else if inCodeBlock {
-			currentCode = append(currentCode, line)
-		}
+		parser.processLine(line)
 	}
 
 	// 处理未闭合的代码块
-	if inCodeBlock && len(currentCode) > 0 {
-		blocks = append(blocks, &domainCursor.CodeBlock{
-			Language: currentLanguage,
-			Code:     strings.Join(currentCode, "\n"),
-		})
+	parser.finalize()
+	return parser.blocks
+}
+
+// processLine 处理单行文本
+func (p *codeBlockParser) processLine(line string) {
+	if !strings.HasPrefix(line, "```") {
+		if p.inCodeBlock {
+			p.currentCode = append(p.currentCode, line)
+		}
+		return
 	}
 
-	return blocks
+	// 遇到 ``` 标记
+	if p.inCodeBlock {
+		p.closeCodeBlock()
+	} else {
+		p.openCodeBlock(line)
+	}
+}
+
+// openCodeBlock 开始新的代码块
+func (p *codeBlockParser) openCodeBlock(line string) {
+	language := strings.TrimSpace(strings.TrimPrefix(line, "```"))
+	if language == "" {
+		language = "text"
+	}
+	p.currentLanguage = language
+	p.inCodeBlock = true
+}
+
+// closeCodeBlock 关闭当前代码块
+func (p *codeBlockParser) closeCodeBlock() {
+	if len(p.currentCode) > 0 {
+		p.blocks = append(p.blocks, &domainCursor.CodeBlock{
+			Language: p.currentLanguage,
+			Code:     strings.Join(p.currentCode, "\n"),
+		})
+	}
+	p.currentCode = nil
+	p.currentLanguage = ""
+	p.inCodeBlock = false
+}
+
+// finalize 完成解析，处理未闭合的代码块
+func (p *codeBlockParser) finalize() {
+	if p.inCodeBlock && len(p.currentCode) > 0 {
+		p.blocks = append(p.blocks, &domainCursor.CodeBlock{
+			Language: p.currentLanguage,
+			Code:     strings.Join(p.currentCode, "\n"),
+		})
+	}
 }
 
 // parseTranscript 解析 agent-transcripts 文件内容
@@ -652,7 +684,7 @@ type TextContentOptions struct {
 	// 启用后会将日志行、代码行、文件路径等过滤掉，只保留自然语言对话
 	// 默认 false，保持向后兼容
 	FilterLogsAndCode bool
-	
+
 	// MaxMessageLength 最大消息长度，超过此长度会被截断，0 表示不限制
 	// 默认 5000
 	MaxMessageLength int
@@ -680,7 +712,7 @@ func (s *SessionService) GetSessionTextContentWithOptions(sessionID string, opti
 	if options == nil {
 		options = DefaultTextContentOptions()
 	}
-	
+
 	// 获取会话详情
 	sessionDetail, err := s.GetSessionDetail(sessionID, 1000)
 	if err != nil {
@@ -699,10 +731,10 @@ func (s *SessionService) GetSessionTextContentWithOptions(sessionID string, opti
 		text := msg.Text
 		// 移除代码块（Markdown 格式：```language\ncode\n```）
 		text = s.removeCodeBlocksFromText(text)
-		
+
 		// 过滤系统信息（如 git_status）
 		text = s.filterSystemInfo(text)
-		
+
 		// 根据选项决定是否过滤日志和代码相关内容
 		if options.FilterLogsAndCode {
 			text = s.filterLogsAndCode(text)
@@ -738,15 +770,15 @@ func (s *SessionService) removeCodeBlocksFromText(text string) string {
 	if text == "" {
 		return text
 	}
-	
+
 	// 使用正则表达式移除所有代码块（包括语言标识）
 	// 匹配 ```language 或 ``` 开头，到下一个 ``` 结束的所有内容
 	codeBlockRegex := regexp.MustCompile("(?s)```[\\w]*\\n.*?```")
 	text = codeBlockRegex.ReplaceAllString(text, "")
-	
+
 	// 清理可能残留的代码块标记
 	text = strings.ReplaceAll(text, "```", "")
-	
+
 	return text
 }
 
@@ -755,31 +787,31 @@ func (s *SessionService) filterSystemInfo(text string) string {
 	if text == "" {
 		return text
 	}
-	
+
 	// 移除 <git_status>...</git_status> 标签及其内容
 	gitStatusRegex := regexp.MustCompile("(?i)(?s)<git_status>.*?</git_status>")
 	text = gitStatusRegex.ReplaceAllString(text, "")
-	
+
 	// 移除 <attached_files>...</attached_files> 标签及其内容（包含用户选中的代码、diff 等）
 	attachedFilesRegex := regexp.MustCompile("(?i)(?s)<attached_files>.*?</attached_files>")
 	text = attachedFilesRegex.ReplaceAllString(text, "")
-	
+
 	// 移除 <agent_skills>...</agent_skills> 标签及其内容
 	agentSkillsRegex := regexp.MustCompile("(?i)(?s)<agent_skills>.*?</agent_skills>")
 	text = agentSkillsRegex.ReplaceAllString(text, "")
-	
+
 	// 移除 <code_selection ...>...</code_selection> 标签及其内容
 	codeSelectionRegex := regexp.MustCompile("(?i)(?s)<code_selection[^>]*>.*?</code_selection>")
 	text = codeSelectionRegex.ReplaceAllString(text, "")
-	
+
 	// 移除 <terminal_selection ...>...</terminal_selection> 标签及其内容
 	terminalSelectionRegex := regexp.MustCompile("(?i)(?s)<terminal_selection[^>]*>.*?</terminal_selection>")
 	text = terminalSelectionRegex.ReplaceAllString(text, "")
-	
+
 	// 移除 [Image] 标记（图片占位符）
 	imageTagRegex := regexp.MustCompile(`\[Image\](\s*\n)?`)
 	text = imageTagRegex.ReplaceAllString(text, "")
-	
+
 	// 移除其他常见的系统信息标签
 	systemTags := []string{
 		"<file_list>", "</file_list>",
@@ -787,7 +819,7 @@ func (s *SessionService) filterSystemInfo(text string) string {
 		"<system_info>", "</system_info>",
 		"<context>", "</context>",
 	}
-	
+
 	for i := 0; i < len(systemTags); i += 2 {
 		openTag := systemTags[i]
 		closeTag := systemTags[i+1]
@@ -795,7 +827,7 @@ func (s *SessionService) filterSystemInfo(text string) string {
 		tagRegex := regexp.MustCompile(pattern)
 		text = tagRegex.ReplaceAllString(text, "")
 	}
-	
+
 	// 清理多余的空行
 	lines := strings.Split(text, "\n")
 	var filteredLines []string
@@ -812,7 +844,7 @@ func (s *SessionService) filterSystemInfo(text string) string {
 		}
 	}
 	text = strings.Join(filteredLines, "\n")
-	
+
 	return strings.TrimSpace(text)
 }
 
@@ -821,10 +853,10 @@ func (s *SessionService) filterLogsAndCode(text string) string {
 	if text == "" {
 		return text
 	}
-	
+
 	lines := strings.Split(text, "\n")
 	var filteredLines []string
-	
+
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
 		if trimmedLine == "" {
@@ -832,37 +864,37 @@ func (s *SessionService) filterLogsAndCode(text string) string {
 			filteredLines = append(filteredLines, "")
 			continue
 		}
-		
+
 		// 跳过日志行（包含时间戳、日志级别等）
 		if s.isLogLine(trimmedLine) {
 			continue
 		}
-		
+
 		// 跳过代码行（包含大量代码特征）
 		if s.isCodeLine(trimmedLine) {
 			continue
 		}
-		
+
 		// 跳过文件路径行（通常是代码相关）
 		if s.isFilePathLine(trimmedLine) {
 			continue
 		}
-		
+
 		// 移除行内代码标记，但保留文本内容
 		filteredLine := s.removeInlineCode(trimmedLine)
-		
+
 		// 如果过滤后还有内容，保留这一行
 		if strings.TrimSpace(filteredLine) != "" {
 			filteredLines = append(filteredLines, filteredLine)
 		}
 	}
-	
+
 	// 重新组合文本
 	result := strings.Join(filteredLines, "\n")
-	
+
 	// 清理多余的空行（连续3个或更多空行替换为2个）
 	result = s.cleanupEmptyLines(result)
-	
+
 	return strings.TrimSpace(result)
 }
 
@@ -876,65 +908,65 @@ func (s *SessionService) isLogLine(line string) bool {
 	if len(line) < 5 {
 		return false
 	}
-	
+
 	// 匹配常见的日志格式模式
 	logPatterns := []*regexp.Regexp{
 		// ISO 8601 时间戳 + 日志级别: 2024-01-19T10:30:45.123Z [INFO]
 		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?.*?(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC)`),
-		
+
 		// RFC 3339 时间戳: [2024-01-19 10:30:45] INFO
 		regexp.MustCompile(`^\[?\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}(\.\d+)?\]?.*?(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC)`),
-		
+
 		// Unix 时间戳格式: [1234567890] INFO 或 1234567890 INFO
 		regexp.MustCompile(`^\[?\d{10,13}\]?.*?(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC)`),
-		
+
 		// 时间格式 HH:MM:SS + 日志级别: 10:30:45 INFO
 		regexp.MustCompile(`^[\[\s]*\d{2}:\d{2}:\d{2}(\.\d+)?[\]\s]+.*?(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC)`),
-		
+
 		// 日志级别标记: [LOG], [ERROR], [WARN] 等
 		regexp.MustCompile(`^\[(LOG|ERROR|WARN|INFO|DEBUG|FATAL|TRACE|PANIC|FATAL|CRITICAL)\]`),
-		
+
 		// 日志级别（小写）: [log], [error], [warn]
 		regexp.MustCompile(`^\[(log|error|warn|info|debug|fatal|trace|panic|critical)\]`),
-		
+
 		// 包含日志级别且格式像日志（行首有特殊字符）
 		regexp.MustCompile(`^[\[\s]*\d{1,2}[:/\-]\d{1,2}[:/\-]\d{2,4}.*?(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC)`),
-		
+
 		// 包含 "log" 关键字且格式像日志（行首有括号或时间）
 		regexp.MustCompile(`^[\[\(]?.*?(log|LOG|Log).*?[\]\)]?:`),
-		
+
 		// 包含日志级别和文件路径模式: INFO /path/to/file.go:123
 		regexp.MustCompile(`^(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC).*?[/\\].*?\.\w+:\d+`),
-		
+
 		// 包含日志级别和包名: INFO github.com/user/repo
 		regexp.MustCompile(`^(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC).*?[\w\-_\.]+/[\w\-_\./]+`),
-		
+
 		// 包含日志级别和函数名: INFO funcName()
 		regexp.MustCompile(`^(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC).*?\w+\(\)`),
-		
+
 		// 常见的日志框架格式
 		// logrus: time="2024-01-19T10:30:45Z" level=info
 		regexp.MustCompile(`^\w+=".*?"\s+level=(info|error|warn|debug|fatal|trace|panic)`),
-		
+
 		// zap: {"level":"info","ts":1234567890}
 		regexp.MustCompile(`^\{.*?"level"\s*:\s*"(info|error|warn|debug|fatal|trace|panic)".*?\}`),
-		
+
 		// 包含多个日志特征的行（时间戳 + 级别 + 消息）
 		regexp.MustCompile(`^\d{4}.*?\d{2}:\d{2}:\d{2}.*?(INFO|ERROR|WARN|DEBUG|FATAL|TRACE|PANIC).*?[:\-].*?`),
 	}
-	
+
 	// 检查是否匹配任何日志模式
 	for _, pattern := range logPatterns {
 		if pattern.MatchString(line) {
 			return true
 		}
 	}
-	
+
 	// 额外检查：如果行包含时间戳模式且包含日志相关关键词
 	hasTimestamp := regexp.MustCompile(`\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}:\d{2}`).MatchString(line) ||
 		regexp.MustCompile(`\d{2}:\d{2}:\d{2}`).MatchString(line)
 	hasLogKeywords := regexp.MustCompile(`(?i)(log|error|warn|info|debug|fatal|trace|panic)`).MatchString(line)
-	
+
 	if hasTimestamp && hasLogKeywords {
 		// 但如果包含大量中文，可能是正常文本
 		chineseCount := 0
@@ -948,7 +980,7 @@ func (s *SessionService) isLogLine(line string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -958,7 +990,7 @@ func (s *SessionService) isCodeLine(line string) bool {
 	if len(line) < 10 {
 		return false
 	}
-	
+
 	// 代码特征：
 	// 1. 包含大量特殊符号（{}, (), [], ->, =>, ::, //, /*, */）
 	// 2. 包含函数调用 pattern (func(), method(), etc.)
@@ -966,7 +998,7 @@ func (s *SessionService) isCodeLine(line string) bool {
 	// 4. 包含导入语句 (import, require, include)
 	// 5. 包含类型定义 (type, interface, class, struct)
 	// 6. 行首有大量空格或制表符（缩进代码）
-	
+
 	// 检查特殊符号密度
 	specialCharCount := 0
 	specialChars := "{}()[];:=-><>"
@@ -979,7 +1011,7 @@ func (s *SessionService) isCodeLine(line string) bool {
 	if float64(specialCharCount)/float64(len(line)) > 0.3 {
 		return true
 	}
-	
+
 	// 检查代码关键字模式
 	codePatterns := []*regexp.Regexp{
 		// 函数定义或调用
@@ -995,7 +1027,7 @@ func (s *SessionService) isCodeLine(line string) bool {
 		// 指针或引用
 		regexp.MustCompile(`[*&]\w+`),
 	}
-	
+
 	for _, pattern := range codePatterns {
 		if pattern.MatchString(line) {
 			// 但如果这行包含大量中文或其他自然语言，可能不是纯代码
@@ -1011,23 +1043,25 @@ func (s *SessionService) isCodeLine(line string) bool {
 			}
 		}
 	}
-	
+
 	// 检查是否是缩进很深的代码（行首有大量空格）
 	leadingSpaces := 0
 	for _, char := range line {
-		if char == ' ' {
+		switch char {
+		case ' ':
 			leadingSpaces++
-		} else if char == '\t' {
+		case '\t':
 			leadingSpaces += 4 // 制表符算4个空格
-		} else {
-			break
+		default:
+			goto checkIndent
 		}
 	}
+checkIndent:
 	// 如果行首有超过8个空格，且包含代码特征，可能是代码
 	if leadingSpaces > 8 && specialCharCount > 3 {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -1038,7 +1072,7 @@ func (s *SessionService) isFilePathLine(line string) bool {
 	// 2. 相对路径：./path/to/file 或 ../path/to/file
 	// 3. 文件路径 + 行号：file.go:123
 	// 4. 包路径：github.com/user/repo
-	
+
 	filePathPatterns := []*regexp.Regexp{
 		// Unix 路径
 		regexp.MustCompile(`^[/~]?([\w\-_\.]+/)+[\w\-_\.]+(\.\w+)?(:?\d+)?$`),
@@ -1051,14 +1085,14 @@ func (s *SessionService) isFilePathLine(line string) bool {
 		// 文件路径 + 行号（如 file.go:123）
 		regexp.MustCompile(`^[\w\-_\./]+\.\w+:\d+$`),
 	}
-	
+
 	// 如果整行就是一个路径（没有其他文本），则认为是文件路径行
 	for _, pattern := range filePathPatterns {
 		if pattern.MatchString(line) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -1068,7 +1102,7 @@ func (s *SessionService) removeInlineCode(line string) string {
 	inlineCodeRegex := regexp.MustCompile("`([^`]+)`")
 	// 保留代码内容，但移除标记
 	line = inlineCodeRegex.ReplaceAllString(line, "$1")
-	
+
 	return line
 }
 
@@ -1077,7 +1111,7 @@ func (s *SessionService) cleanupEmptyLines(text string) string {
 	lines := strings.Split(text, "\n")
 	var filteredLines []string
 	emptyCount := 0
-	
+
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			emptyCount++
@@ -1089,7 +1123,7 @@ func (s *SessionService) cleanupEmptyLines(text string) string {
 			filteredLines = append(filteredLines, line)
 		}
 	}
-	
+
 	return strings.Join(filteredLines, "\n")
 }
 

@@ -74,12 +74,12 @@ func (s *MCPServer) searchHistoryTool(
 
 	// 获取 RAG 搜索服务
 	if s.ragInitializer == nil {
-		return nil, output, fmt.Errorf("RAG service not initialized. Please configure embedding service first.")
+		return nil, output, fmt.Errorf("RAG service not initialized, please configure embedding service first")
 	}
 
 	searchService := s.ragInitializer.GetSearchService()
 	if searchService == nil {
-		return nil, output, fmt.Errorf("RAG search service not available. Please ensure Qdrant is running and embedding is configured.")
+		return nil, output, fmt.Errorf("RAG search service not available, please ensure Qdrant is running and embedding is configured")
 	}
 
 	// 执行搜索（使用 workspace ID 作为 project ID 过滤）

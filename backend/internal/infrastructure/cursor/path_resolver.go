@@ -22,9 +22,8 @@ type PathResolver struct {
 
 // 全局路径配置（通过环境变量或配置文件设置）
 var (
-	globalConfig     *config.CursorConfig
-	globalConfigOnce sync.Once
-	globalConfigMu   sync.RWMutex
+	globalConfig   *config.CursorConfig
+	globalConfigMu sync.RWMutex
 )
 
 // SetGlobalCursorConfig 设置全局 Cursor 路径配置
@@ -349,10 +348,10 @@ func (p *PathResolver) getUserDataDir() (string, error) {
 			return p.customUserDataDir, nil
 		}
 		return "", &PathNotFoundError{
-			PathType:    "user_data_dir",
+			PathType:      "user_data_dir",
 			AttemptedPath: p.customUserDataDir,
-			IsCustom:    true,
-			Hint:        "配置的 Cursor 用户数据目录不存在，请检查路径是否正确",
+			IsCustom:      true,
+			Hint:          "配置的 Cursor 用户数据目录不存在，请检查路径是否正确",
 		}
 	}
 
@@ -362,10 +361,10 @@ func (p *PathResolver) getUserDataDir() (string, error) {
 			return cfg.UserDataDir, nil
 		}
 		return "", &PathNotFoundError{
-			PathType:    "user_data_dir",
+			PathType:      "user_data_dir",
 			AttemptedPath: cfg.UserDataDir,
-			IsCustom:    true,
-			Hint:        "配置的 Cursor 用户数据目录不存在，请检查路径是否正确",
+			IsCustom:      true,
+			Hint:          "配置的 Cursor 用户数据目录不存在，请检查路径是否正确",
 		}
 	}
 
@@ -375,10 +374,10 @@ func (p *PathResolver) getUserDataDir() (string, error) {
 			return envPath, nil
 		}
 		return "", &PathNotFoundError{
-			PathType:    "user_data_dir",
+			PathType:      "user_data_dir",
 			AttemptedPath: envPath,
-			IsCustom:    true,
-			Hint:        "环境变量 CURSOR_USER_DATA_DIR 指定的路径不存在",
+			IsCustom:      true,
+			Hint:          "环境变量 CURSOR_USER_DATA_DIR 指定的路径不存在",
 		}
 	}
 

@@ -555,19 +555,21 @@ func buildDownloadURL(version, osName, arch string) (string, error) {
 		}
 	case "macos":
 		// macOS 使用 tar.gz 格式（不是 zip）
-		if arch == "x86_64" {
+		switch arch {
+		case "x86_64":
 			filename = "qdrant-x86_64-apple-darwin.tar.gz"
-		} else if arch == "arm64" {
+		case "arm64":
 			filename = "qdrant-aarch64-apple-darwin.tar.gz"
-		} else {
+		default:
 			return "", fmt.Errorf("unsupported architecture for macOS: %s", arch)
 		}
 	case "linux":
-		if arch == "x86_64" {
+		switch arch {
+		case "x86_64":
 			filename = "qdrant-x86_64-unknown-linux-musl.tar.gz"
-		} else if arch == "arm64" {
+		case "arm64":
 			filename = "qdrant-aarch64-unknown-linux-musl.tar.gz"
-		} else {
+		default:
 			return "", fmt.Errorf("unsupported architecture for Linux: %s", arch)
 		}
 	default:

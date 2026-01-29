@@ -115,9 +115,9 @@ var systemTagPatterns = []*regexp.Regexp{
 	regexp.MustCompile("(?s)<context>.*?</context>"),
 	regexp.MustCompile("(?s)<git_status>.*?</git_status>"),
 	regexp.MustCompile("(?s)<system_reminder>.*?</system_reminder>"),
-	regexp.MustCompile("(?m)^\\[Tool call\\].*$"),
-	regexp.MustCompile("(?m)^\\[Tool result\\].*$"),
-	regexp.MustCompile("(?m)^\\[Thinking\\].*$"),
+	regexp.MustCompile(`(?m)^\[Tool call\].*$`),
+	regexp.MustCompile(`(?m)^\[Tool result\].*$`),
+	regexp.MustCompile(`(?m)^\[Thinking\].*$`),
 }
 
 // removeSystemTags 移除系统标签
@@ -129,10 +129,10 @@ func (e *ContentExtractor) removeSystemTags(text string) string {
 }
 
 // logLinePattern 日志行正则
-var logLinePattern = regexp.MustCompile("(?m)^\\d{4}[-/]\\d{2}[-/]\\d{2}[T ]\\d{2}:\\d{2}.*$")
+var logLinePattern = regexp.MustCompile(`(?m)^\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}.*$`)
 
 // filePathPattern 文件路径正则
-var filePathPattern = regexp.MustCompile("(?m)^\\s*(/[\\w./\\-]+|[A-Za-z]:[\\\\][\\w.\\\\\\-]+)\\s*$")
+var filePathPattern = regexp.MustCompile(`(?m)^\s*(/[\w./\-]+|[A-Za-z]:[\][\w.\\\-]+)\s*$`)
 
 // emptyLinesPattern 多余空行正则
 var emptyLinesPattern = regexp.MustCompile("\n{3,}")

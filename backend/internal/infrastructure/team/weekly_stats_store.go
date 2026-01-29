@@ -206,7 +206,7 @@ func (s *WeeklyStatsStore) Delete(memberID, weekStart string) error {
 
 	var newEntries []domainTeam.WeeklyStatsCacheEntry
 	for _, entry := range s.cache.Entries {
-		if !(entry.MemberID == memberID && entry.WeekStart == weekStart) {
+		if entry.MemberID != memberID || entry.WeekStart != weekStart {
 			newEntries = append(newEntries, entry)
 		}
 	}

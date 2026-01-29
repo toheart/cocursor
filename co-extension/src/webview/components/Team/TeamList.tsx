@@ -2,16 +2,19 @@
  * 团队列表组件
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
 import { Team, Identity } from "../../types";
-import { useApi, useToast } from "../../hooks";
+import { useApi, useToast, useTeamWebSocket } from "../../hooks";
 import { TeamCreate } from "./TeamCreate";
 import { TeamJoin } from "./TeamJoin";
 import { MemberList } from "./MemberList";
 import { IdentitySetup } from "./IdentitySetup";
 import { ToastContainer } from "../shared/ToastContainer";
+
+// 自动刷新间隔（30秒）
+const AUTO_REFRESH_INTERVAL = 30 * 1000;
 
 export const TeamList: React.FC = () => {
   const { t } = useTranslation();
@@ -39,6 +42,34 @@ export const TeamList: React.FC = () => {
   const { data: teamsData, loading, refetch: loadTeams } = useApi<{ teams: Team[]; total: number }>(fetchTeams);
 
   const teams = useMemo(() => teamsData?.teams || [], [teamsData]);
+
+  // 记录每个团队的 WebSocket 连接状态
+  const [wsConnectionStates, setWsConnectionStates] = useState<Record<string, boolean>>({});
+
+  // 自动刷新定时器
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 自动刷新团队列表
+  useEffect(() => {
+    // 设置定时刷新
+    refreshTimerRef.current = setInterval(() => {
+      loadTeams();
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
+  }, [loadTeams]);
+
+  // 更新 WebSocket 连接状态的回调
+  const updateWsConnectionState = useCallback((teamId: string, connected: boolean) => {
+    setWsConnectionStates(prev => ({
+      ...prev,
+      [teamId]: connected
+    }));
+  }, []);
   const hasIdentity = identityData?.exists ?? false;
   const identity = identityData?.identity;
 
@@ -179,12 +210,14 @@ export const TeamList: React.FC = () => {
           </div>
         ) : (
           teams.map(team => (
-            <TeamCard
+            <TeamCardWithConnection
               key={team.id}
               team={team}
               onClick={() => setSelectedTeam(team.id)}
               onLeave={() => handleLeaveTeam(team.id)}
               onDissolve={() => handleDissolveTeam(team.id)}
+              onConnectionChange={(connected) => updateWsConnectionState(team.id, connected)}
+              wsConnected={wsConnectionStates[team.id]}
             />
           ))
         )}
@@ -216,16 +249,45 @@ export const TeamList: React.FC = () => {
   );
 };
 
-// 团队卡片组件
-interface TeamCardProps {
+// 团队卡片组件（带 WebSocket 连接监控）
+interface TeamCardWithConnectionProps {
   team: Team;
   onClick: () => void;
   onLeave: () => void;
   onDissolve: () => void;
+  onConnectionChange: (connected: boolean) => void;
+  wsConnected?: boolean;
 }
 
-const TeamCard: React.FC<TeamCardProps> = ({ team, onClick, onLeave, onDissolve }) => {
+const TeamCardWithConnection: React.FC<TeamCardWithConnectionProps> = ({ 
+  team, 
+  onClick, 
+  onLeave, 
+  onDissolve,
+  onConnectionChange,
+  wsConnected 
+}) => {
   const { t } = useTranslation();
+
+  // 对于非 Leader 成员，连接 Leader 的 WebSocket 来监测连接状态
+  // 这里使用轻量级的连接（仅用于状态检测）
+  const { isConnected } = useTeamWebSocket({
+    teamId: team.id,
+    leaderEndpoint: team.leader_endpoint,
+    enabled: !team.is_leader, // Leader 自己不需要连接自己
+    onEvent: () => {}, // 不需要处理事件
+  });
+
+  // 当连接状态变化时通知父组件
+  useEffect(() => {
+    // 如果是 Leader，始终认为已连接
+    const connected = team.is_leader ? true : isConnected;
+    onConnectionChange(connected);
+  }, [isConnected, team.is_leader, onConnectionChange]);
+
+  // 确定实际的连接状态
+  // Leader 始终显示为已连接，成员显示实际 WebSocket 连接状态
+  const actualConnected = team.is_leader ? true : (wsConnected ?? isConnected);
 
   return (
     <div className={`cocursor-team-card ${team.is_leader ? "leader" : ""}`} onClick={onClick}>
@@ -242,8 +304,13 @@ const TeamCard: React.FC<TeamCardProps> = ({ team, onClick, onLeave, onDissolve 
           </h3>
           <div className="cocursor-team-card-meta">
             <span>{t("team.leaderLabel")}: {team.leader_name}</span>
-            <span className={`cocursor-team-card-status ${team.leader_online ? "online" : "offline"}`}>
-              {team.leader_online ? t("team.online") : t("team.offline")}
+            {/* WebSocket 连接状态指示器 */}
+            <span 
+              className={`cocursor-team-card-connection ${actualConnected ? "connected" : "disconnected"}`}
+              title={actualConnected ? t("team.wsConnected") : t("team.wsDisconnected")}
+            >
+              <span className="cocursor-team-card-connection-dot"></span>
+              {actualConnected ? t("team.connected") : t("team.disconnected")}
             </span>
           </div>
         </div>

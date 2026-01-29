@@ -1,104 +1,126 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
+import i18next from "i18next";
+import zhCN from "../webview/i18n/locales/zh-CN.json";
+import en from "../webview/i18n/locales/en.json";
 
-interface Translations {
-  [key: string]: string | Translations;
-}
+// 支持的语言类型
+type SupportedLanguage = "zh-CN" | "en";
 
-let translations: Translations = {};
-let currentLanguage = "zh-CN";
-let extensionPath: string | undefined;
+// 语言变化监听器类型
+type LanguageChangeListener = (lang: SupportedLanguage) => void;
 
-// 初始化 i18n（需要在扩展激活时调用，传入 extensionPath）
+// 存储 Extension context 引用
+let extensionContext: vscode.ExtensionContext | null = null;
+
+// 语言变化事件监听器集合
+const languageChangeListeners: Set<LanguageChangeListener> = new Set();
+
+/**
+ * 初始化 i18n（需要在扩展激活时调用）
+ * @param context VSCode Extension Context
+ */
 export function initI18n(context: vscode.ExtensionContext): void {
-  extensionPath = context.extensionPath;
-  
+  extensionContext = context;
+
   // 优先从 globalState 读取保存的语言设置
-  const savedLanguage = context.globalState.get<string>('cocursor-language');
-  if (savedLanguage === 'zh-CN' || savedLanguage === 'en') {
-    currentLanguage = savedLanguage;
+  const savedLanguage = context.globalState.get<string>("cocursor-language");
+  let initialLang: SupportedLanguage;
+
+  if (savedLanguage === "zh-CN" || savedLanguage === "en") {
+    initialLang = savedLanguage;
   } else {
-    // 如果没有保存的设置，获取 VSCode 语言设置
+    // 如果没有保存的设置，使用 VSCode 语言设置
     const vscodeLanguage = vscode.env.language;
-    currentLanguage = vscodeLanguage.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+    initialLang = vscodeLanguage.toLowerCase().startsWith("zh")
+      ? "zh-CN"
+      : "en";
   }
-  
-  translations = loadTranslations(currentLanguage);
+
+  // 使用 i18next 初始化
+  i18next.init({
+    lng: initialLang,
+    fallbackLng: "zh-CN",
+    resources: {
+      "zh-CN": { translation: zhCN },
+      en: { translation: en },
+    },
+    interpolation: {
+      escapeValue: false, // 不转义 HTML
+    },
+  });
 }
 
-// 加载翻译文件
-function loadTranslations(language: string): Translations {
-  if (!extensionPath) {
-    return {};
-  }
-
-  // 尝试多个可能的路径（开发环境和生产环境）
-  const possiblePaths = [
-    path.join(extensionPath, "src", "webview", "i18n", "locales", `${language}.json`), // 开发环境
-    path.join(extensionPath, "dist", "webview", "i18n", "locales", `${language}.json`), // 生产环境（如果文件被复制）
-    path.join(extensionPath, "webview", "i18n", "locales", `${language}.json`), // 备用路径
-  ];
-  
-  for (const localePath of possiblePaths) {
-    try {
-      if (fs.existsSync(localePath)) {
-        const content = fs.readFileSync(localePath, "utf-8");
-        return JSON.parse(content);
-      }
-    } catch (error) {
-      // 继续尝试下一个路径
-      continue;
-    }
-  }
-  
-  // 如果加载失败，尝试加载英文作为后备
-  if (language !== "en") {
-    return loadTranslations("en");
-  }
-  return {};
+/**
+ * 获取翻译文本
+ * @param key 翻译 key，支持嵌套 key（如 "panel.workAnalysis"）
+ * @param params 插值参数
+ * @returns 翻译后的文本，如果找不到返回 key 本身
+ */
+export function t(
+  key: string,
+  params?: Record<string, string | number>,
+): string {
+  return i18next.t(key, params);
 }
 
-// 获取翻译
-export function t(key: string, params?: Record<string, string | number>): string {
-  const keys = key.split(".");
-  let value: any = translations;
-  
-  for (const k of keys) {
-    if (value && typeof value === "object" && k in value) {
-      value = value[k];
-    } else {
-      // 如果找不到翻译，返回 key
-      return key;
-    }
-  }
-  
-  if (typeof value !== "string") {
-    return key;
-  }
-  
-  // 替换参数
-  if (params) {
-    return value.replace(/\{\{(\w+)\}\}/g, (match: string, paramKey: string) => {
-      return params[paramKey]?.toString() || match;
-    });
-  }
-  
-  return value;
+/**
+ * 获取当前语言
+ * @returns 当前语言代码
+ */
+export function getCurrentLanguage(): SupportedLanguage {
+  const lang = i18next.language;
+  return lang === "zh-CN" || lang === "en" ? lang : "zh-CN";
 }
 
-// 获取当前语言
-export function getCurrentLanguage(): string {
-  return currentLanguage;
-}
-
-// 切换语言（用于响应语言变更）
-export function changeLanguage(language: string): void {
+/**
+ * 切换语言
+ * @param language 目标语言
+ */
+export async function changeLanguage(language: string): Promise<void> {
   if (language !== "zh-CN" && language !== "en") {
     console.warn(`Invalid language: ${language}`);
     return;
   }
-  
-  currentLanguage = language;
-  translations = loadTranslations(language);
+
+  const typedLang = language as SupportedLanguage;
+
+  // 更新 i18next 语言
+  await i18next.changeLanguage(typedLang);
+
+  // 持久化到 globalState
+  if (extensionContext) {
+    await extensionContext.globalState.update("cocursor-language", typedLang);
+  }
+
+  // 通知所有监听者
+  languageChangeListeners.forEach((listener) => {
+    try {
+      listener(typedLang);
+    } catch (error) {
+      console.error("Error in language change listener:", error);
+    }
+  });
+}
+
+/**
+ * 注册语言变化监听器
+ * @param listener 监听器函数
+ * @returns 取消监听的函数
+ */
+export function onLanguageChange(listener: LanguageChangeListener): () => void {
+  languageChangeListeners.add(listener);
+  return () => {
+    languageChangeListeners.delete(listener);
+  };
+}
+
+/**
+ * 获取翻译资源（供 Webview 使用）
+ * @returns 包含所有语言翻译资源的对象
+ */
+export function getTranslationResources(): Record<string, object> {
+  return {
+    "zh-CN": zhCN,
+    en: en,
+  };
 }

@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	infraCodeanalysis "github.com/cocursor/backend/internal/infrastructure/codeanalysis"
 	"github.com/cocursor/backend/internal/infrastructure/config"
 	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/cocursor/backend/internal/infrastructure/embedding"
@@ -20,9 +21,10 @@ var ProviderSet = wire.NewSet(
 	notification.ProviderSet,
 	marketplace.ProviderSet,
 	storage.ProviderSet,
-	infraCursor.ProviderSet, // Cursor 基础设施层
-	infraRAG.ProviderSet,    // RAG 基础设施层
-	embedding.ProviderSet,    // Embedding 基础设施层
-	vector.ProviderSet,      // Vector 基础设施层
+	infraCursor.ProviderSet,       // Cursor 基础设施层
+	infraRAG.ProviderSet,          // RAG 基础设施层
+	embedding.ProviderSet,         // Embedding 基础设施层
+	vector.ProviderSet,            // Vector 基础设施层
+	infraCodeanalysis.ProviderSet, // 代码分析基础设施层
 	// 可以继续添加其他基础设施模块
 )

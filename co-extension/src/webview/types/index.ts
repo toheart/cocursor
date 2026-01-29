@@ -311,22 +311,6 @@ export interface MemberWorkStatus {
   status_visible: boolean;
 }
 
-// 代码片段
-export interface CodeSnippet {
-  id: string;
-  team_id: string;
-  sender_id: string;
-  sender_name: string;
-  file_name: string;
-  file_path: string;
-  language: string;
-  start_line: number;
-  end_line: number;
-  code: string;
-  message?: string;
-  created_at: string;
-}
-
 // 团队日报
 export interface TeamDailySummary {
   member_id: string;

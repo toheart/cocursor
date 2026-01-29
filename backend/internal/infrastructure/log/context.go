@@ -5,22 +5,25 @@ import (
 	"log/slog"
 )
 
+// contextKey 是用于 context 的自定义类型，避免与其他包的 key 冲突
+type contextKey string
+
 // 上下文键定义
 const (
 	// RequestContextID HTTP 请求 ID
-	RequestContextID = "request_id"
+	RequestContextID contextKey = "request_id"
 
 	// WorkspaceContextID 工作区 ID
-	WorkspaceContextID = "workspace_id"
+	WorkspaceContextID contextKey = "workspace_id"
 
 	// SessionContextID 会话 ID
-	SessionContextID = "session_id"
+	SessionContextID contextKey = "session_id"
 
 	// ProjectContextID 项目 ID
-	ProjectContextID = "project_id"
+	ProjectContextID contextKey = "project_id"
 
 	// UserContextID 用户 ID
-	UserContextID = "user_id"
+	UserContextID contextKey = "user_id"
 )
 
 // WithRequestID 在上下文中添加请求 ID
