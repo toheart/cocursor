@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/cocursor/backend/internal/infrastructure/config"
 )
 
 // EncryptionKey 加密密钥管理器
@@ -19,12 +21,7 @@ type EncryptionKey struct {
 
 // NewEncryptionKey 创建加密密钥管理器
 func NewEncryptionKey() (*EncryptionKey, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	keyPath := filepath.Join(homeDir, ".cocursor", ".rag_key")
+	keyPath := filepath.Join(config.GetDataDir(), ".rag_key")
 
 	ek := &EncryptionKey{
 		keyPath: keyPath,

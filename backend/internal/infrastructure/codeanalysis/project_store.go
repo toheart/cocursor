@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cocursor/backend/internal/domain/codeanalysis"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"gopkg.in/yaml.v3"
 )
@@ -32,12 +33,7 @@ type projectsConfig struct {
 
 // NewProjectStore 创建项目配置存储
 func NewProjectStore() (*ProjectStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	configDir := filepath.Join(homeDir, ".cocursor", "analysis")
+	configDir := filepath.Join(config.GetDataDir(), "analysis")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}

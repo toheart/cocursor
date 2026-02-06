@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -28,12 +30,7 @@ type membersFile struct {
 
 // NewMemberStore 创建成员存储
 func NewMemberStore(teamID string) (*MemberStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", teamID, "members.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", teamID, "members.json")
 
 	store := &MemberStore{
 		teamID:   teamID,

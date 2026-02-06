@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -14,12 +16,7 @@ import (
 // Windows: %USERPROFILE%\.cocursor\cocursor.db
 // macOS/Linux: ~/.cocursor/cocursor.db
 func GetDBPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	dbPath := filepath.Join(homeDir, ".cocursor", "cocursor.db")
+	dbPath := filepath.Join(config.GetDataDir(), "cocursor.db")
 	return dbPath, nil
 }
 
@@ -128,11 +125,6 @@ func InitDatabase() error {
 		"ALTER TABLE daily_summaries ADD COLUMN efficiency_metrics TEXT",
 		"ALTER TABLE daily_summaries ADD COLUMN projects TEXT",
 		"ALTER TABLE workspace_sessions ADD COLUMN token_count INTEGER DEFAULT 0",
-		// 运行时状态字段
-		"ALTER TABLE workspace_sessions ADD COLUMN is_visible INTEGER DEFAULT 0",
-		"ALTER TABLE workspace_sessions ADD COLUMN is_focused INTEGER DEFAULT 0",
-		"ALTER TABLE workspace_sessions ADD COLUMN active_level INTEGER DEFAULT 2",
-		"ALTER TABLE workspace_sessions ADD COLUMN panel_id TEXT",
 	}
 
 	// 执行迁移（忽略错误，因为字段可能已存在）
@@ -148,7 +140,7 @@ func InitDatabase() error {
 		return fmt.Errorf("failed to create index: %w", err)
 	}
 
-	// 创建 workspace_sessions 表
+	// 创建 workspace_sessions 表（包含所有字段）
 	createWorkspaceSessionsTableSQL := `
 	CREATE TABLE IF NOT EXISTS workspace_sessions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -168,11 +160,26 @@ func InitDatabase() error {
 		created_on_branch TEXT,
 		token_count INTEGER DEFAULT 0,
 		cached_at INTEGER NOT NULL,
+		is_visible INTEGER DEFAULT 0,
+		is_focused INTEGER DEFAULT 0,
+		active_level INTEGER DEFAULT 2,
+		panel_id TEXT,
 		UNIQUE(workspace_id, composer_id)
 	);`
 
 	if _, err := db.Exec(createWorkspaceSessionsTableSQL); err != nil {
 		return fmt.Errorf("failed to create workspace_sessions table: %w", err)
+	}
+
+	// 向后兼容迁移：为已存在的旧表补充新字段
+	wsSessionMigrations := []string{
+		"ALTER TABLE workspace_sessions ADD COLUMN is_visible INTEGER DEFAULT 0",
+		"ALTER TABLE workspace_sessions ADD COLUMN is_focused INTEGER DEFAULT 0",
+		"ALTER TABLE workspace_sessions ADD COLUMN active_level INTEGER DEFAULT 2",
+		"ALTER TABLE workspace_sessions ADD COLUMN panel_id TEXT",
+	}
+	for _, sql := range wsSessionMigrations {
+		_, _ = db.Exec(sql) // 忽略错误，字段可能已存在
 	}
 
 	// 创建 workspace_sessions 索引

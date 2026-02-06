@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -26,12 +28,7 @@ type teamsFile struct {
 
 // NewTeamStore 创建团队存储
 func NewTeamStore() (*TeamStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", "teams.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", "teams.json")
 
 	store := &TeamStore{
 		filePath: filePath,
@@ -176,8 +173,7 @@ func (s *TeamStore) Remove(teamID string) error {
 	delete(s.teams, teamID)
 
 	// 同时删除团队目录
-	homeDir, _ := os.UserHomeDir()
-	teamDir := filepath.Join(homeDir, ".cocursor", "team", teamID)
+	teamDir := filepath.Join(config.GetDataDir(), "team", teamID)
 	os.RemoveAll(teamDir) // 忽略错误
 
 	return s.save()

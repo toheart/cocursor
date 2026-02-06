@@ -227,6 +227,7 @@
     "react-window": "^1.8.10",
     "recharts": "^2.10.3",
     "rehype-highlight": "^7.0.2",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.11"
   }
 }

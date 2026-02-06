@@ -13,6 +13,7 @@ import (
 
 	"log/slog"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/qdrant/go-client/qdrant"
 )
@@ -362,29 +363,19 @@ func GetPlatformInfo() (osName, arch string) {
 
 // GetQdrantInstallPath 获取 Qdrant 安装路径
 func GetQdrantInstallPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
 	osName, _ := GetPlatformInfo()
 	binaryName := "qdrant"
 	if osName == "windows" {
 		binaryName = "qdrant.exe"
 	}
 
-	installPath := filepath.Join(homeDir, ".cocursor", "bin", "qdrant", binaryName)
+	installPath := filepath.Join(config.GetDataDir(), "bin", "qdrant", binaryName)
 	return installPath, nil
 }
 
 // GetQdrantDataPath 获取 Qdrant 数据路径
 func GetQdrantDataPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	dataPath := filepath.Join(homeDir, ".cocursor", "data", "qdrant")
+	dataPath := filepath.Join(config.GetDataDir(), "data", "qdrant")
 	return dataPath, nil
 }
 

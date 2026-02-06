@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -23,12 +25,7 @@ type ProjectConfigStore struct {
 
 // NewProjectConfigStore 创建项目配置存储
 func NewProjectConfigStore(teamID string) (*ProjectConfigStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", teamID, "project_config.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", teamID, "project_config.json")
 
 	store := &ProjectConfigStore{
 		teamID:   teamID,

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	domainMarketplace "github.com/cocursor/backend/internal/domain/marketplace"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 )
 
 // StateManager 状态管理器
@@ -16,12 +17,7 @@ type StateManager struct {
 
 // NewStateManager 创建状态管理器
 func NewStateManager() (*StateManager, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	statePath := filepath.Join(homeDir, ".cocursor", "plugins-state.json")
+	statePath := filepath.Join(config.GetDataDir(), "plugins-state.json")
 
 	return &StateManager{
 		statePath: statePath,

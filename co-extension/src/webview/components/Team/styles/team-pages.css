@@ -1,0 +1,63 @@
+/* ========================================
+ * 团队管理 - 页面特定样式
+ * ======================================== */
+
+/* ---- 成员页 ---- */
+.ct-members-page {
+  padding-bottom: 16px;
+}
+
+/* ---- 技能页 ---- */
+.ct-skills-page {
+  padding-bottom: 16px;
+}
+
+/* ---- 会话页 ---- */
+.ct-sessions-page {
+  padding-bottom: 16px;
+}
+
+/* ---- 周报页 ---- */
+.ct-weekly-page {
+  padding-bottom: 16px;
+}
+
+.ct-weekly-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ct-weekly-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ct-weekly-nav-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.ct-weekly-nav-range {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  white-space: nowrap;
+}
+
+.ct-weekly-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ct-weekly-content {
+  padding: 0 16px;
+}

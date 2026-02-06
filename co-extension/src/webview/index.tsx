@@ -14,6 +14,7 @@ import "./styles/work-analysis.css";
 import "./styles/markdown.css";
 import "./styles/marketplace.css";
 import "./styles/team.css";
+import "./components/Team/styles/index.css"; // 新版团队管理样式
 import "./styles/code-analysis.css";
 import "./styles/rag.css"; // RAG 样式最后加载，确保覆盖其他样式
 

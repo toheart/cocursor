@@ -1,0 +1,483 @@
+/* ========================================
+ * 团队管理 - 卡片组件样式
+ * ======================================== */
+
+/* ---- 首页工具栏 ---- */
+.ct-home-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ct-home-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-home-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ct-identity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  background: var(--vscode-button-secondaryBackground);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  transition: all 0.15s ease;
+}
+
+.ct-identity-chip:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ct-identity-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ct-identity-name {
+  font-weight: 500;
+}
+
+.ct-identity-chip .codicon {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+/* ---- 首页列表 ---- */
+.ct-home-list {
+  flex: 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+/* ---- 团队卡片 ---- */
+.ct-team-card {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  animation: ct-fade-in 0.2s ease-out;
+}
+
+.ct-team-card:hover {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.ct-team-card.leader {
+  border-left: 3px solid var(--vscode-charts-yellow, #ffc107);
+}
+
+.ct-team-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ct-team-card-icon {
+  font-size: 20px;
+  color: var(--vscode-foreground);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.ct-team-card-icon .codicon {
+  font-size: 20px;
+}
+
+.ct-team-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-team-card-name {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ct-team-card-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  align-items: center;
+}
+
+.ct-team-card-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 4px;
+}
+
+.ct-team-card-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ct-team-card-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  line-height: 1.2;
+}
+
+.ct-team-card-stat-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+}
+
+.ct-team-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---- 成员卡片 ---- */
+.ct-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.ct-member-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.ct-member-card:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.ct-member-card.online {
+  border-left: 3px solid var(--vscode-charts-green, #4caf50);
+}
+
+.ct-member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--vscode-button-secondaryBackground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ct-member-avatar .ct-status-dot-wrapper {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+}
+
+.ct-member-avatar .ct-status-dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--vscode-editor-background);
+}
+
+.ct-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-member-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ct-member-meta {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-member-meta .online {
+  color: var(--vscode-charts-green, #4caf50);
+}
+
+.ct-member-work-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-member-work-status .codicon {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.ct-member-work-project {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.ct-member-work-file {
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 技能卡片 ---- */
+.ct-skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.ct-skill-card {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 12px;
+  transition: all 0.15s ease;
+}
+
+.ct-skill-card:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.ct-skill-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ct-skill-card-icon {
+  font-size: 24px;
+  color: var(--vscode-foreground);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.ct-skill-card-icon .codicon {
+  font-size: 24px;
+}
+
+.ct-skill-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-skill-card-name {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ct-skill-card-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-skill-version {
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.ct-skill-card-desc {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+}
+
+.ct-skill-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ---- 会话卡片 ---- */
+.ct-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.ct-session-card {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ct-session-card:hover {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.ct-session-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ct-session-card-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ct-session-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ct-session-card-author {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+}
+
+.ct-session-card-time {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-session-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+}
+
+.ct-session-card-desc {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.ct-session-card-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-session-card-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ct-session-card-stat .codicon {
+  font-size: 12px;
+}
+
+/* ---- 发现团队列表 ---- */
+.ct-discover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ct-discover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+}
+
+.ct-discover-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-discover-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.ct-discover-item-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}

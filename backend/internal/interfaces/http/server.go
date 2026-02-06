@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	appMarketplace "github.com/cocursor/backend/internal/application/marketplace"
 	appTeam "github.com/cocursor/backend/internal/application/team"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/cocursor/backend/internal/infrastructure/git"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	infraP2P "github.com/cocursor/backend/internal/infrastructure/p2p"
@@ -244,9 +246,10 @@ func NewServer(
 		router.Any("/mcp/sse", gin.WrapH(mcpServer.GetHandler()))
 	}
 
+	cfg := config.NewConfig()
 	server := &HTTPServer{
 		router:           router,
-		httpPort:         ":19960",
+		httpPort:         cfg.Server.HTTPPort,
 		logger:           logger,
 		pluginService:    pluginService,
 		dailySummaryRepo: dailySummaryRepo,
@@ -304,8 +307,13 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 	}
 
 	// 尝试初始化团队组件
+	// 从端口字符串提取数字端口（例如 ":19960" → 19960）
+	teamPort := 19960
+	if len(s.httpPort) > 1 {
+		fmt.Sscanf(s.httpPort, ":%d", &teamPort)
+	}
 	factory := appTeam.NewTeamFactory()
-	components, err := factory.Initialize(19960, "1.0.0", s.dailySummaryRepo, db)
+	components, err := factory.Initialize(teamPort, "1.0.0", s.dailySummaryRepo, db)
 	if err != nil {
 		s.logger.Warn("team service initialization failed, team features disabled",
 			"error", err,

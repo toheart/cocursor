@@ -1,0 +1,823 @@
+/* ========================================
+ * 团队管理 - 基础样式
+ * 使用 ct- 前缀，完全基于 VS Code CSS 变量
+ * ======================================== */
+
+/* ---- 通用动画 ---- */
+@keyframes ct-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ct-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- 页面容器 ---- */
+.ct-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  animation: ct-fade-in 0.15s ease-out;
+}
+
+.ct-page-body {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ct-page-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.ct-home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.ct-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.ct-detail-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ---- 页面头部 ---- */
+.ct-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+  min-height: 40px;
+}
+
+.ct-page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ct-page-header-back {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ct-page-header-back:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.ct-page-header-title-group {
+  min-width: 0;
+}
+
+.ct-page-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-page-header-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-page-header-subtitle {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---- 详情页头部附加 ---- */
+.ct-detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ct-detail-stat {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+/* ---- Tab 导航 ---- */
+.ct-tab-nav {
+  display: flex;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+  padding: 0 8px;
+  overflow-x: auto;
+}
+
+.ct-tab-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ct-tab-nav-item:hover {
+  color: var(--vscode-foreground);
+}
+
+.ct-tab-nav-item.active {
+  color: var(--vscode-foreground);
+  border-bottom-color: var(--vscode-focusBorder);
+}
+
+.ct-tab-nav-item .codicon {
+  font-size: 14px;
+}
+
+.ct-tab-nav-label {
+  font-size: 12px;
+}
+
+.ct-tab-nav-count {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-weight: 600;
+}
+
+/* ---- 按钮系统 ---- */
+.ct-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.ct-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ct-btn.primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.ct-btn.primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.ct-btn.secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.ct-btn.secondary:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ct-btn.danger {
+  background: var(--vscode-inputValidation-errorBackground, rgba(244, 67, 54, 0.15));
+  color: var(--vscode-errorForeground);
+  border-color: var(--vscode-inputValidation-errorBorder, rgba(244, 67, 54, 0.4));
+}
+
+.ct-btn.danger:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.25);
+}
+
+.ct-btn.small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.ct-btn.full-width {
+  width: 100%;
+  justify-content: center;
+}
+
+.ct-btn .codicon {
+  font-size: 14px;
+}
+
+.ct-btn-icon {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: all 0.15s ease;
+}
+
+.ct-btn-icon:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.ct-btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ct-btn-link {
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  text-decoration: none;
+}
+
+.ct-btn-link:hover {
+  text-decoration: underline;
+}
+
+.ct-btn-link.small {
+  font-size: 11px;
+}
+
+.ct-btn-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ct-spin 0.6s linear infinite;
+}
+
+/* ---- Badge ---- */
+.ct-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ct-badge.leader {
+  background: rgba(255, 193, 7, 0.15);
+  color: var(--vscode-charts-yellow, #ffc107);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.ct-badge.leader.small {
+  font-size: 9px;
+  padding: 0 4px;
+}
+
+.ct-badge.success {
+  background: rgba(76, 175, 80, 0.15);
+  color: var(--vscode-charts-green, #4caf50);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.ct-badge.info {
+  background: rgba(33, 150, 243, 0.15);
+  color: var(--vscode-charts-blue, #2196f3);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+/* ---- 状态指示器 ---- */
+.ct-status-dot-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ct-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ct-status-dot.online {
+  background: var(--vscode-charts-green, #4caf50);
+  box-shadow: 0 0 4px var(--vscode-charts-green, #4caf50);
+}
+
+.ct-status-dot.offline {
+  background: var(--vscode-descriptionForeground);
+  opacity: 0.5;
+}
+
+.ct-status-dot-wrapper.medium .ct-status-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.ct-status-dot-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ---- 表单系统 ---- */
+.ct-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ct-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ct-form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.ct-form-hint-inline {
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 4px;
+}
+
+.ct-form-input,
+.ct-form-select {
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.ct-form-input:focus,
+.ct-form-select:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.ct-form-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.ct-form-help {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}
+
+.ct-form-desc {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0 0 4px 0;
+  line-height: 1.5;
+}
+
+.ct-form-error {
+  padding: 8px 12px;
+  background: var(--vscode-inputValidation-errorBackground, rgba(244, 67, 54, 0.1));
+  border: 1px solid var(--vscode-inputValidation-errorBorder, rgba(244, 67, 54, 0.4));
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--vscode-errorForeground);
+}
+
+.ct-form-hint-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.ct-form-hint-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-form-hint-value {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
+/* ---- 信息/警告框 ---- */
+.ct-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+}
+
+.ct-info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-info-item .codicon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ct-warning-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--vscode-inputValidation-warningBackground);
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--vscode-inputValidation-warningForeground);
+}
+
+.ct-warning-box .codicon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ---- 网络端点 ---- */
+.ct-network-endpoint {
+  padding: 8px 12px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+}
+
+.ct-network-endpoint code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 13px;
+  color: var(--vscode-textLink-foreground);
+}
+
+/* ---- 空状态 ---- */
+.ct-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 8px;
+}
+
+.ct-empty-state-icon {
+  font-size: 32px;
+  opacity: 0.3;
+  color: var(--vscode-foreground);
+}
+
+.ct-empty-state-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  margin: 0;
+}
+
+.ct-empty-state-desc {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ct-empty-state-action {
+  margin-top: 8px;
+}
+
+/* ---- 加载状态 ---- */
+.ct-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.ct-loading-state.compact {
+  padding: 16px;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.ct-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--vscode-panel-border);
+  border-top-color: var(--vscode-focusBorder);
+  border-radius: 50%;
+  animation: ct-spin 0.7s linear infinite;
+}
+
+.ct-loading-state.compact .ct-loading-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.ct-loading-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ---- 确认弹窗 ---- */
+.ct-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: ct-fade-in 0.1s ease-out;
+}
+
+.ct-dialog {
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 360px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.ct-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ct-dialog-icon {
+  font-size: 18px;
+  color: var(--vscode-notificationsInfoIcon-foreground);
+}
+
+.ct-dialog-icon.danger {
+  color: var(--vscode-errorForeground);
+}
+
+.ct-dialog-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.ct-dialog-message {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.ct-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---- Toggle Tabs（发现/手动 切换） ---- */
+.ct-toggle-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+}
+
+.ct-toggle-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  transition: all 0.15s ease;
+}
+
+.ct-toggle-tab:hover {
+  color: var(--vscode-foreground);
+}
+
+.ct-toggle-tab.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.ct-toggle-tab .codicon {
+  font-size: 14px;
+}
+
+/* ---- 区域头部 ---- */
+.ct-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px 8px;
+}
+
+.ct-section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.ct-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- 分页 ---- */
+.ct-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.ct-pagination-info {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ========================================
+ * 响应式 - VS Code sidebar 窄屏适配
+ * Sidebar 宽度通常 250-400px
+ * ======================================== */
+
+@media (max-width: 350px) {
+  /* 工具栏堆叠 */
+  .ct-home-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .ct-home-toolbar-right {
+    justify-content: flex-end;
+  }
+
+  /* 按钮仅显示图标 */
+  .ct-home-toolbar-right .ct-btn.primary span:not(.codicon),
+  .ct-home-toolbar-right .ct-btn.secondary span:not(.codicon) {
+    display: none;
+  }
+
+  .ct-home-toolbar-right .ct-btn.primary,
+  .ct-home-toolbar-right .ct-btn.secondary {
+    padding: 4px 8px;
+  }
+
+  /* Tab 导航滚动 */
+  .ct-tab-nav {
+    padding: 0 4px;
+  }
+
+  .ct-tab-nav-item {
+    padding: 8px 8px;
+    gap: 4px;
+  }
+
+  .ct-tab-nav-label {
+    font-size: 11px;
+  }
+
+  /* 成员网格单列 */
+  .ct-member-grid {
+    grid-template-columns: 1fr;
+    padding: 0 12px 12px;
+  }
+
+  /* 减小间距 */
+  .ct-page-body {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .ct-home-list {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  /* 周报导航堆叠 */
+  .ct-weekly-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ct-weekly-nav-left {
+    justify-content: center;
+  }
+
+  .ct-weekly-nav-right {
+    justify-content: center;
+  }
+
+  /* 页面头部紧凑 */
+  .ct-page-header {
+    padding: 8px 12px;
+  }
+
+  .ct-page-header-title {
+    font-size: 13px;
+  }
+
+  /* 详情头部 */
+  .ct-detail-header-actions {
+    gap: 6px;
+  }
+
+  .ct-detail-stat {
+    display: none;
+  }
+}
+
+/* 中等宽度（350-500px） */
+@media (min-width: 351px) and (max-width: 500px) {
+  .ct-member-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ct-home-toolbar-right .ct-btn span:not(.codicon) {
+    display: none;
+  }
+
+  .ct-home-toolbar-right .ct-btn {
+    padding: 4px 8px;
+  }
+}

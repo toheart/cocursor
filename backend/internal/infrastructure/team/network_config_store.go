@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -20,12 +22,7 @@ type NetworkConfigStore struct {
 
 // NewNetworkConfigStore 创建网卡配置存储
 func NewNetworkConfigStore() (*NetworkConfigStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", "network.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", "network.json")
 
 	store := &NetworkConfigStore{
 		filePath: filePath,

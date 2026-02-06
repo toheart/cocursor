@@ -11,6 +11,7 @@ import (
 	"time"
 
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/p2p"
 )
@@ -262,12 +263,7 @@ func (d *TeamSkillDownloader) DeleteDownloaded(teamID, pluginID string) error {
 
 // ListDownloaded 列出已下载的技能
 func (d *TeamSkillDownloader) ListDownloaded(teamID string) ([]string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	teamSkillsDir := filepath.Join(homeDir, ".cocursor", "team-skills", teamID)
+	teamSkillsDir := filepath.Join(config.GetDataDir(), "team-skills", teamID)
 	
 	if _, err := os.Stat(teamSkillsDir); os.IsNotExist(err) {
 		return []string{}, nil

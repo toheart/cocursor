@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -24,12 +26,7 @@ type WeeklyStatsStore struct {
 
 // NewWeeklyStatsStore 创建周统计缓存存储
 func NewWeeklyStatsStore(teamID string) (*WeeklyStatsStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", teamID, "weekly_stats_cache.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", teamID, "weekly_stats_cache.json")
 
 	store := &WeeklyStatsStore{
 		teamID:   teamID,

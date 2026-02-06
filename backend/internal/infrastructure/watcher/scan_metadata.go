@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/cocursor/backend/internal/infrastructure/config"
 )
 
 // ScanMetadata 扫描元数据管理
@@ -23,8 +25,7 @@ type scanMetadataData struct {
 
 // NewScanMetadata 创建扫描元数据管理器
 func NewScanMetadata() *ScanMetadata {
-	homeDir, _ := os.UserHomeDir()
-	filePath := filepath.Join(homeDir, ".cocursor", "scan_metadata.json")
+	filePath := filepath.Join(config.GetDataDir(), "scan_metadata.json")
 
 	sm := &ScanMetadata{
 		filePath: filePath,

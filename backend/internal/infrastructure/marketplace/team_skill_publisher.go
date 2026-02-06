@@ -14,6 +14,7 @@ import (
 	"time"
 
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/infrastructure/p2p"
 )
@@ -342,20 +343,12 @@ func (p *TeamSkillPublisher) RegisterPublishedSkill(pluginID, localPath string) 
 
 // GetTeamSkillStoragePath 获取团队技能下载存储路径
 func GetTeamSkillStoragePath(teamID, pluginID string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, ".cocursor", "team-skills", teamID, pluginID), nil
+	return filepath.Join(config.GetDataDir(), "team-skills", teamID, pluginID), nil
 }
 
 // GetPublishedStoragePath 获取已发布技能的缓存存储路径
 func GetPublishedStoragePath(teamID, pluginID string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, ".cocursor", "team-skills-published", teamID, pluginID), nil
+	return filepath.Join(config.GetDataDir(), "team-skills-published", teamID, pluginID), nil
 }
 
 // PublishWithMetadata 带元数据的发布（复制到缓存目录）
@@ -633,12 +626,7 @@ func (p *TeamSkillPublisher) DeleteLocalWithCache(teamID, pluginID string) error
 
 // RestorePublishedSkills 服务重启时恢复已发布技能映射
 func (p *TeamSkillPublisher) RestorePublishedSkills() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	publishedDir := filepath.Join(homeDir, ".cocursor", "team-skills-published")
+	publishedDir := filepath.Join(config.GetDataDir(), "team-skills-published")
 
 	// 检查目录是否存在
 	if _, err := os.Stat(publishedDir); os.IsNotExist(err) {

@@ -15,7 +15,18 @@ import { Marketplace } from "./components/Marketplace";
 import { RAGSearch } from "./components/RAGSearch";
 import { RAGConfig } from "./components/RAGConfig";
 import { NavigationBar } from "./components/NavigationBar";
-import { TeamList } from "./components/Team";
+import {
+  TeamHomePage,
+  TeamCreatePage,
+  TeamJoinPage,
+  IdentityPage,
+  NetworkPage,
+  TeamDetailPage,
+  MembersPage,
+  WeeklyPage,
+  SessionsPage,
+  SkillsPage,
+} from "./components/Team/pages";
 import { CodeAnalysisConfig } from "./components/CodeAnalysis";
 import { getVscodeApi } from "./services/api";
 
@@ -151,7 +162,18 @@ const RouterContent: React.FC = () => {
         <NavigationBar />
         <div className="cocursor-router-content">
           <Routes>
-            <Route path="/" element={<TeamList />} />
+            <Route path="/" element={<TeamHomePage />} />
+            <Route path="/create" element={<TeamCreatePage />} />
+            <Route path="/join" element={<TeamJoinPage />} />
+            <Route path="/identity" element={<IdentityPage />} />
+            <Route path="/network" element={<NetworkPage />} />
+            <Route path="/team/:teamId" element={<TeamDetailPage />}>
+              <Route path="members" element={<MembersPage />} />
+              <Route path="weekly" element={<WeeklyPage />} />
+              <Route path="sessions" element={<SessionsPage />} />
+              <Route path="skills" element={<SkillsPage />} />
+              <Route index element={<Navigate to="members" replace />} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

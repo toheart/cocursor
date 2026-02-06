@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -22,12 +24,7 @@ type IdentityStore struct {
 
 // NewIdentityStore 创建身份存储
 func NewIdentityStore() (*IdentityStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", "identity.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", "identity.json")
 
 	store := &IdentityStore{
 		filePath: filePath,
@@ -79,15 +76,32 @@ func (s *IdentityStore) save(identity *domainTeam.Identity) error {
 }
 
 // Get 获取当前身份
+// 当内存缓存为空时，尝试从文件重新加载（支持多实例间的数据共享）
 func (s *IdentityStore) Get() (*domainTeam.Identity, error) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	if s.identity != nil {
+		identityCopy := *s.identity
+		s.mu.RUnlock()
+		return &identityCopy, nil
+	}
+	s.mu.RUnlock()
 
-	if s.identity == nil {
-		return nil, domainTeam.ErrIdentityNotFound
+	// 内存缓存为空，尝试从文件重新加载
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 双重检查
+	if s.identity != nil {
+		identityCopy := *s.identity
+		return &identityCopy, nil
 	}
 
-	// 返回副本
+	identity, err := s.load()
+	if err != nil {
+		return nil, domainTeam.ErrIdentityNotFound
+	}
+	s.identity = identity
+
 	identityCopy := *s.identity
 	return &identityCopy, nil
 }

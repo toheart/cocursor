@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/cocursor/backend/internal/infrastructure/config"
 )
 
 // ConfigManager RAG 配置管理器
@@ -15,12 +17,7 @@ type ConfigManager struct {
 
 // NewConfigManager 创建 RAG 配置管理器
 func NewConfigManager() (*ConfigManager, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	configPath := filepath.Join(homeDir, ".cocursor", "rag_config.json")
+	configPath := filepath.Join(config.GetDataDir(), "rag_config.json")
 
 	// 创建加密密钥管理器
 	encryptKey, err := NewEncryptionKey()

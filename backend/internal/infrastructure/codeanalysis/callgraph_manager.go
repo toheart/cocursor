@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cocursor/backend/internal/domain/codeanalysis"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	"github.com/cocursor/backend/internal/infrastructure/log"
 	"gopkg.in/yaml.v3"
 )
@@ -55,12 +56,7 @@ type retentionRef struct {
 
 // NewCallGraphManager 创建调用图管理器
 func NewCallGraphManager(repository *CallGraphRepository) (*CallGraphManager, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	baseDir := filepath.Join(homeDir, ".cocursor", "analysis", "callgraphs")
+	baseDir := filepath.Join(config.GetDataDir(), "analysis", "callgraphs")
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create callgraphs directory: %w", err)
 	}

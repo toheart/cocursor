@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -17,12 +19,19 @@ func setupTestDir(t *testing.T) (string, func()) {
 	tmpDir, err := os.MkdirTemp("", "team-store-test")
 	require.NoError(t, err)
 
-	// 设置 HOME 环境变量
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
+	// 设置 COCURSOR_DATA_DIR 环境变量并重置缓存
+	dataDir := filepath.Join(tmpDir, ".cocursor")
+	oldDataDir := os.Getenv(config.EnvDataDir)
+	os.Setenv(config.EnvDataDir, dataDir)
+	config.ResetDataDir()
 
 	cleanup := func() {
-		os.Setenv("HOME", oldHome)
+		if oldDataDir != "" {
+			os.Setenv(config.EnvDataDir, oldDataDir)
+		} else {
+			os.Unsetenv(config.EnvDataDir)
+		}
+		config.ResetDataDir()
 		os.RemoveAll(tmpDir)
 	}
 

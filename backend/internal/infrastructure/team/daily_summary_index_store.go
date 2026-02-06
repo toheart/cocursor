@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cocursor/backend/internal/infrastructure/config"
+
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
 )
 
@@ -20,12 +22,7 @@ type DailySummaryIndexStore struct {
 
 // NewDailySummaryIndexStore 创建日报索引存储
 func NewDailySummaryIndexStore(teamID string) (*DailySummaryIndexStore, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	filePath := filepath.Join(homeDir, ".cocursor", "team", teamID, "daily-summaries-index.json")
+	filePath := filepath.Join(config.GetDataDir(), "team", teamID, "daily-summaries-index.json")
 
 	store := &DailySummaryIndexStore{
 		teamID:   teamID,

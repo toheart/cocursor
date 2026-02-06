@@ -15,6 +15,7 @@ import (
 
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
+	"github.com/cocursor/backend/internal/infrastructure/config"
 	infraCursor "github.com/cocursor/backend/internal/infrastructure/cursor"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -447,9 +448,8 @@ func getProfilePaths(scope, projectPath string) (profilePath, metaPath string) {
 		profilePath = filepath.Join(projectPath, ".cursor", "rules", "user-profile.mdc")
 		metaPath = filepath.Join(projectPath, ".cursor", "rules", "user-profile.meta.json")
 	} else {
-		homeDir, _ := os.UserHomeDir()
-		profilePath = filepath.Join(homeDir, ".cocursor", "profiles", "global.md")
-		metaPath = filepath.Join(homeDir, ".cocursor", "profiles", "global.meta.json")
+		profilePath = filepath.Join(config.GetDataDir(), "profiles", "global.md")
+		metaPath = filepath.Join(config.GetDataDir(), "profiles", "global.meta.json")
 	}
 	return
 }

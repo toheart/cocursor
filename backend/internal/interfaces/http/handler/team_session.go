@@ -46,7 +46,7 @@ type ShareSessionRequest struct {
 // @Success 200 {object} response.Response
 // @Router /team/{teamId}/sessions/share [post]
 func (h *TeamSessionHandler) ShareSession(c *gin.Context) {
-	teamID := c.Param("teamId")
+	teamID := c.Param("id")
 	if teamID == "" {
 		response.Error(c, http.StatusBadRequest, 610001, "Team ID is required")
 		return
@@ -87,7 +87,7 @@ func (h *TeamSessionHandler) ShareSession(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /team/{teamId}/sessions [get]
 func (h *TeamSessionHandler) GetSharedSessions(c *gin.Context) {
-	teamID := c.Param("teamId")
+	teamID := c.Param("id")
 	if teamID == "" {
 		response.Error(c, http.StatusBadRequest, 610001, "Team ID is required")
 		return
@@ -129,7 +129,7 @@ func (h *TeamSessionHandler) GetSharedSessions(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /team/{teamId}/sessions/{shareId} [get]
 func (h *TeamSessionHandler) GetSharedSessionDetail(c *gin.Context) {
-	teamID := c.Param("teamId")
+	teamID := c.Param("id")
 	shareID := c.Param("shareId")
 	if teamID == "" || shareID == "" {
 		response.Error(c, http.StatusBadRequest, 610001, "Team ID and Share ID are required")
@@ -166,7 +166,7 @@ type AddCommentRequest struct {
 // @Success 200 {object} response.Response
 // @Router /team/{teamId}/sessions/{shareId}/comments [post]
 func (h *TeamSessionHandler) AddComment(c *gin.Context) {
-	teamID := c.Param("teamId")
+	teamID := c.Param("id")
 	shareID := c.Param("shareId")
 	if teamID == "" || shareID == "" {
 		response.Error(c, http.StatusBadRequest, 610001, "Team ID and Share ID are required")

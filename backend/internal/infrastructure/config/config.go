@@ -1,5 +1,14 @@
 package config
 
+import "os"
+
+const (
+	// EnvHTTPPort HTTP 端口环境变量名
+	EnvHTTPPort = "COCURSOR_HTTP_PORT"
+	// EnvMCPPort MCP 端口环境变量名
+	EnvMCPPort = "COCURSOR_MCP_PORT"
+)
+
 // Config 应用配置
 type Config struct {
 	Server     ServerConfig
@@ -39,9 +48,9 @@ type CursorConfig struct {
 	ProjectsDir string
 }
 
-// NewConfig 创建配置（默认值）
+// NewConfig 创建配置（默认值，支持环境变量覆盖）
 func NewConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		Server: ServerConfig{
 			HTTPPort: ":19960",
 			MCPPort:  ":19961",
@@ -58,6 +67,16 @@ func NewConfig() *Config {
 			ProjectsDir: "", // 空表示自动检测
 		},
 	}
+
+	// 环境变量覆盖端口配置
+	if port := os.Getenv(EnvHTTPPort); port != "" {
+		cfg.Server.HTTPPort = port
+	}
+	if port := os.Getenv(EnvMCPPort); port != "" {
+		cfg.Server.MCPPort = port
+	}
+
+	return cfg
 }
 
 // NewDatabaseConfig 创建数据库配置
