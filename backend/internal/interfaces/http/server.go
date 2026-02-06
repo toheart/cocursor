@@ -162,9 +162,11 @@ func NewServer(
 			{
 				analysis.POST("/scan-entry-points", codeAnalysisHandler.ScanEntryPoints)
 				analysis.POST("/projects", codeAnalysisHandler.RegisterProject)
+				analysis.POST("/projects/config", codeAnalysisHandler.GetProjectConfig)
 				analysis.POST("/callgraph/status", codeAnalysisHandler.CheckCallGraphStatus)
 				analysis.POST("/callgraph/generate", codeAnalysisHandler.GenerateCallGraph)
 				analysis.POST("/callgraph/generate-async", codeAnalysisHandler.GenerateCallGraphAsync)
+				analysis.POST("/callgraph/generate-with-config", codeAnalysisHandler.GenerateCallGraphWithConfig)
 				analysis.GET("/callgraph/progress/:task_id", codeAnalysisHandler.GetGenerationProgress)
 				analysis.POST("/diff", codeAnalysisHandler.AnalyzeDiff)
 				analysis.POST("/impact", codeAnalysisHandler.QueryImpact)
@@ -293,9 +295,17 @@ func (s *HTTPServer) Stop() error {
 
 // initTeamRoutes 初始化团队相关路由（可选功能）
 func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
+	// 获取数据库连接用于会话分享服务
+	db, dbErr := storage.ProvideDB()
+	if dbErr != nil {
+		s.logger.Warn("failed to get database connection for session sharing",
+			"error", dbErr,
+		)
+	}
+
 	// 尝试初始化团队组件
 	factory := appTeam.NewTeamFactory()
-	components, err := factory.Initialize(19960, "1.0.0", s.dailySummaryRepo)
+	components, err := factory.Initialize(19960, "1.0.0", s.dailySummaryRepo, db)
 	if err != nil {
 		s.logger.Warn("team service initialization failed, team features disabled",
 			"error", err,
@@ -323,6 +333,7 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 
 		// 网络管理
 		team.GET("/network/interfaces", teamHandler.GetNetworkInterfaces)
+		team.POST("/network/config", teamHandler.UpdateNetworkConfig)
 
 		// 团队管理
 		team.POST("/create", teamHandler.CreateTeam)
@@ -362,6 +373,18 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		team.GET("/:id/weekly-report", weeklyReportHandler.GetWeeklyReport)
 		team.GET("/:id/members/:member_id/daily-detail", weeklyReportHandler.GetMemberDailyDetail)
 		team.POST("/:id/weekly-report/refresh", weeklyReportHandler.RefreshWeeklyStats)
+
+		// 会话分享功能
+		if components.SessionSharingService != nil {
+			sessionHandler := handler.NewTeamSessionHandler(
+				components.SessionSharingService,
+				components.IdentityService,
+			)
+			team.POST("/:id/sessions/share", sessionHandler.ShareSession)
+			team.GET("/:id/sessions", sessionHandler.GetSharedSessions)
+			team.GET("/:id/sessions/:shareId", sessionHandler.GetSharedSessionDetail)
+			team.POST("/:id/sessions/:shareId/comments", sessionHandler.AddComment)
+		}
 	}
 
 	// 注册 P2P 路由（所有成员都暴露）

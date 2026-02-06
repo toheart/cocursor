@@ -343,7 +343,7 @@
     }
   },
   "team": {
-    "title": "Team Skill Sharing",
+    "title": "Team Management",
     "subtitle": "Share and discover skills within your team",
     "beta": "Beta",
     "betaTooltip": "This feature is in Beta and may be unstable",
@@ -489,6 +489,20 @@
     "shared": "shared",
     "viewDetail": "View Detail",
     "fetchDailySummaryFailed": "Failed to fetch daily report"
+  },
+  "network": {
+    "settings": "Network Settings",
+    "currentEndpoint": "Current Endpoint",
+    "currentEndpointHelp": "This is the address team members use to access you",
+    "selectInterface": "Select Interface",
+    "selectInterfacePlaceholder": "Please select an interface",
+    "selectIP": "Select IP Address",
+    "selectRequired": "Please select an interface and IP address",
+    "changeWarning": "After changing network settings, team members will use the new address to access you",
+    "updateSuccess": "Network settings updated",
+    "updateFailed": "Failed to update network settings",
+    "virtualInterface": "Virtual",
+    "virtualInterfaceWarning": "This is a virtual interface (e.g. VMware, Docker). Team members may not be able to access it. Consider selecting a physical interface."
   },
   "weeklyReport": {
     "title": "Team Weekly Report",
@@ -898,6 +912,7 @@
     "projectInfo": "Project Info",
     "projectName": "Project Name",
     "projectPath": "Project Path",
+    "projectPathPlaceholder": "Enter Go project path",
     "remoteUrl": "Remote URL",
     "callGraphStatus": "Call Graph Status",
     "upToDate": "Up to Date",
@@ -908,6 +923,7 @@
     "entryPoints": "Entry Points",
     "entryPointsHint": "Select entry points for the project. Analysis will build call graph starting from these functions",
     "recommended": "Recommended",
+    "rescan": "Rescan",
     "advancedConfig": "Advanced Configuration",
     "algorithm": "Analysis Algorithm",
     "excludePaths": "Exclude Paths",
@@ -934,14 +950,37 @@
       "scan": "Failed to scan entry points",
       "register": "Failed to register project",
       "generate": "Failed to generate call graph",
+      "algorithmFailed": "Algorithm failed. Please choose another algorithm and retry.",
       "noEntryPoints": "Please select at least one entry point",
       "invalidGoModule": "Invalid Go Module",
       "noGoMod": "This directory is not a Go module. Please ensure the project has a go.mod file.",
-      "noGoFiles": "No Go source files found in the project."
+      "noGoFiles": "No Go source files found in the project.",
+      "taskNotFound": "Generation task lost, please regenerate"
     },
     "taskStarting": "Starting task...",
     "taskRunning": "Analyzing...",
     "algorithmFallback": "Algorithm Fallback Occurred",
     "fallbackWarning": "Algorithm automatically switched to {{algorithm}} due to analysis issues"
+  },
+  "session": {
+    "sharedSessions": "Shared Sessions",
+    "noSharedSessions": "No Shared Sessions",
+    "noSharedSessionsDesc": "Team members can share their Cursor sessions here from the sidebar",
+    "messages": "messages",
+    "comments": "comments",
+    "sharedBy": "Shared by",
+    "conversation": "Conversation",
+    "noComments": "No comments yet. Be the first to comment!",
+    "commentPlaceholder": "Write your comment... Markdown supported, use @username to mention members",
+    "commentHint": "Press Ctrl+Enter or Cmd+Enter to submit",
+    "submitComment": "Submit Comment",
+    "submitting": "Submitting...",
+    "commentSuccess": "Comment submitted successfully",
+    "commentFailed": "Failed to submit comment",
+    "notFound": "Session not found or has been deleted",
+    "justNow": "just now",
+    "minutesAgo": "{{count}} minutes ago",
+    "hoursAgo": "{{count}} hours ago",
+    "daysAgo": "{{count}} days ago"
   }
 }

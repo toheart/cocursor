@@ -21,7 +21,10 @@ import (
 
 // TeamService 团队服务
 type TeamService struct {
-	mu sync.RWMutex
+	// 细粒度锁：分别保护不同的资源，避免不必要的锁竞争
+	memberStoresMu     sync.RWMutex // 保护 memberStores
+	skillIndexStoresMu sync.RWMutex // 保护 skillIndexStores
+	componentsMu       sync.RWMutex // 保护 wsServer、connManager 等组件
 
 	// 存储
 	identityStore      *infraTeam.IdentityStore
@@ -119,20 +122,23 @@ func (s *TeamService) initLeaderStores() error {
 	}
 	s.skillIndexStores[leaderTeam.ID] = skillIndexStore
 
+	// 设置 Leader 事件处理器，用于更新成员在线状态
+	s.SetupLeaderEventHandler()
+
 	return nil
 }
 
 // SetWebSocketServer 设置 WebSocket 服务端
 func (s *TeamService) SetWebSocketServer(server *infraP2P.WebSocketServer) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.componentsMu.Lock()
+	defer s.componentsMu.Unlock()
 	s.wsServer = server
 }
 
 // SetConnectionManager 设置连接管理器
 func (s *TeamService) SetConnectionManager(manager *infraP2P.ConnectionManager) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.componentsMu.Lock()
+	defer s.componentsMu.Unlock()
 	s.connManager = manager
 }
 
@@ -180,6 +186,58 @@ func (s *TeamService) GetNetworkConfig() *domainTeam.NetworkConfig {
 // SetNetworkConfig 设置网卡配置
 func (s *TeamService) SetNetworkConfig(preferredInterface, preferredIP string) error {
 	return s.networkConfigStore.Set(preferredInterface, preferredIP)
+}
+
+// GetCurrentEndpoint 获取当前端点地址
+func (s *TeamService) GetCurrentEndpoint() string {
+	endpoint, err := s.networkManager.BuildMemberEndpoint(s.networkConfigStore.Get(), s.port)
+	if err != nil {
+		return ""
+	}
+	return endpoint.GetAddress()
+}
+
+// UpdateNetworkConfig 更新网络配置并通知 Leader
+func (s *TeamService) UpdateNetworkConfig(preferredInterface, preferredIP string) (string, error) {
+	// 保存配置
+	if err := s.networkConfigStore.Set(preferredInterface, preferredIP); err != nil {
+		return "", err
+	}
+
+	// 获取新端点
+	endpoint, err := s.networkManager.BuildMemberEndpoint(s.networkConfigStore.Get(), s.port)
+	if err != nil {
+		return "", err
+	}
+	newEndpoint := endpoint.GetAddress()
+
+	// 如果已加入团队，通知 Leader 更新端点
+	teams := s.teamStore.List()
+	for _, team := range teams {
+		if !team.IsLeader && s.connManager != nil {
+			// 通过重新连接来更新端点信息
+			// WebSocket 重连时会自动携带新的端点信息
+			go func(teamID string) {
+				s.logger.Info("reconnecting to update endpoint",
+					"team_id", teamID,
+					"new_endpoint", newEndpoint,
+				)
+				// 断开后重连会自动使用新端点
+				s.connManager.Disconnect(teamID)
+				// 等待短暂时间后重连
+				time.Sleep(500 * time.Millisecond)
+				s.connManager.Connect(teamID, team.LeaderEndpoint)
+			}(team.ID)
+		}
+	}
+
+	s.logger.Info("network config updated",
+		"preferred_interface", preferredInterface,
+		"preferred_ip", preferredIP,
+		"new_endpoint", newEndpoint,
+	)
+
+	return newEndpoint, nil
 }
 
 // CreateTeam 创建团队（成为 Leader）
@@ -239,9 +297,9 @@ func (s *TeamService) CreateTeam(name, preferredInterface, preferredIP string) (
 		s.teamStore.Remove(team.ID)
 		return nil, err
 	}
-	s.mu.Lock()
+	s.memberStoresMu.Lock()
 	s.memberStores[team.ID] = memberStore
-	s.mu.Unlock()
+	s.memberStoresMu.Unlock()
 
 	// 创建技能目录存储
 	skillIndexStore, err := infraTeam.NewSkillIndexStore(team.ID)
@@ -249,9 +307,9 @@ func (s *TeamService) CreateTeam(name, preferredInterface, preferredIP string) (
 		s.teamStore.Remove(team.ID)
 		return nil, err
 	}
-	s.mu.Lock()
+	s.skillIndexStoresMu.Lock()
 	s.skillIndexStores[team.ID] = skillIndexStore
-	s.mu.Unlock()
+	s.skillIndexStoresMu.Unlock()
 
 	// 启动 mDNS 广播
 	serviceInfo := infraP2P.BuildServiceInfo(team.ID, team.Name, identity.Name, s.port, 1, s.version)
@@ -261,6 +319,9 @@ func (s *TeamService) CreateTeam(name, preferredInterface, preferredIP string) (
 		)
 		// 不中断创建流程
 	}
+
+	// 设置 Leader 事件处理器，用于更新成员在线状态
+	s.SetupLeaderEventHandler()
 
 	s.logger.Info("team created",
 		"team_id", team.ID,
@@ -342,9 +403,9 @@ func (s *TeamService) JoinTeam(ctx context.Context, endpoint string) (*domainTea
 		skillIndexStore, err := infraTeam.NewSkillIndexStore(team.ID)
 		if err == nil {
 			skillIndexStore.Replace(joinResp.SkillIndex)
-			s.mu.Lock()
+			s.skillIndexStoresMu.Lock()
 			s.skillIndexStores[team.ID] = skillIndexStore
-			s.mu.Unlock()
+			s.skillIndexStoresMu.Unlock()
 		}
 	}
 
@@ -461,9 +522,9 @@ func (s *TeamService) LeaveTeam(ctx context.Context, teamID string) error {
 	}
 
 	// 删除本地数据
-	s.mu.Lock()
+	s.skillIndexStoresMu.Lock()
 	delete(s.skillIndexStores, teamID)
-	s.mu.Unlock()
+	s.skillIndexStoresMu.Unlock()
 
 	// 从团队列表移除
 	if err := s.teamStore.Remove(teamID); err != nil {
@@ -505,10 +566,13 @@ func (s *TeamService) DissolveTeam(ctx context.Context, teamID string) error {
 	s.advertiser.Stop()
 
 	// 清理存储
-	s.mu.Lock()
+	s.memberStoresMu.Lock()
 	delete(s.memberStores, teamID)
+	s.memberStoresMu.Unlock()
+
+	s.skillIndexStoresMu.Lock()
 	delete(s.skillIndexStores, teamID)
-	s.mu.Unlock()
+	s.skillIndexStoresMu.Unlock()
 
 	// 移除团队
 	if err := s.teamStore.Remove(teamID); err != nil {
@@ -536,9 +600,9 @@ func (s *TeamService) GetTeam(teamID string) (*domainTeam.Team, error) {
 // GetTeamMembers 获取团队成员列表
 func (s *TeamService) GetTeamMembers(teamID string) ([]*domainTeam.TeamMember, error) {
 	// 如果是 Leader，从本地存储获取
-	s.mu.RLock()
+	s.memberStoresMu.RLock()
 	memberStore, isLeader := s.memberStores[teamID]
-	s.mu.RUnlock()
+	s.memberStoresMu.RUnlock()
 
 	if isLeader {
 		return memberStore.List(), nil
@@ -565,12 +629,52 @@ func (s *TeamService) GetTeamMembers(teamID string) ([]*domainTeam.TeamMember, e
 	return members, nil
 }
 
+// GetOnlineMembers 获取在线成员列表
+func (s *TeamService) GetOnlineMembers(teamID string) ([]*domainTeam.TeamMember, error) {
+	members, err := s.GetTeamMembers(teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	var onlineMembers []*domainTeam.TeamMember
+	for _, member := range members {
+		if member.IsOnline {
+			onlineMembers = append(onlineMembers, member)
+		}
+	}
+	return onlineMembers, nil
+}
+
+// UpdateLastSync 更新团队最后同步时间
+func (s *TeamService) UpdateLastSync(teamID string) {
+	if err := s.teamStore.UpdateLastSync(teamID); err != nil {
+		s.logger.Warn("failed to update last sync time",
+			"team_id", teamID,
+			"error", err,
+		)
+	}
+}
+
+// UpdateLeaderOnline 更新 Leader 在线状态
+func (s *TeamService) UpdateLeaderOnline(teamID string, online bool) {
+	if err := s.teamStore.UpdateLeaderOnline(teamID, online); err != nil {
+		s.logger.Warn("failed to update leader online status",
+			"team_id", teamID,
+			"online", online,
+			"error", err,
+		)
+	}
+}
+
 // HandleJoinRequest 处理加入请求（Leader 调用）
 func (s *TeamService) HandleJoinRequest(teamID string, req *domainTeam.JoinRequest) (*domainTeam.JoinResponse, error) {
-	s.mu.RLock()
+	s.memberStoresMu.RLock()
 	memberStore, isLeader := s.memberStores[teamID]
+	s.memberStoresMu.RUnlock()
+
+	s.skillIndexStoresMu.RLock()
 	skillIndexStore := s.skillIndexStores[teamID]
-	s.mu.RUnlock()
+	s.skillIndexStoresMu.RUnlock()
 
 	if !isLeader {
 		return &domainTeam.JoinResponse{
@@ -635,9 +739,9 @@ func (s *TeamService) HandleJoinRequest(teamID string, req *domainTeam.JoinReque
 
 // HandleLeaveRequest 处理离开请求（Leader 调用）
 func (s *TeamService) HandleLeaveRequest(teamID, memberID string) error {
-	s.mu.RLock()
+	s.memberStoresMu.RLock()
 	memberStore, isLeader := s.memberStores[teamID]
-	s.mu.RUnlock()
+	s.memberStoresMu.RUnlock()
 
 	if !isLeader {
 		return domainTeam.ErrNotTeamLeader
@@ -670,9 +774,9 @@ func (s *TeamService) HandleLeaveRequest(teamID, memberID string) error {
 
 // updateMDNSMemberCount 更新 mDNS 成员数量
 func (s *TeamService) updateMDNSMemberCount(teamID string) {
-	s.mu.RLock()
+	s.memberStoresMu.RLock()
 	memberStore := s.memberStores[teamID]
-	s.mu.RUnlock()
+	s.memberStoresMu.RUnlock()
 
 	if memberStore == nil || !s.advertiser.IsRunning() {
 		return
@@ -701,9 +805,9 @@ func (s *TeamService) convertMembersToSlice(members []*domainTeam.TeamMember) []
 
 // GetSkillIndex 获取团队技能目录
 func (s *TeamService) GetSkillIndex(teamID string) (*domainTeam.TeamSkillIndex, error) {
-	s.mu.RLock()
+	s.skillIndexStoresMu.RLock()
 	store, exists := s.skillIndexStores[teamID]
-	s.mu.RUnlock()
+	s.skillIndexStoresMu.RUnlock()
 
 	if exists {
 		return store.Get(), nil
@@ -732,28 +836,28 @@ func (s *TeamService) GetSkillIndex(teamID string) (*domainTeam.TeamSkillIndex, 
 
 // AddSkillToIndex 添加技能到索引（仅 Leader 使用）
 func (s *TeamService) AddSkillToIndex(teamID string, entry *domainTeam.TeamSkillEntry) error {
-	s.mu.Lock()
+	s.skillIndexStoresMu.Lock()
 	store, exists := s.skillIndexStores[teamID]
 	if !exists {
 		// 创建新的索引存储
 		var err error
 		store, err = infraTeam.NewSkillIndexStore(teamID)
 		if err != nil {
-			s.mu.Unlock()
+			s.skillIndexStoresMu.Unlock()
 			return err
 		}
 		s.skillIndexStores[teamID] = store
 	}
-	s.mu.Unlock()
+	s.skillIndexStoresMu.Unlock()
 
 	return store.AddOrUpdate(*entry)
 }
 
 // RemoveSkillFromIndex 从索引中移除技能（仅 Leader 使用）
 func (s *TeamService) RemoveSkillFromIndex(teamID, pluginID string) error {
-	s.mu.RLock()
+	s.skillIndexStoresMu.RLock()
 	store, exists := s.skillIndexStores[teamID]
-	s.mu.RUnlock()
+	s.skillIndexStoresMu.RUnlock()
 
 	if !exists {
 		return nil // 索引不存在，无需移除
@@ -824,4 +928,103 @@ func (r *bytesReaderImpl) Read(p []byte) (n int, err error) {
 	n = copy(p, r.data[r.pos:])
 	r.pos += n
 	return n, nil
+}
+
+// LeaderEventHandler Leader 专用事件处理器
+// 用于处理成员上下线事件，更新 memberStore 中的在线状态
+type LeaderEventHandler struct {
+	service *TeamService
+	logger  *slog.Logger
+}
+
+// NewLeaderEventHandler 创建 Leader 事件处理器
+func NewLeaderEventHandler(service *TeamService) *LeaderEventHandler {
+	return &LeaderEventHandler{
+		service: service,
+		logger:  log.NewModuleLogger("team", "leader_event"),
+	}
+}
+
+// HandleEvent 处理事件
+func (h *LeaderEventHandler) HandleEvent(event *p2p.Event) error {
+	switch event.Type {
+	case p2p.EventMemberOnline:
+		return h.handleMemberOnline(event)
+	case p2p.EventMemberOffline:
+		return h.handleMemberOffline(event)
+	default:
+		// 其他事件暂不处理
+		return nil
+	}
+}
+
+// handleMemberOnline 处理成员上线事件
+func (h *LeaderEventHandler) handleMemberOnline(event *p2p.Event) error {
+	var payload p2p.MemberStatusPayload
+	if err := event.ParsePayload(&payload); err != nil {
+		return err
+	}
+
+	h.service.memberStoresMu.RLock()
+	memberStore := h.service.memberStores[event.TeamID]
+	h.service.memberStoresMu.RUnlock()
+
+	if memberStore != nil {
+		if err := memberStore.SetOnline(payload.MemberID, true); err != nil {
+			h.logger.Warn("failed to set member online",
+				"team_id", event.TeamID,
+				"member_id", payload.MemberID,
+				"error", err,
+			)
+		} else {
+			h.logger.Debug("member online status updated",
+				"team_id", event.TeamID,
+				"member_id", payload.MemberID,
+				"member_name", payload.MemberName,
+			)
+		}
+	}
+
+	return nil
+}
+
+// handleMemberOffline 处理成员离线事件
+func (h *LeaderEventHandler) handleMemberOffline(event *p2p.Event) error {
+	var payload p2p.MemberStatusPayload
+	if err := event.ParsePayload(&payload); err != nil {
+		return err
+	}
+
+	h.service.memberStoresMu.RLock()
+	memberStore := h.service.memberStores[event.TeamID]
+	h.service.memberStoresMu.RUnlock()
+
+	if memberStore != nil {
+		if err := memberStore.SetOnline(payload.MemberID, false); err != nil {
+			h.logger.Warn("failed to set member offline",
+				"team_id", event.TeamID,
+				"member_id", payload.MemberID,
+				"error", err,
+			)
+		} else {
+			h.logger.Info("member offline status updated",
+				"team_id", event.TeamID,
+				"member_id", payload.MemberID,
+				"member_name", payload.MemberName,
+			)
+		}
+	}
+
+	return nil
+}
+
+// SetupLeaderEventHandler 设置 Leader 事件处理器
+func (s *TeamService) SetupLeaderEventHandler() {
+	if s.wsServer == nil {
+		return
+	}
+
+	handler := NewLeaderEventHandler(s)
+	s.wsServer.SetEventHandler(handler)
+	s.logger.Info("leader event handler set up")
 }

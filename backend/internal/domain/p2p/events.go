@@ -39,6 +39,10 @@ const (
 	EventMemberStatusChanged EventType = "member_status_changed" // 成员工作状态变更
 	EventDailySummaryShared  EventType = "daily_summary_shared"  // 日报分享
 
+	// 会话分享相关事件
+	EventSessionShared       EventType = "session_shared"        // 会话分享
+	EventSessionCommentAdded EventType = "session_comment_added" // 会话评论新增
+
 	// 周报相关事件
 	EventProjectConfigUpdated EventType = "project_config_updated" // 项目配置更新
 )
@@ -188,4 +192,24 @@ type ProjectMatcherPayload struct {
 	ID      string `json:"id"`       // 规则 ID
 	Name    string `json:"name"`     // 显示名称
 	RepoURL string `json:"repo_url"` // Git Remote URL
+}
+
+// SessionSharedPayload 会话分享事件数据
+type SessionSharedPayload struct {
+	ShareID      string `json:"share_id"`                // 分享 ID
+	SharerID     string `json:"sharer_id"`               // 分享者成员 ID
+	SharerName   string `json:"sharer_name"`             // 分享者名称
+	Title        string `json:"title"`                   // 会话标题
+	MessageCount int    `json:"message_count"`           // 消息数量
+	Description  string `json:"description,omitempty"`   // 可选分享说明
+}
+
+// SessionCommentAddedPayload 会话评论新增事件数据
+type SessionCommentAddedPayload struct {
+	ShareID    string   `json:"share_id"`             // 分享 ID
+	CommentID  string   `json:"comment_id"`           // 评论 ID
+	AuthorID   string   `json:"author_id"`            // 评论者成员 ID
+	AuthorName string   `json:"author_name"`          // 评论者名称
+	Content    string   `json:"content"`              // 评论内容
+	Mentions   []string `json:"mentions,omitempty"`   // @提及的成员 ID 列表
 }

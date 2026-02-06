@@ -107,9 +107,44 @@ func (h *TeamHandler) GetNetworkInterfaces(c *gin.Context) {
 
 	config := h.teamService.GetNetworkConfig()
 
+	// 获取当前端点信息
+	currentEndpoint := h.teamService.GetCurrentEndpoint()
+
 	response.Success(c, gin.H{
-		"interfaces": interfaces,
-		"config":     config,
+		"interfaces":       interfaces,
+		"config":           config,
+		"current_endpoint": currentEndpoint,
+	})
+}
+
+// UpdateNetworkConfig 更新网络配置
+// @Summary 更新网络配置
+// @Tags 团队
+// @Accept json
+// @Produce json
+// @Param body body UpdateNetworkConfigRequest true "网络配置"
+// @Success 200 {object} response.Response
+// @Router /team/network-config [post]
+func (h *TeamHandler) UpdateNetworkConfig(c *gin.Context) {
+	var req struct {
+		PreferredInterface string `json:"preferred_interface"`
+		PreferredIP        string `json:"preferred_ip"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 600060, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 更新网络配置
+	newEndpoint, err := h.teamService.UpdateNetworkConfig(req.PreferredInterface, req.PreferredIP)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 600061, "Failed to update network config: "+err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"success":      true,
+		"new_endpoint": newEndpoint,
 	})
 }
 

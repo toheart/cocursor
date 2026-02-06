@@ -7,10 +7,14 @@ import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
 import { Team, TeamMember, TeamSkillEntry } from "../../types";
 import { useApi, useToast, useTeamWebSocket } from "../../hooks";
-import { TeamEvent, MemberStatusChangedEvent } from "../../services/teamWebSocket";
+import {
+  TeamEvent,
+  MemberStatusChangedEvent,
+} from "../../services/teamWebSocket";
 import { SkillPublish } from "./SkillPublish";
 import { ToastContainer } from "../shared/ToastContainer";
 import { WeeklyReport } from "./WeeklyReport";
+import { SharedSessionList } from "./SharedSessionList";
 
 interface MemberListProps {
   team: Team;
@@ -18,74 +22,97 @@ interface MemberListProps {
   onRefresh: () => void;
 }
 
-export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh }) => {
+export const MemberList: React.FC<MemberListProps> = ({
+  team,
+  onBack,
+  onRefresh,
+}) => {
   const { t } = useTranslation();
   const { showToast, toasts } = useToast();
-  const [activeTab, setActiveTab] = useState<"members" | "skills" | "weekly">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "skills" | "weekly" | "sessions">(
+    "members",
+  );
   const [showPublish, setShowPublish] = useState(false);
-  const [memberStatuses, setMemberStatuses] = useState<Record<string, { project: string; file: string }>>({});
+  const [memberStatuses, setMemberStatuses] = useState<
+    Record<string, { project: string; file: string }>
+  >({});
 
   // 获取成员列表
   const fetchMembers = useCallback(async () => {
-    const resp = await apiService.getTeamMembers(team.id) as { members: TeamMember[] };
+    const resp = (await apiService.getTeamMembers(team.id)) as {
+      members: TeamMember[];
+    };
     return resp.members || [];
   }, [team.id]);
 
-  const { data: members, loading: loadingMembers, refetch: refetchMembers } = useApi<TeamMember[]>(fetchMembers);
+  const {
+    data: members,
+    loading: loadingMembers,
+    refetch: refetchMembers,
+  } = useApi<TeamMember[]>(fetchMembers);
 
   // 获取技能列表
   const fetchSkills = useCallback(async () => {
-    const resp = await apiService.getTeamSkillIndex(team.id) as { entries: TeamSkillEntry[] };
+    const resp = (await apiService.getTeamSkillIndex(team.id)) as {
+      entries: TeamSkillEntry[];
+    };
     return resp.entries || [];
   }, [team.id]);
 
-  const { data: skills, loading: loadingSkills, refetch: refetchSkills } = useApi<TeamSkillEntry[]>(fetchSkills);
+  const {
+    data: skills,
+    loading: loadingSkills,
+    refetch: refetchSkills,
+  } = useApi<TeamSkillEntry[]>(fetchSkills);
 
   // WebSocket 事件处理
-  const handleTeamEvent = useCallback((event: TeamEvent) => {
-    console.log("[MemberList] Team event received:", event.type);
-    
-    switch (event.type) {
-      case "member_joined":
-      case "member_left":
-      case "member_online":
-      case "member_offline":
-        // 成员变化时刷新成员列表
-        refetchMembers();
-        break;
-      case "skill_published":
-      case "skill_deleted":
-      case "skill_index_updated":
-        // 技能变化时刷新技能列表
-        refetchSkills();
-        break;
-      case "team_dissolved":
-        // 团队解散时返回列表
-        showToast(t("team.teamDissolved"), "error");
-        onBack();
-        onRefresh();
-        break;
-      case "member_status_changed": {
-        // 成员状态变更事件
-        const statusEvent = event as MemberStatusChangedEvent;
-        if (statusEvent.payload.status_visible) {
-          setMemberStatuses(prev => ({
-            ...prev,
-            [statusEvent.payload.member_id]: {
-              project: statusEvent.payload.project_name,
-              file: statusEvent.payload.current_file,
-            },
-          }));
-        } else {
-          setMemberStatuses(prev => {
-            const { [statusEvent.payload.member_id]: _, ...rest } = prev;
-            return rest;
-          });
+  const handleTeamEvent = useCallback(
+    (event: TeamEvent) => {
+      console.log("[MemberList] Team event received:", event.type);
+
+      switch (event.type) {
+        case "member_joined":
+        case "member_left":
+        case "member_online":
+        case "member_offline":
+          // 成员变化时刷新成员列表
+          refetchMembers();
+          break;
+        case "skill_published":
+        case "skill_deleted":
+        case "skill_index_updated":
+          // 技能变化时刷新技能列表
+          refetchSkills();
+          break;
+        case "team_dissolved":
+          // 团队解散时返回列表
+          showToast(t("team.teamDissolved"), "error");
+          onBack();
+          onRefresh();
+          break;
+        case "member_status_changed": {
+          // 成员状态变更事件
+          const statusEvent = event as MemberStatusChangedEvent;
+          if (statusEvent.payload.status_visible) {
+            setMemberStatuses((prev) => ({
+              ...prev,
+              [statusEvent.payload.member_id]: {
+                project: statusEvent.payload.project_name,
+                file: statusEvent.payload.current_file,
+              },
+            }));
+          } else {
+            setMemberStatuses((prev) => {
+              const { [statusEvent.payload.member_id]: _, ...rest } = prev;
+              return rest;
+            });
+          }
+          break;
         }
-        break;
       }
-    }
-  }, [refetchMembers, refetchSkills, showToast, t, onBack, onRefresh]);
+    },
+    [refetchMembers, refetchSkills, showToast, t, onBack, onRefresh],
+  );
 
   // 连接 WebSocket
   const { isConnected } = useTeamWebSocket({
@@ -101,40 +128,56 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
     showToast(t("team.publishSuccess"), "success");
   }, [refetchSkills, showToast, t]);
 
-  const handleDownload = useCallback(async (skill: TeamSkillEntry) => {
-    try {
-      await apiService.downloadTeamSkill(
-        team.id,
-        skill.plugin_id,
-        skill.author_endpoint,
-        skill.checksum
-      );
-      showToast(t("team.downloadSuccess"), "success");
-      refetchSkills();
-    } catch (err: any) {
-      showToast(err.message || t("team.downloadFailed"), "error");
-    }
-  }, [team.id, showToast, refetchSkills, t]);
+  const handleDownload = useCallback(
+    async (skill: TeamSkillEntry) => {
+      try {
+        await apiService.downloadTeamSkill(
+          team.id,
+          skill.plugin_id,
+          skill.author_endpoint,
+          skill.checksum,
+        );
+        showToast(t("team.downloadSuccess"), "success");
+        refetchSkills();
+      } catch (err: any) {
+        showToast(err.message || t("team.downloadFailed"), "error");
+      }
+    },
+    [team.id, showToast, refetchSkills, t],
+  );
 
-  const handleInstall = useCallback(async (skill: TeamSkillEntry) => {
-    try {
-      await apiService.installTeamSkill(team.id, skill.plugin_id, skill.version);
-      showToast(t("team.installSuccess"), "success");
-    } catch (err: any) {
-      showToast(err.message || t("team.installFailed"), "error");
-    }
-  }, [team.id, showToast, t]);
+  const handleInstall = useCallback(
+    async (skill: TeamSkillEntry) => {
+      try {
+        await apiService.installTeamSkill(
+          team.id,
+          skill.plugin_id,
+          skill.version,
+        );
+        showToast(t("team.installSuccess"), "success");
+      } catch (err: any) {
+        showToast(err.message || t("team.installFailed"), "error");
+      }
+    },
+    [team.id, showToast, t],
+  );
 
-  const handleUninstall = useCallback(async (skill: TeamSkillEntry) => {
-    try {
-      await apiService.uninstallTeamSkill(team.id, skill.plugin_id);
-      showToast(t("team.uninstallSuccess"), "success");
-    } catch (err: any) {
-      showToast(err.message || t("team.uninstallFailed"), "error");
-    }
-  }, [team.id, showToast, t]);
+  const handleUninstall = useCallback(
+    async (skill: TeamSkillEntry) => {
+      try {
+        await apiService.uninstallTeamSkill(team.id, skill.plugin_id);
+        showToast(t("team.uninstallSuccess"), "success");
+      } catch (err: any) {
+        showToast(err.message || t("team.uninstallFailed"), "error");
+      }
+    },
+    [team.id, showToast, t],
+  );
 
-  const onlineCount = useMemo(() => members?.filter(m => m.is_online).length || 0, [members]);
+  const onlineCount = useMemo(
+    () => members?.filter((m) => m.is_online).length || 0,
+    [members],
+  );
 
   return (
     <div className="cocursor-team-detail">
@@ -148,7 +191,9 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
         <div className="cocursor-team-detail-title">
           <h2>{team.name}</h2>
           {team.is_leader && (
-            <span className="cocursor-team-card-badge leader">{t("team.leader")}</span>
+            <span className="cocursor-team-card-badge leader">
+              {t("team.leader")}
+            </span>
           )}
         </div>
       </div>
@@ -156,16 +201,28 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
       {/* 团队信息 */}
       <div className="cocursor-team-detail-info">
         <div className="cocursor-team-detail-info-item">
-          <span className="cocursor-team-detail-info-label">{t("team.leaderLabel")}</span>
-          <span className="cocursor-team-detail-info-value">{team.leader_name}</span>
+          <span className="cocursor-team-detail-info-label">
+            {t("team.leaderLabel")}
+          </span>
+          <span className="cocursor-team-detail-info-value">
+            {team.leader_name}
+          </span>
         </div>
         <div className="cocursor-team-detail-info-item">
-          <span className="cocursor-team-detail-info-label">{t("team.onlineMembers")}</span>
-          <span className="cocursor-team-detail-info-value">{onlineCount} / {members?.length || 0}</span>
+          <span className="cocursor-team-detail-info-label">
+            {t("team.onlineMembers")}
+          </span>
+          <span className="cocursor-team-detail-info-value">
+            {onlineCount} / {members?.length || 0}
+          </span>
         </div>
         <div className="cocursor-team-detail-info-item">
-          <span className="cocursor-team-detail-info-label">{t("team.totalSkills")}</span>
-          <span className="cocursor-team-detail-info-value">{skills?.length || 0}</span>
+          <span className="cocursor-team-detail-info-label">
+            {t("team.totalSkills")}
+          </span>
+          <span className="cocursor-team-detail-info-value">
+            {skills?.length || 0}
+          </span>
         </div>
       </div>
 
@@ -192,6 +249,13 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
           <span className="cocursor-team-detail-tab-icon">📊</span>
           {t("weeklyReport.title")}
         </button>
+        <button
+          className={`cocursor-team-detail-tab ${activeTab === "sessions" ? "active" : ""}`}
+          onClick={() => setActiveTab("sessions")}
+        >
+          <span className="cocursor-team-detail-tab-icon">💬</span>
+          {t("session.sharedSessions")}
+        </button>
       </div>
 
       {/* 成员列表 */}
@@ -214,10 +278,10 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
             </div>
           ) : (
             <div className="cocursor-team-member-list">
-              {members?.map(member => (
-                <MemberCard 
-                  key={member.id} 
-                  member={member} 
+              {members?.map((member) => (
+                <MemberCard
+                  key={member.id}
+                  member={member}
                   workStatus={memberStatuses[member.id]}
                 />
               ))}
@@ -232,10 +296,16 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
           <div className="cocursor-team-section-header">
             <h3>{t("team.skillList")}</h3>
             <div className="cocursor-team-section-actions">
-              <button className="cocursor-btn secondary" onClick={refetchSkills}>
+              <button
+                className="cocursor-btn secondary"
+                onClick={refetchSkills}
+              >
                 {t("common.refresh")}
               </button>
-              <button className="cocursor-btn primary" onClick={() => setShowPublish(true)}>
+              <button
+                className="cocursor-btn primary"
+                onClick={() => setShowPublish(true)}
+              >
                 <span className="cocursor-btn-icon">📤</span>
                 {t("team.publishSkill")}
               </button>
@@ -254,10 +324,10 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
             </div>
           ) : (
             <div className="cocursor-team-skill-list">
-              {skills?.map(skill => (
-                <SkillCard 
-                  key={skill.plugin_id} 
-                  skill={skill} 
+              {skills?.map((skill) => (
+                <SkillCard
+                  key={skill.plugin_id}
+                  skill={skill}
                   onDownload={() => handleDownload(skill)}
                   onInstall={() => handleInstall(skill)}
                   onUninstall={() => handleUninstall(skill)}
@@ -271,6 +341,11 @@ export const MemberList: React.FC<MemberListProps> = ({ team, onBack, onRefresh 
       {/* 周报视图 */}
       {activeTab === "weekly" && (
         <WeeklyReport teamId={team.id} isLeader={team.is_leader} />
+      )}
+
+      {/* 共享会话 */}
+      {activeTab === "sessions" && (
+        <SharedSessionList teamId={team.id} />
       )}
 
       {/* 发布技能弹窗 */}
@@ -295,16 +370,22 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, workStatus }) => {
   const { t } = useTranslation();
 
   return (
-    <div className={`cocursor-team-member-card ${member.is_online ? "online" : "offline"}`}>
+    <div
+      className={`cocursor-team-member-card ${member.is_online ? "online" : "offline"}`}
+    >
       <div className="cocursor-team-member-avatar">
         {member.name.charAt(0).toUpperCase()}
-        <span className={`cocursor-team-member-status ${member.is_online ? "online" : "offline"}`}></span>
+        <span
+          className={`cocursor-team-member-status ${member.is_online ? "online" : "offline"}`}
+        ></span>
       </div>
       <div className="cocursor-team-member-info">
         <div className="cocursor-team-member-name">
           {member.name}
           {member.is_leader && (
-            <span className="cocursor-team-card-badge leader small">{t("team.leader")}</span>
+            <span className="cocursor-team-card-badge leader small">
+              {t("team.leader")}
+            </span>
           )}
         </div>
         <div className="cocursor-team-member-meta">
@@ -316,9 +397,13 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, workStatus }) => {
         {member.is_online && workStatus && (
           <div className="cocursor-team-member-work-status">
             <span className="cocursor-team-member-work-icon">💻</span>
-            <span className="cocursor-team-member-work-project">{workStatus.project}</span>
+            <span className="cocursor-team-member-work-project">
+              {workStatus.project}
+            </span>
             {workStatus.file && (
-              <span className="cocursor-team-member-work-file">• {workStatus.file}</span>
+              <span className="cocursor-team-member-work-file">
+                • {workStatus.file}
+              </span>
             )}
           </div>
         )}
@@ -335,7 +420,12 @@ interface SkillCardProps {
   onUninstall: () => void;
 }
 
-const SkillCard: React.FC<SkillCardProps> = ({ skill, onDownload, onInstall, onUninstall }) => {
+const SkillCard: React.FC<SkillCardProps> = ({
+  skill,
+  onDownload,
+  onInstall,
+  onUninstall,
+}) => {
   const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -381,9 +471,15 @@ const SkillCard: React.FC<SkillCardProps> = ({ skill, onDownload, onInstall, onU
         <div className="cocursor-team-skill-info">
           <h4 className="cocursor-team-skill-name">{skill.name}</h4>
           <div className="cocursor-team-skill-meta">
-            <span className="cocursor-team-skill-version">v{skill.version}</span>
-            <span className="cocursor-team-skill-author">{skill.author_name}</span>
-            <span className="cocursor-team-skill-size">{formatSize(skill.total_size)}</span>
+            <span className="cocursor-team-skill-version">
+              v{skill.version}
+            </span>
+            <span className="cocursor-team-skill-author">
+              {skill.author_name}
+            </span>
+            <span className="cocursor-team-skill-size">
+              {formatSize(skill.total_size)}
+            </span>
           </div>
         </div>
         <div className="cocursor-team-skill-actions">

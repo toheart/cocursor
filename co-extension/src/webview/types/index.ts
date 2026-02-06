@@ -66,7 +66,11 @@ export interface CodeBlock {
 
 // ========== 插件相关 ==========
 
-export type PluginSource = "builtin" | "project" | "team_global" | "team_project";
+export type PluginSource =
+  | "builtin"
+  | "project"
+  | "team_global"
+  | "team_project";
 
 export interface Plugin {
   id: string;
@@ -240,7 +244,7 @@ export interface ChunkSearchResult {
   has_code: boolean;
   timestamp: number;
   is_enriched: boolean;
-  turn_index?: number;  // 用于定位到具体消息
+  turn_index?: number; // 用于定位到具体消息
 }
 
 // 知识片段详情
@@ -335,6 +339,7 @@ export interface NetworkInterface {
   addresses: string[];
   is_up: boolean;
   is_loopback: boolean;
+  is_virtual: boolean;
 }
 
 export interface NetworkConfig {
@@ -383,8 +388,8 @@ export interface SkillValidationResult {
   valid: boolean;
   error?: string;
   source_type: "plugin" | "skill"; // 来源类型
-  prefill: SkillMetadataPrefill;   // 预填充数据
-  missing_fields?: string[];       // 缺失的必填字段
+  prefill: SkillMetadataPrefill; // 预填充数据
+  missing_fields?: string[]; // 缺失的必填字段
   files: string[];
   total_size: number;
   skill_path: string;
@@ -418,8 +423,8 @@ export interface TeamProjectConfig {
 
 // 项目匹配规则
 export interface ProjectMatcher {
-  id: string;       // 规则 ID (UUID)
-  name: string;     // 显示名称
+  id: string; // 规则 ID (UUID)
+  name: string; // 显示名称
   repo_url: string; // Git Remote URL
 }
 
@@ -427,14 +432,14 @@ export interface ProjectMatcher {
 export interface MemberWeeklyStats {
   member_id: string;
   member_name: string;
-  week_start: string;     // YYYY-MM-DD
+  week_start: string; // YYYY-MM-DD
   daily_stats: MemberDailyStats[];
   updated_at: string;
 }
 
 // 成员每日统计
 export interface MemberDailyStats {
-  date: string;           // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   git_stats?: GitDailyStats;
   cursor_stats?: CursorDailyStats;
   work_items?: WorkItemSummary[];
@@ -485,8 +490,8 @@ export interface WorkItemSummary {
 // 团队周视图
 export interface TeamWeeklyView {
   team_id: string;
-  week_start: string;     // 周一日期
-  week_end: string;       // 周日日期
+  week_start: string; // 周一日期
+  week_end: string; // 周日日期
   calendar: TeamDayColumn[];
   project_summary: ProjectWeekStats[];
   updated_at: string;
@@ -494,8 +499,8 @@ export interface TeamWeeklyView {
 
 // 日历中的一天
 export interface TeamDayColumn {
-  date: string;           // YYYY-MM-DD
-  day_of_week: number;    // 1=周一...7=周日
+  date: string; // YYYY-MM-DD
+  day_of_week: number; // 1=周一...7=周日
   members: MemberDayCell[];
 }
 
@@ -503,7 +508,7 @@ export interface TeamDayColumn {
 export interface MemberDayCell {
   member_id: string;
   member_name: string;
-  activity_level: number;  // 0-4
+  activity_level: number; // 0-4
   commits: number;
   lines_changed: number;
   has_report: boolean;

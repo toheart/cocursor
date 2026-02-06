@@ -116,9 +116,9 @@ func (i *Identity) Validate() error {
 
 // MemberEndpoint 成员端点（支持多地址）
 type MemberEndpoint struct {
-	PrimaryIP   string   `json:"primary_ip"`            // 主要 IP
-	AllIPs      []string `json:"all_ips"`               // 所有可用 IP
-	Port        int      `json:"port"`                  // 端口
+	PrimaryIP   string   `json:"primary_ip"`             // 主要 IP
+	AllIPs      []string `json:"all_ips"`                // 所有可用 IP
+	Port        int      `json:"port"`                   // 端口
 	PreferredIF string   `json:"preferred_if,omitempty"` // 首选网卡名称
 }
 
@@ -142,6 +142,7 @@ type NetworkInterface struct {
 	Addresses  []string `json:"addresses"`   // IPv4 地址列表
 	IsUp       bool     `json:"is_up"`       // 是否启用
 	IsLoopback bool     `json:"is_loopback"` // 是否回环
+	IsVirtual  bool     `json:"is_virtual"`  // 是否虚拟网卡（VMware, VirtualBox, Docker等）
 }
 
 // NetworkConfig 网卡偏好配置
@@ -153,21 +154,21 @@ type NetworkConfig struct {
 
 // TeamSkillEntry 团队技能目录条目
 type TeamSkillEntry struct {
-	PluginID       string    `json:"plugin_id"`                  // 插件 ID
-	Name           string    `json:"name"`                       // 技能名称（英文）
-	NameZhCN       string    `json:"name_zh_cn,omitempty"`       // 技能名称（中文）
-	Description    string    `json:"description"`                // 技能描述（英文）
+	PluginID       string    `json:"plugin_id"`                   // 插件 ID
+	Name           string    `json:"name"`                        // 技能名称（英文）
+	NameZhCN       string    `json:"name_zh_cn,omitempty"`        // 技能名称（中文）
+	Description    string    `json:"description"`                 // 技能描述（英文）
 	DescZhCN       string    `json:"description_zh_cn,omitempty"` // 技能描述（中文）
-	Version        string    `json:"version"`                    // 版本号
-	Category       string    `json:"category,omitempty"`         // 分类（productivity/creative/design/tools/other）
-	Scope          string    `json:"scope"`                      // 范围：global | project
-	AuthorID       string    `json:"author_id"`                  // 作者成员 ID
-	AuthorName     string    `json:"author_name"`                // 作者名称
-	AuthorEndpoint string    `json:"author_endpoint"`            // 作者端点（用于下载）
-	PublishedAt    time.Time `json:"published_at"`               // 发布时间
-	FileCount      int       `json:"file_count"`                 // 文件数量
-	TotalSize      int64     `json:"total_size"`                 // 总大小（字节）
-	Checksum       string    `json:"checksum"`                   // 校验和
+	Version        string    `json:"version"`                     // 版本号
+	Category       string    `json:"category,omitempty"`          // 分类（productivity/creative/design/tools/other）
+	Scope          string    `json:"scope"`                       // 范围：global | project
+	AuthorID       string    `json:"author_id"`                   // 作者成员 ID
+	AuthorName     string    `json:"author_name"`                 // 作者名称
+	AuthorEndpoint string    `json:"author_endpoint"`             // 作者端点（用于下载）
+	PublishedAt    time.Time `json:"published_at"`                // 发布时间
+	FileCount      int       `json:"file_count"`                  // 文件数量
+	TotalSize      int64     `json:"total_size"`                  // 总大小（字节）
+	Checksum       string    `json:"checksum"`                    // 校验和
 }
 
 // SkillMetadata 用户提交的技能元数据（发布时使用）

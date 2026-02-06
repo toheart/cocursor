@@ -11,9 +11,29 @@
 .cocursor-team-title-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.cocursor-team-title-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cocursor-team-settings-btn {
+  background: transparent;
+  border: 1px solid var(--vscode-button-secondaryBackground);
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.cocursor-team-settings-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
 }
 
 .cocursor-team-title {
@@ -399,6 +419,72 @@
   font-size: 20px;
   font-weight: 600;
   color: var(--vscode-foreground);
+}
+
+.cocursor-team-detail-title {
+  flex: 1;
+}
+
+.cocursor-team-detail-settings {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 8px;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition:
+    opacity 0.2s,
+    background 0.2s;
+}
+
+.cocursor-team-detail-settings:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+/* 网络设置样式 */
+.cocursor-network-current {
+  padding: 12px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 14px;
+}
+
+.cocursor-network-endpoint {
+  color: var(--vscode-textLink-foreground);
+  font-weight: 500;
+}
+
+.cocursor-network-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--vscode-inputValidation-warningBackground);
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--vscode-inputValidation-warningForeground);
+  margin-top: 8px;
+}
+
+.cocursor-network-warning-icon {
+  flex-shrink: 0;
+}
+
+.cocursor-network-virtual-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--vscode-inputValidation-warningBackground);
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--vscode-inputValidation-warningForeground);
+  margin-top: 8px;
 }
 
 .cocursor-team-detail-info {
@@ -1030,7 +1116,11 @@
 
 .cocursor-daily-report-modal .cocursor-modal-header {
   padding: 20px 24px;
-  background: linear-gradient(135deg, var(--vscode-sideBar-background), var(--vscode-editor-background));
+  background: linear-gradient(
+    135deg,
+    var(--vscode-sideBar-background),
+    var(--vscode-editor-background)
+  );
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
@@ -1044,7 +1134,11 @@
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-textLink-foreground));
+  background: linear-gradient(
+    135deg,
+    var(--vscode-button-background),
+    var(--vscode-textLink-foreground)
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1199,7 +1293,13 @@
   color: var(--vscode-textPreformat-foreground);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: var(--vscode-editor-font-family, "SF Mono", Monaco, Consolas, monospace);
+  font-family: var(
+    --vscode-editor-font-family,
+    "SF Mono",
+    Monaco,
+    Consolas,
+    monospace
+  );
   font-size: 13px;
 }
 
@@ -1213,7 +1313,13 @@
 }
 
 .cocursor-md-code-block {
-  font-family: var(--vscode-editor-font-family, "SF Mono", Monaco, Consolas, monospace);
+  font-family: var(
+    --vscode-editor-font-family,
+    "SF Mono",
+    Monaco,
+    Consolas,
+    monospace
+  );
   font-size: 13px;
   line-height: 1.5;
   color: var(--vscode-foreground);
@@ -1261,7 +1367,12 @@
 .cocursor-md-hr {
   border: none;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--vscode-panel-border), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--vscode-panel-border),
+    transparent
+  );
   margin: 24px 0;
 }
 
@@ -1333,4 +1444,372 @@
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-right: 6px;
+}
+
+/* ========== 共享会话样式 ========== */
+
+.cocursor-shared-sessions {
+  padding: 0 16px 16px;
+}
+
+/* 共享会话列表 */
+.cocursor-shared-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* 共享会话卡片 */
+.cocursor-shared-session-card {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cocursor-shared-session-card:hover {
+  border-color: var(--vscode-focusBorder);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cocursor-shared-session-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cocursor-shared-session-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cocursor-shared-session-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cocursor-shared-session-author {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  font-size: 13px;
+}
+
+.cocursor-shared-session-time {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-shared-session-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.cocursor-shared-session-description {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.cocursor-shared-session-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-shared-session-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 分页 */
+.cocursor-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 12px 0;
+}
+
+.cocursor-pagination-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.cocursor-pagination-btn:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.cocursor-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cocursor-pagination-info {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 共享会话详情 */
+.cocursor-shared-session-detail {
+  padding: 0 16px 16px;
+}
+
+.cocursor-shared-session-detail-header {
+  margin-bottom: 20px;
+}
+
+.cocursor-shared-session-detail-info {
+  margin-top: 16px;
+}
+
+.cocursor-shared-session-detail-info h2 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-shared-session-detail-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  flex-wrap: wrap;
+}
+
+/* 会话消息列表 */
+.cocursor-shared-session-messages {
+  margin-bottom: 32px;
+}
+
+.cocursor-shared-session-messages h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cocursor-shared-session-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.cocursor-shared-session-message {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.cocursor-shared-session-message.user {
+  border-left: 3px solid var(--vscode-charts-blue);
+}
+
+.cocursor-shared-session-message.assistant {
+  border-left: 3px solid var(--vscode-charts-green);
+}
+
+.cocursor-shared-session-message-role {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+.cocursor-shared-session-message-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-shared-session-message-content pre {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.cocursor-shared-session-message-content code {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+
+/* 评论区 */
+.cocursor-shared-session-comments {
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 24px;
+}
+
+.cocursor-shared-session-comments h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0 0 16px 0;
+}
+
+.cocursor-shared-session-no-comments {
+  text-align: center;
+  padding: 32px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 13px;
+}
+
+.cocursor-shared-session-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.cocursor-shared-session-comment {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.cocursor-shared-session-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cocursor-shared-session-comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.cocursor-shared-session-comment-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cocursor-shared-session-comment-author {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-shared-session-comment-time {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-shared-session-comment-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--vscode-foreground);
+}
+
+.cocursor-shared-session-comment-content pre {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+/* 评论输入框 */
+.cocursor-shared-session-comment-input {
+  margin-top: 16px;
+}
+
+.cocursor-shared-session-comment-input textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-foreground);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.cocursor-shared-session-comment-input textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.cocursor-shared-session-comment-input textarea::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.cocursor-shared-session-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.cocursor-shared-session-comment-hint {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 错误状态 */
+.cocursor-shared-session-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
 }

@@ -69,9 +69,14 @@ type RegisterProjectRequest struct {
 	Algorithm   string   `json:"algorithm"`
 }
 
+// GetProjectConfigRequest 获取项目配置请求
+type GetProjectConfigRequest struct {
+	ProjectPath string `json:"project_path" binding:"required"`
+}
+
 // RegisterProject 注册项目
 // @Summary 注册项目
-// @Description 注册或更新项目配置
+// @Description 注册或更新项目配置（Deprecated: 请使用 /callgraph/generate-with-config）
 // @Tags 代码分析
 // @Accept json
 // @Produce json
@@ -93,6 +98,31 @@ func (h *CodeAnalysisHandler) RegisterProject(c *gin.Context) {
 	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
+// GetProjectConfig 获取项目配置
+// @Summary 获取项目配置
+// @Description 获取项目已保存的入口函数、算法配置
+// @Tags 代码分析
+// @Accept json
+// @Produce json
+// @Param request body GetProjectConfigRequest true "请求参数"
+// @Success 200 {object} response.Response{data=domainCodeanalysis.Project}
+// @Router /api/v1/analysis/projects/config [post]
+func (h *CodeAnalysisHandler) GetProjectConfig(c *gin.Context) {
+	var req GetProjectConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 400, err.Error())
+		return
+	}
+
+	result, err := h.projectService.GetProject(c.Request.Context(), req.ProjectPath)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, 404, err.Error())
 		return
 	}
 
@@ -139,9 +169,18 @@ type GenerateCallGraphRequest struct {
 	Commit      string `json:"commit"`
 }
 
+// GenerateCallGraphWithConfigRequest 生成调用图请求（包含配置）
+type GenerateCallGraphWithConfigRequest struct {
+	ProjectPath string   `json:"project_path" binding:"required"`
+	EntryPoints []string `json:"entry_points" binding:"required"`
+	Exclude     []string `json:"exclude"`
+	Algorithm   string   `json:"algorithm"`
+	Commit      string   `json:"commit"`
+}
+
 // GenerateCallGraph 生成调用图
 // @Summary 生成调用图
-// @Description 为项目生成调用图（同步）
+// @Description 为项目生成调用图（同步，Deprecated: 请使用 /callgraph/generate-with-config）
 // @Tags 代码分析
 // @Accept json
 // @Produce json
@@ -169,7 +208,7 @@ func (h *CodeAnalysisHandler) GenerateCallGraph(c *gin.Context) {
 
 // GenerateCallGraphAsync 生成调用图（异步）
 // @Summary 生成调用图（异步）
-// @Description 为项目生成调用图（异步执行）
+// @Description 为项目生成调用图（异步执行，Deprecated: 请使用 /callgraph/generate-with-config）
 // @Tags 代码分析
 // @Accept json
 // @Produce json
@@ -185,6 +224,37 @@ func (h *CodeAnalysisHandler) GenerateCallGraphAsync(c *gin.Context) {
 
 	result, err := h.callGraphService.GenerateAsync(c.Request.Context(), &codeanalysis.GenerateRequest{
 		ProjectPath: req.ProjectPath,
+		Commit:      req.Commit,
+	})
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
+// GenerateCallGraphWithConfig 生成调用图（异步，包含配置）
+// @Summary 生成调用图（异步，包含配置）
+// @Description 为项目生成调用图（异步执行，包含入口函数和算法配置）
+// @Tags 代码分析
+// @Accept json
+// @Produce json
+// @Param request body GenerateCallGraphWithConfigRequest true "请求参数"
+// @Success 200 {object} response.Response{data=codeanalysis.GenerateAsyncResponse}
+// @Router /api/v1/analysis/callgraph/generate-with-config [post]
+func (h *CodeAnalysisHandler) GenerateCallGraphWithConfig(c *gin.Context) {
+	var req GenerateCallGraphWithConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 400, err.Error())
+		return
+	}
+
+	result, err := h.callGraphService.GenerateWithConfigAsync(c.Request.Context(), &codeanalysis.GenerateWithConfigRequest{
+		ProjectPath: req.ProjectPath,
+		EntryPoints: req.EntryPoints,
+		Exclude:     req.Exclude,
+		Algorithm:   parseAlgorithm(req.Algorithm),
 		Commit:      req.Commit,
 	})
 	if err != nil {
@@ -306,4 +376,3 @@ func parseAlgorithm(s string) domainCodeanalysis.AlgorithmType {
 		return domainCodeanalysis.AlgorithmRTA
 	}
 }
-

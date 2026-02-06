@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cocursor/backend/internal/domain/codeanalysis"
@@ -26,6 +28,11 @@ func NewCallGraphRepository() *CallGraphRepository {
 
 // Init 初始化数据库表结构
 func (r *CallGraphRepository) Init(_ context.Context, dbPath string) error {
+	// 确保父目录存在
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
+	}
+
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)

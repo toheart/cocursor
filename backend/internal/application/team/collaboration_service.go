@@ -451,3 +451,77 @@ func (s *CollaborationService) updateDailySummaryIndex(teamID string, entry *dom
 	index.AddOrUpdateSummary(*entry)
 	return store.Save(index)
 }
+
+// InvalidateMemberCache 使成员相关缓存失效
+// 当成员离开团队时调用，清理该成员的工作状态和日报缓存
+func (s *CollaborationService) InvalidateMemberCache(teamID, memberID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 清理工作状态缓存
+	workStatusKey := fmt.Sprintf("%s:%s", teamID, memberID)
+	delete(s.workStatusCache, workStatusKey)
+
+	// 清理日报缓存（遍历所有日期）
+	keysToDelete := make([]string, 0)
+	for key := range s.dailySummaryCache {
+		// key 格式: teamID:date:memberID
+		if len(key) > len(teamID)+len(memberID)+2 {
+			// 检查是否匹配 teamID 和 memberID
+			if key[:len(teamID)] == teamID && key[len(key)-len(memberID):] == memberID {
+				keysToDelete = append(keysToDelete, key)
+			}
+		}
+	}
+	for _, key := range keysToDelete {
+		delete(s.dailySummaryCache, key)
+	}
+
+	s.logger.Debug("member cache invalidated",
+		"team_id", teamID,
+		"member_id", memberID,
+		"work_status_key", workStatusKey,
+		"daily_summary_keys", len(keysToDelete),
+	)
+}
+
+// InvalidateTeamCache 使团队相关缓存失效
+// 当团队解散时调用，清理该团队的所有缓存
+func (s *CollaborationService) InvalidateTeamCache(teamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 清理工作状态缓存
+	workStatusKeysToDelete := make([]string, 0)
+	for key := range s.workStatusCache {
+		if len(key) > len(teamID) && key[:len(teamID)] == teamID {
+			workStatusKeysToDelete = append(workStatusKeysToDelete, key)
+		}
+	}
+	for _, key := range workStatusKeysToDelete {
+		delete(s.workStatusCache, key)
+	}
+
+	// 清理日报缓存
+	dailySummaryKeysToDelete := make([]string, 0)
+	for key := range s.dailySummaryCache {
+		if len(key) > len(teamID) && key[:len(teamID)] == teamID {
+			dailySummaryKeysToDelete = append(dailySummaryKeysToDelete, key)
+		}
+	}
+	for _, key := range dailySummaryKeysToDelete {
+		delete(s.dailySummaryCache, key)
+	}
+
+	// 清理日报索引存储
+	delete(s.dailySummaryIndexStores, teamID)
+
+	s.logger.Info("team cache invalidated",
+		"team_id", teamID,
+		"work_status_keys", len(workStatusKeysToDelete),
+		"daily_summary_keys", len(dailySummaryKeysToDelete),
+	)
+}
+
+// 确保 CollaborationService 实现 CacheManager 接口
+var _ CacheManager = (*CollaborationService)(nil)

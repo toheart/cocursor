@@ -343,7 +343,7 @@
     }
   },
   "team": {
-    "title": "团队技能共享",
+    "title": "团队管理",
     "subtitle": "在团队内分享和发现技能",
     "beta": "Beta",
     "betaTooltip": "此功能处于 Beta 测试阶段，可能存在不稳定的情况",
@@ -489,6 +489,20 @@
     "shared": "分享",
     "viewDetail": "查看详情",
     "fetchDailySummaryFailed": "获取日报失败"
+  },
+  "network": {
+    "settings": "网络设置",
+    "currentEndpoint": "当前端点",
+    "currentEndpointHelp": "这是团队成员访问你的地址",
+    "selectInterface": "选择网卡",
+    "selectInterfacePlaceholder": "请选择网卡",
+    "selectIP": "选择 IP 地址",
+    "selectRequired": "请选择网卡和 IP 地址",
+    "changeWarning": "更改网络配置后，团队成员将使用新地址访问你",
+    "updateSuccess": "网络配置已更新",
+    "updateFailed": "更新网络配置失败",
+    "virtualInterface": "虚拟网卡",
+    "virtualInterfaceWarning": "这是虚拟网卡（如 VMware、Docker），团队成员可能无法访问。建议选择物理网卡。"
   },
   "weeklyReport": {
     "title": "团队周报",
@@ -898,6 +912,7 @@
     "projectInfo": "项目信息",
     "projectName": "项目名称",
     "projectPath": "项目路径",
+    "projectPathPlaceholder": "请输入 Go 项目路径",
     "remoteUrl": "远程仓库",
     "callGraphStatus": "调用图状态",
     "upToDate": "已是最新",
@@ -908,6 +923,7 @@
     "entryPoints": "入口函数配置",
     "entryPointsHint": "选择项目的入口函数，分析将从这些函数开始构建调用图",
     "recommended": "推荐",
+    "rescan": "重新扫描",
     "advancedConfig": "高级配置",
     "algorithm": "分析算法",
     "excludePaths": "排除路径",
@@ -934,14 +950,37 @@
       "scan": "扫描入口函数失败",
       "register": "注册项目失败",
       "generate": "生成调用图失败",
+      "algorithmFailed": "算法执行失败，请选择其他算法重试",
       "noEntryPoints": "请至少选择一个入口函数",
       "invalidGoModule": "无效的 Go 模块",
       "noGoMod": "当前目录不是 Go 模块，请确保项目有 go.mod 文件。",
-      "noGoFiles": "项目中未找到 Go 源文件。"
+      "noGoFiles": "项目中未找到 Go 源文件。",
+      "taskNotFound": "生成任务已丢失，请重新生成"
     },
     "taskStarting": "正在启动任务...",
     "taskRunning": "正在分析...",
     "algorithmFallback": "算法已自动降级",
     "fallbackWarning": "由于分析问题，算法已自动切换为 {{algorithm}}"
+  },
+  "session": {
+    "sharedSessions": "共享会话",
+    "noSharedSessions": "暂无共享会话",
+    "noSharedSessionsDesc": "团队成员可以从侧边栏分享自己的 Cursor 会话到这里",
+    "messages": "消息",
+    "comments": "评论",
+    "sharedBy": "分享者",
+    "conversation": "对话内容",
+    "noComments": "暂无评论，成为第一个评论的人吧！",
+    "commentPlaceholder": "写下你的评论... 支持 Markdown，可以使用 @用户名 提及其他成员",
+    "commentHint": "按 Ctrl+Enter 或 Cmd+Enter 提交",
+    "submitComment": "发表评论",
+    "submitting": "提交中...",
+    "commentSuccess": "评论发表成功",
+    "commentFailed": "评论发表失败",
+    "notFound": "会话不存在或已被删除",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前",
+    "daysAgo": "{{count}} 天前"
   }
 }

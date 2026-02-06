@@ -4,10 +4,34 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/cocursor/backend/internal/domain/team"
 )
+
+// 虚拟网卡名称前缀列表
+var virtualInterfacePrefixes = []string{
+	"vmnet",     // VMware
+	"vboxnet",   // VirtualBox
+	"veth",      // Docker/容器
+	"docker",    // Docker
+	"br-",       // Docker bridge
+	"virbr",     // libvirt/KVM
+	"lxc",       // LXC
+	"lxd",       // LXD
+	"flannel",   // Kubernetes flannel
+	"cni",       // Kubernetes CNI
+	"calico",    // Kubernetes calico
+	"weave",     // Kubernetes weave
+	"tun",       // VPN tunnel
+	"tap",       // VPN tap
+	"utun",      // macOS VPN
+	"awdl",      // Apple Wireless Direct Link
+	"llw",       // Low Latency WLAN
+	"bridge",    // Bridge
+	"Parallels", // Parallels Desktop
+}
 
 // NetworkManager 网络管理器
 type NetworkManager struct{}
@@ -23,6 +47,7 @@ func NewNetworkManager() *NetworkManager {
 // - 排除回环接口（127.x.x.x）
 // - 排除链路本地地址（169.254.x.x）
 // - 只保留私有地址段（10.x、172.16-31.x、192.168.x）
+// - 标记虚拟网卡（VMware、VirtualBox、Docker等）
 func (m *NetworkManager) GetAvailableInterfaces() ([]team.NetworkInterface, error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -71,12 +96,18 @@ func (m *NetworkManager) GetAvailableInterfaces() ([]team.NetworkInterface, erro
 				Addresses:  ipv4Addrs,
 				IsUp:       true,
 				IsLoopback: false,
+				IsVirtual:  isVirtualInterface(iface.Name),
 			})
 		}
 	}
 
-	// 按接口名称排序，确保结果稳定
+	// 排序：物理网卡在前，虚拟网卡在后；同类按名称排序
 	sort.Slice(result, func(i, j int) bool {
+		// 优先按虚拟/物理分类
+		if result[i].IsVirtual != result[j].IsVirtual {
+			return !result[i].IsVirtual // 物理网卡在前
+		}
+		// 同类按名称排序
 		return result[i].Name < result[j].Name
 	})
 
@@ -97,6 +128,17 @@ func isValidLANAddress(ip net.IP) bool {
 
 	// 只保留私有地址段
 	return ip.IsPrivate()
+}
+
+// isVirtualInterface 判断是否为虚拟网卡
+func isVirtualInterface(name string) bool {
+	lowerName := strings.ToLower(name)
+	for _, prefix := range virtualInterfacePrefixes {
+		if strings.HasPrefix(lowerName, strings.ToLower(prefix)) {
+			return true
+		}
+	}
+	return false
 }
 
 // SelectMatchingLocalIP 选择与目标地址同网段的本地 IP

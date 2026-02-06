@@ -33,20 +33,31 @@ type WeeklyReportService struct {
 	// 周统计缓存存储（按团队）
 	weeklyStatsStores map[string]*infraTeam.WeeklyStatsStore
 
+	// 共享配置
+	config *TeamServiceConfig
+
 	httpClient *http.Client
 	logger     *slog.Logger
 }
 
 // NewWeeklyReportService 创建周报服务
 func NewWeeklyReportService(teamService *TeamService) *WeeklyReportService {
+	return NewWeeklyReportServiceWithConfig(teamService, nil)
+}
+
+// NewWeeklyReportServiceWithConfig 使用指定配置创建周报服务
+func NewWeeklyReportServiceWithConfig(teamService *TeamService, config *TeamServiceConfig) *WeeklyReportService {
+	if config == nil {
+		config = DefaultTeamServiceConfig()
+	}
+
 	return &WeeklyReportService{
 		teamService:         teamService,
 		projectConfigStores: make(map[string]*infraTeam.ProjectConfigStore),
 		weeklyStatsStores:   make(map[string]*infraTeam.WeeklyStatsStore),
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		logger: log.NewModuleLogger("team", "weekly_report"),
+		config:              config,
+		httpClient:          config.HTTPClient,
+		logger:              log.NewModuleLogger("team", "weekly_report"),
 	}
 }
 
@@ -57,12 +68,12 @@ func (s *WeeklyReportService) GetProjectConfig(teamID string) (*domainTeam.TeamP
 	if err != nil {
 		return nil, err
 	}
-	
+
 	config, err := store.Load()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 如果本地没有配置且不是 Leader，尝试从 Leader 拉取
 	if len(config.Projects) == 0 {
 		team, err := s.teamService.GetTeam(teamID)
@@ -76,7 +87,7 @@ func (s *WeeklyReportService) GetProjectConfig(teamID string) (*domainTeam.TeamP
 			}
 		}
 	}
-	
+
 	return config, nil
 }
 
@@ -287,7 +298,7 @@ func (s *WeeklyReportService) GetWeeklyReport(ctx context.Context, teamID, weekS
 			// 如果是本地成员，使用 localhost 而不是远程 endpoint
 			endpoint := m.Endpoint
 			if m.ID == localMemberID {
-				endpoint = "127.0.0.1:19960"
+				endpoint = fmt.Sprintf("127.0.0.1:%d", s.config.Port)
 			}
 
 			stats, err := s.fetchMemberStats(ctx, endpoint, weekStart, config.GetRepoURLs())
@@ -365,7 +376,7 @@ func (s *WeeklyReportService) GetMemberDailyDetail(ctx context.Context, teamID, 
 		// 如果是本地成员，使用 127.0.0.1 避免 EOF 错误
 		endpoint := member.Endpoint
 		if member.ID == localMemberID {
-			endpoint = "127.0.0.1:19960"
+			endpoint = fmt.Sprintf("127.0.0.1:%d", s.config.Port)
 		}
 		detail, err := s.fetchMemberDailyDetail(ctx, endpoint, date, config.GetRepoURLs())
 		if err != nil {
@@ -459,7 +470,7 @@ func (s *WeeklyReportService) RefreshWeeklyStats(ctx context.Context, teamID, we
 			// 如果是本地成员，使用 localhost
 			endpoint := m.Endpoint
 			if m.ID == localMemberID {
-				endpoint = "127.0.0.1:19960"
+				endpoint = fmt.Sprintf("127.0.0.1:%d", s.config.Port)
 			}
 
 			stats, err := s.fetchMemberStats(ctx, endpoint, weekStart, config.GetRepoURLs())

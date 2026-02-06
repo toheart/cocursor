@@ -63,15 +63,6 @@ func (a *SSAAnalyzer) Analyze(ctx context.Context, projectPath string, entryPoin
 		return nil, fmt.Errorf("failed to build call graph: %w", err)
 	}
 
-	// 记录降级信息
-	if cgResult.fallback {
-		a.logger.Warn("algorithm fallback occurred",
-			"requested", algorithm,
-			"actual", cgResult.actualAlgorithm,
-			"reason", cgResult.fallbackReason,
-		)
-	}
-
 	// 3. 提取函数节点和调用边
 	result, err := a.extractCallGraphData(cgResult.graph, modulePath, absPath)
 	if err != nil {
@@ -80,14 +71,14 @@ func (a *SSAAnalyzer) Analyze(ctx context.Context, projectPath string, entryPoin
 
 	result.ModulePath = modulePath
 	result.ActualAlgorithm = cgResult.actualAlgorithm
-	result.Fallback = cgResult.fallback
-	result.FallbackReason = cgResult.fallbackReason
+	result.Fallback = false
+	result.FallbackReason = ""
 
 	a.logger.Info("SSA analysis completed",
 		"func_count", len(result.FuncNodes),
 		"edge_count", len(result.FuncEdges),
 		"actual_algorithm", cgResult.actualAlgorithm,
-		"fallback", cgResult.fallback,
+		"fallback", false,
 	)
 
 	return result, nil
@@ -199,8 +190,6 @@ func (a *SSAAnalyzer) loadPackages(_ context.Context, projectPath string) (*ssa.
 type buildCallGraphResult struct {
 	graph           *callgraph.Graph
 	actualAlgorithm codeanalysis.AlgorithmType
-	fallback        bool
-	fallbackReason  string
 }
 
 // buildCallGraph 构建调用图
@@ -222,58 +211,52 @@ func (a *SSAAnalyzer) buildCallGraph(prog *ssa.Program, pkgs []*ssa.Package, alg
 		// RTA 需要 main 函数作为入口
 		mains := a.findMainFunctions(pkgs, entryPoints)
 		if len(mains) == 0 {
-			a.logger.Warn("no main functions found, falling back to CHA")
-			return &buildCallGraphResult{
-				graph:           cha.CallGraph(prog),
-				actualAlgorithm: codeanalysis.AlgorithmCHA,
-				fallback:        true,
-				fallbackReason:  "No main functions found in the project. RTA algorithm requires main() as entry point.",
-			}, nil
+			return nil, &codeanalysis.AlgorithmFailedError{
+				Algorithm:  codeanalysis.AlgorithmRTA,
+				Reason:     "未找到入口函数",
+				Suggestion: "请检查入口函数配置，或选择 CHA / Static 算法重试",
+				Details:    "RTA 算法需要 main() 作为入口函数",
+			}
 		}
 		// RTA 算法在处理某些特殊类型时可能 panic（如反射类型、type parameter 等）
-		// 使用 recover 保护，panic 时自动降级到 CHA 算法
-		return a.runRTAWithRecover(mains, prog)
+		// 使用 recover 保护，panic 时返回错误
+		return a.runRTAWithRecover(mains)
 
 	case codeanalysis.AlgorithmVTA:
-		return &buildCallGraphResult{
-			graph:           vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog)),
-			actualAlgorithm: codeanalysis.AlgorithmVTA,
-		}, nil
+		return a.runVTAWithRecover(prog)
 
 	default:
 		// 默认使用 RTA
 		mains := a.findMainFunctions(pkgs, entryPoints)
 		if len(mains) == 0 {
-			return &buildCallGraphResult{
-				graph:           cha.CallGraph(prog),
-				actualAlgorithm: codeanalysis.AlgorithmCHA,
-				fallback:        true,
-				fallbackReason:  "No main functions found in the project. RTA algorithm requires main() as entry point.",
-			}, nil
+			return nil, &codeanalysis.AlgorithmFailedError{
+				Algorithm:  codeanalysis.AlgorithmRTA,
+				Reason:     "未找到入口函数",
+				Suggestion: "请检查入口函数配置，或选择 CHA / Static 算法重试",
+				Details:    "RTA 算法需要 main() 作为入口函数",
+			}
 		}
 		// 同样使用 recover 保护
-		return a.runRTAWithRecover(mains, prog)
+		return a.runRTAWithRecover(mains)
 	}
 }
 
 // runRTAWithRecover 运行 RTA 分析，带 panic 恢复
 // RTA 算法在处理某些类型时可能 panic（已知问题：golang/go#61160）
-// 当发生 panic 时自动降级到 CHA 算法
-func (a *SSAAnalyzer) runRTAWithRecover(mains []*ssa.Function, prog *ssa.Program) (result *buildCallGraphResult, err error) {
+// 当发生 panic 时返回错误
+func (a *SSAAnalyzer) runRTAWithRecover(mains []*ssa.Function) (result *buildCallGraphResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			panicMsg := fmt.Sprintf("%v", r)
-			a.logger.Warn("RTA analysis panicked, falling back to CHA",
+			a.logger.Warn("RTA analysis panicked",
 				"panic", panicMsg,
 			)
-			// 降级到 CHA 算法
-			result = &buildCallGraphResult{
-				graph:           cha.CallGraph(prog),
-				actualAlgorithm: codeanalysis.AlgorithmCHA,
-				fallback:        true,
-				fallbackReason:  fmt.Sprintf("RTA algorithm encountered an error while analyzing types (possibly due to reflection or generics). Automatically switched to CHA algorithm. Technical details: %s", panicMsg),
+			err = &codeanalysis.AlgorithmFailedError{
+				Algorithm:  codeanalysis.AlgorithmRTA,
+				Reason:     "分析类型时遇到错误",
+				Suggestion: "请选择 CHA / Static 算法重试",
+				Details:    fmt.Sprintf("可能由于反射或泛型导致分析失败，技术详情: %s", panicMsg),
 			}
-			err = nil
 		}
 	}()
 
@@ -281,6 +264,29 @@ func (a *SSAAnalyzer) runRTAWithRecover(mains []*ssa.Function, prog *ssa.Program
 	return &buildCallGraphResult{
 		graph:           res.CallGraph,
 		actualAlgorithm: codeanalysis.AlgorithmRTA,
+	}, nil
+}
+
+// runVTAWithRecover 运行 VTA 分析，带 panic 恢复
+func (a *SSAAnalyzer) runVTAWithRecover(prog *ssa.Program) (result *buildCallGraphResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicMsg := fmt.Sprintf("%v", r)
+			a.logger.Warn("VTA analysis panicked",
+				"panic", panicMsg,
+			)
+			err = &codeanalysis.AlgorithmFailedError{
+				Algorithm:  codeanalysis.AlgorithmVTA,
+				Reason:     "分析类型时遇到错误",
+				Suggestion: "请选择 CHA / Static 算法重试",
+				Details:    fmt.Sprintf("可能由于反射或泛型导致分析失败，技术详情: %s", panicMsg),
+			}
+		}
+	}()
+
+	return &buildCallGraphResult{
+		graph:           vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog)),
+		actualAlgorithm: codeanalysis.AlgorithmVTA,
 	}, nil
 }
 

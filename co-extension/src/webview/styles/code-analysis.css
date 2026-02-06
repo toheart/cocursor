@@ -1,52 +1,50 @@
-/* ========== 代码分析配置样式 ========== */
+/* ========== 代码分析 - 一站式面板设计 ========== */
 
-.cocursor-code-analysis {
-  padding: 0;
+.ca-container {
   min-height: 100vh;
   background: var(--vscode-editor-background);
+  padding-bottom: 40px;
 }
 
-/* 页面标题区域 */
-.cocursor-code-analysis-header {
-  padding: 32px 24px 24px;
-  text-align: center;
-  border-bottom: 1px solid var(--vscode-panel-border);
+/* ========== 头部 ========== */
+.ca-header {
+  padding: 24px 20px 20px;
   background: linear-gradient(
     180deg,
     var(--vscode-sideBar-background) 0%,
     var(--vscode-editor-background) 100%
   );
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
-.cocursor-code-analysis-title-row {
+.ca-header-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.ca-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--vscode-foreground);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 8px;
+  letter-spacing: -0.3px;
 }
 
-.cocursor-code-analysis-icon {
-  font-size: 32px;
-  line-height: 1;
+.ca-title-icon {
+  font-size: 20px;
 }
 
-.cocursor-code-analysis-title {
-  font-size: 28px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--vscode-foreground);
-  letter-spacing: -0.5px;
-}
-
-.cocursor-code-analysis-subtitle {
-  font-size: 14px;
+.ca-subtitle {
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
   margin: 0;
 }
 
-/* 空状态 */
-.cocursor-code-analysis-empty {
+/* ========== 空状态 ========== */
+.ca-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -55,421 +53,275 @@
   text-align: center;
 }
 
-.cocursor-code-analysis-empty-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-  opacity: 0.6;
+.ca-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
 }
 
-.cocursor-code-analysis-empty h3 {
-  font-size: 18px;
+.ca-empty h3 {
+  font-size: 16px;
   font-weight: 600;
   margin: 0 0 8px;
   color: var(--vscode-foreground);
 }
 
-.cocursor-code-analysis-empty p {
-  font-size: 14px;
+.ca-empty p {
+  font-size: 13px;
   color: var(--vscode-descriptionForeground);
   margin: 0;
 }
 
-/* 卡片样式 */
-.cocursor-code-analysis-card {
-  margin: 16px;
-  background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.cocursor-code-analysis-card-header {
+/* ========== 错误横幅 ========== */
+.ca-error-banner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background: var(--vscode-sideBar-background);
-  border-bottom: 1px solid var(--vscode-panel-border);
+  gap: 12px;
+  margin: 16px 20px;
+  padding: 12px 16px;
+  background: rgba(255, 82, 82, 0.08);
+  border: 1px solid var(--vscode-errorForeground);
+  border-radius: 8px;
 }
 
-.cocursor-code-analysis-card-header h2 {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--vscode-foreground);
+.ca-error-banner-icon {
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
-.cocursor-code-analysis-card-body {
-  padding: 20px;
-}
-
-/* 信息行 */
-.cocursor-code-analysis-info-row {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.cocursor-code-analysis-info-row:last-child {
-  margin-bottom: 0;
-}
-
-.cocursor-code-analysis-info-label {
-  flex: 0 0 100px;
-  font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-}
-
-.cocursor-code-analysis-info-value {
+.ca-error-banner-content {
   flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
+  min-width: 0;
 }
 
-.cocursor-code-analysis-path {
-  font-family: var(--vscode-editor-font-family);
+.ca-error-banner-content strong {
+  display: block;
+  font-size: 13px;
+  color: var(--vscode-errorForeground);
+  margin-bottom: 2px;
+}
+
+.ca-error-banner-content p {
   font-size: 12px;
-  word-break: break-all;
+  color: var(--vscode-foreground);
+  margin: 0;
   opacity: 0.8;
 }
 
-.cocursor-code-analysis-commit {
+.ca-error-banner-action {
+  flex-shrink: 0;
+}
+
+/* ========== 主面板 ========== */
+.ca-panel {
+  max-width: 600px;
+  margin: 20px auto;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ========== 区块通用 ========== */
+.ca-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.ca-section:last-child {
+  border-bottom: none;
+}
+
+.ca-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ca-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+/* ========== 项目信息区 ========== */
+.ca-section-project {
+  background: var(--vscode-sideBar-background);
+}
+
+.ca-project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ca-project-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ca-project-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ca-project-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.ca-commit {
   font-family: var(--vscode-editor-font-family);
-  font-size: 12px;
-  padding: 2px 8px;
+  font-size: 11px;
+  padding: 3px 8px;
   background: var(--vscode-textBlockQuote-background);
   border-radius: 4px;
   color: var(--vscode-textLink-foreground);
 }
 
-/* 状态徽章 */
-.cocursor-code-analysis-status-badge {
+.ca-func-count {
   font-size: 12px;
-}
-
-.cocursor-code-analysis-badge-success {
-  color: var(--vscode-testing-iconPassed);
-  padding: 4px 10px;
-  background: rgba(40, 167, 69, 0.1);
-  border-radius: 12px;
-}
-
-.cocursor-code-analysis-badge-warning {
-  color: var(--vscode-editorWarning-foreground);
-  padding: 4px 10px;
-  background: rgba(255, 193, 7, 0.1);
-  border-radius: 12px;
-}
-
-.cocursor-code-analysis-badge-info {
   color: var(--vscode-descriptionForeground);
-  padding: 4px 10px;
-  background: var(--vscode-textBlockQuote-background);
-  border-radius: 12px;
 }
 
-/* 操作按钮区域 */
-.cocursor-code-analysis-actions {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--vscode-panel-border);
+.ca-project-path-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
-/* 入口函数列表 */
-.cocursor-code-analysis-hint {
-  font-size: 13px;
+/* ========== 状态指示器 ========== */
+.ca-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.ca-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.ca-status-success {
+  background: rgba(40, 167, 69, 0.12);
+  color: var(--vscode-testing-iconPassed);
+}
+
+.ca-status-success .ca-status-dot {
+  background: var(--vscode-testing-iconPassed);
+}
+
+.ca-status-warning {
+  background: rgba(255, 193, 7, 0.12);
+  color: var(--vscode-editorWarning-foreground);
+}
+
+.ca-status-warning .ca-status-dot {
+  background: var(--vscode-editorWarning-foreground);
+}
+
+.ca-status-idle {
+  background: var(--vscode-textBlockQuote-background);
   color: var(--vscode-descriptionForeground);
-  margin: 0 0 16px;
 }
 
-.cocursor-code-analysis-entry-list {
+.ca-status-idle .ca-status-dot {
+  background: var(--vscode-descriptionForeground);
+}
+
+/* ========== 输入框 ========== */
+.ca-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: var(--vscode-editor-font-family);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 6px;
+  color: var(--vscode-input-foreground);
+  transition: border-color 0.15s;
+}
+
+.ca-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.ca-input-path {
+  flex: 1;
+}
+
+/* ========== 进度区 ========== */
+.ca-section-progress {
+  background: var(--vscode-sideBar-background);
+  padding: 14px 20px;
+}
+
+.ca-progress {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.cocursor-code-analysis-entry-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.cocursor-code-analysis-entry-item:hover {
-  border-color: var(--vscode-focusBorder);
-  background: var(--vscode-list-hoverBackground);
-}
-
-.cocursor-code-analysis-entry-item.selected {
-  border-color: var(--vscode-focusBorder);
-  background: var(--vscode-list-activeSelectionBackground);
-}
-
-.cocursor-code-analysis-entry-checkbox {
-  font-size: 16px;
-  line-height: 1;
-  color: var(--vscode-foreground);
-  opacity: 0.6;
-}
-
-.cocursor-code-analysis-entry-item.selected
-  .cocursor-code-analysis-entry-checkbox {
-  color: var(--vscode-textLink-foreground);
-  opacity: 1;
-}
-
-.cocursor-code-analysis-entry-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.cocursor-code-analysis-entry-file {
-  font-family: var(--vscode-editor-font-family);
-  font-size: 13px;
-  color: var(--vscode-foreground);
-  margin-bottom: 4px;
-  word-break: break-all;
-}
-
-.cocursor-code-analysis-entry-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.cocursor-code-analysis-entry-func {
-  font-family: var(--vscode-editor-font-family);
-  font-size: 12px;
-  color: var(--vscode-textLink-foreground);
-}
-
-.cocursor-code-analysis-entry-type {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
-  text-transform: uppercase;
-}
-
-.cocursor-code-analysis-entry-type.cmd {
-  background: rgba(40, 167, 69, 0.15);
-  color: var(--vscode-testing-iconPassed);
-}
-
-.cocursor-code-analysis-entry-type.root {
-  background: rgba(0, 123, 255, 0.15);
-  color: var(--vscode-textLink-foreground);
-}
-
-.cocursor-code-analysis-entry-recommended {
-  font-size: 11px;
-  color: var(--vscode-editorWarning-foreground);
-}
-
-/* 表单元素 */
-.cocursor-code-analysis-form-group {
-  margin-bottom: 20px;
-}
-
-.cocursor-code-analysis-form-group:last-child {
-  margin-bottom: 0;
-}
-
-.cocursor-code-analysis-form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
-  margin-bottom: 8px;
-}
-
-.cocursor-code-analysis-select {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border);
-  border-radius: 4px;
-  color: var(--vscode-input-foreground);
-  cursor: pointer;
-}
-
-.cocursor-code-analysis-select:focus {
-  outline: none;
-  border-color: var(--vscode-focusBorder);
-}
-
-.cocursor-code-analysis-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 12px;
-  font-family: var(--vscode-editor-font-family);
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border);
-  border-radius: 4px;
-  color: var(--vscode-input-foreground);
-  resize: vertical;
-  min-height: 80px;
-}
-
-.cocursor-code-analysis-textarea:focus {
-  outline: none;
-  border-color: var(--vscode-focusBorder);
-}
-
-.cocursor-code-analysis-form-hint {
-  display: block;
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
-  margin-top: 6px;
-}
-
-/* 统计卡片 */
-.cocursor-code-analysis-result {
-  border-color: var(--vscode-testing-iconPassed);
-}
-
-.cocursor-code-analysis-result-warning {
-  border-color: var(--vscode-editorWarning-foreground);
-}
-
-/* 算法徽章 */
-.cocursor-code-analysis-algorithm-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  background: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
-  border-radius: 12px;
-  text-transform: uppercase;
-}
-
-/* 降级警告 */
-.cocursor-code-analysis-fallback-warning {
-  display: flex;
-  gap: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
-  background: rgba(255, 193, 7, 0.1);
-  border: 1px solid var(--vscode-editorWarning-foreground);
-  border-radius: 8px;
-}
-
-.cocursor-code-analysis-fallback-icon {
-  font-size: 24px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.cocursor-code-analysis-fallback-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.cocursor-code-analysis-fallback-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--vscode-editorWarning-foreground);
-  margin-bottom: 6px;
-}
-
-.cocursor-code-analysis-fallback-reason {
-  font-size: 13px;
-  color: var(--vscode-foreground);
-  line-height: 1.5;
-  opacity: 0.9;
-}
-
-.cocursor-code-analysis-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-code-analysis-stat {
-  text-align: center;
-  padding: 16px;
-  background: var(--vscode-sideBar-background);
-  border-radius: 8px;
-}
-
-.cocursor-code-analysis-stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--vscode-textLink-foreground);
-  line-height: 1.2;
-  margin-bottom: 4px;
-}
-
-.cocursor-code-analysis-stat-label {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-}
-
-/* 进度条样式 */
-.cocursor-code-analysis-progress {
-  margin-bottom: 16px;
-  padding: 16px;
-  background: var(--vscode-sideBar-background);
-  border-radius: 8px;
-  border: 1px solid var(--vscode-panel-border);
-}
-
-.cocursor-code-analysis-progress-header {
+.ca-progress-info {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
 }
 
-.cocursor-code-analysis-progress-status {
+.ca-progress-message {
   font-size: 13px;
   color: var(--vscode-foreground);
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
-.cocursor-code-analysis-progress-percent {
-  font-size: 14px;
+.ca-progress-percent {
+  font-size: 13px;
   font-weight: 600;
   color: var(--vscode-textLink-foreground);
 }
 
-.cocursor-code-analysis-progress-bar {
-  height: 8px;
+.ca-progress-bar {
+  height: 6px;
   background: var(--vscode-input-background);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
-.cocursor-code-analysis-progress-fill {
+.ca-progress-fill {
   height: 100%;
   background: linear-gradient(
     90deg,
     var(--vscode-progressBar-background) 0%,
-    var(--vscode-textLink-foreground) 100%
+    var(--vscode-textLink-foreground) 50%,
+    var(--vscode-progressBar-background) 100%
   );
-  border-radius: 4px;
+  background-size: 200% 100%;
+  border-radius: 3px;
   transition: width 0.3s ease;
+  animation: ca-progress-shimmer 2s linear infinite;
 }
 
-/* 进度条动画 */
-@keyframes progress-shimmer {
+@keyframes ca-progress-shimmer {
   0% {
     background-position: -200% 0;
   }
@@ -478,103 +330,390 @@
   }
 }
 
-.cocursor-code-analysis-progress-fill {
-  background: linear-gradient(
-    90deg,
-    var(--vscode-progressBar-background) 0%,
-    var(--vscode-textLink-foreground) 50%,
-    var(--vscode-progressBar-background) 100%
-  );
-  background-size: 200% 100%;
-  animation: progress-shimmer 2s linear infinite;
+/* ========== 错误区 ========== */
+.ca-section-error {
+  padding: 12px 20px;
 }
 
-/* 错误卡片样式 */
-.cocursor-code-analysis-error-card {
-  border-color: var(--vscode-inputValidation-errorBorder, #f14c4c);
-}
-
-.cocursor-code-analysis-error-card .cocursor-code-analysis-card-header {
-  background: rgba(241, 76, 76, 0.1);
-}
-
-.cocursor-code-analysis-error-card .cocursor-code-analysis-card-header h2 {
-  color: var(--vscode-inputValidation-errorBorder, #f14c4c);
-}
-
-.cocursor-code-analysis-error-content {
+.ca-error-box {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 82, 82, 0.06);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+  border-radius: 8px;
 }
 
-.cocursor-code-analysis-error-icon {
-  font-size: 32px;
-  line-height: 1;
+.ca-error-icon {
+  font-size: 16px;
   flex-shrink: 0;
 }
 
-.cocursor-code-analysis-error-message {
+.ca-error-content {
   flex: 1;
   min-width: 0;
 }
 
-.cocursor-code-analysis-error-message p {
-  font-size: 14px;
+.ca-error-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-errorForeground);
+  margin-bottom: 4px;
+}
+
+.ca-error-details {
+  font-size: 12px;
   color: var(--vscode-foreground);
-  margin: 0 0 12px;
-  line-height: 1.5;
+  opacity: 0.8;
+  margin-bottom: 4px;
 }
 
-.cocursor-code-analysis-error-message p:last-child {
-  margin-bottom: 0;
+.ca-error-suggestion {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
 }
 
-.cocursor-code-analysis-error-detail {
+/* ========== 链接按钮 ========== */
+.ca-link-button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.ca-link-button:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.ca-link-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 入口函数选择 ========== */
+.ca-scanning {
+  padding: 20px;
+  text-align: center;
+}
+
+.ca-entry-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ca-entry-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--vscode-input-background);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ca-entry-item:hover {
+  border-color: var(--vscode-panel-border);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.ca-entry-item.selected {
+  border-color: var(--vscode-focusBorder);
+  background: rgba(0, 122, 204, 0.1);
+}
+
+.ca-entry-check {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--vscode-textLink-foreground);
+  flex-shrink: 0;
+}
+
+.ca-entry-item.selected .ca-entry-check {
+  background: var(--vscode-textLink-foreground);
+  border-color: var(--vscode-textLink-foreground);
+  color: white;
+}
+
+.ca-entry-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ca-entry-func {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.ca-entry-file {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ca-entry-badge {
+  font-size: 14px;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* ========== 算法选择 ========== */
+.ca-algorithm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.ca-algorithm-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--vscode-input-background);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ca-algorithm-item:hover {
+  border-color: var(--vscode-panel-border);
+}
+
+.ca-algorithm-item.selected {
+  border-color: var(--vscode-focusBorder);
+  background: rgba(0, 122, 204, 0.1);
+}
+
+.ca-algorithm-radio {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-panel-border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--vscode-textLink-foreground);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ca-algorithm-item.selected .ca-algorithm-radio {
+  border-color: var(--vscode-textLink-foreground);
+}
+
+.ca-algorithm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ca-algorithm-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ca-algorithm-rec {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.ca-algorithm-desc {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ========== 高级配置 ========== */
+.ca-section-advanced {
+  background: var(--vscode-sideBar-background);
+}
+
+.ca-textarea {
+  width: 100%;
+  padding: 10px 12px;
   font-size: 12px;
   font-family: var(--vscode-editor-font-family);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 6px;
+  color: var(--vscode-input-foreground);
+  resize: vertical;
+  min-height: 60px;
+}
+
+.ca-textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.ca-hint {
+  display: block;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  padding: 12px;
-  background: var(--vscode-textBlockQuote-background);
+  margin-top: 6px;
+}
+
+/* ========== 操作按钮区 ========== */
+.ca-section-actions {
+  padding: 20px;
+  background: var(--vscode-sideBar-background);
+}
+
+.ca-generate-button {
+  width: 100%;
+  padding: 12px 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+/* ========== 生成结果 ========== */
+.ca-result {
+  max-width: 600px;
+  margin: 20px auto;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-testing-iconPassed);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ca-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(40, 167, 69, 0.08);
+  border-bottom: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+.ca-result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-testing-iconPassed);
+}
+
+.ca-result-algorithm {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
   border-radius: 4px;
-  border-left: 3px solid var(--vscode-inputValidation-errorBorder, #f14c4c);
-  word-break: break-word;
 }
 
-/* 使用说明卡片 */
-.cocursor-code-analysis-tips {
-  margin-bottom: 32px;
+.ca-result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--vscode-panel-border);
 }
 
-.cocursor-code-analysis-steps {
+.ca-result-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--vscode-editor-background);
+  text-align: center;
+}
+
+.ca-result-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--vscode-textLink-foreground);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.ca-result-stat-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ========== 使用说明 ========== */
+.ca-tips {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 16px 20px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 8px;
+}
+
+.ca-tips h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 0 0 12px;
+  opacity: 0.8;
+}
+
+.ca-tips ol {
   margin: 0;
   padding-left: 20px;
-  list-style-type: decimal;
 }
 
-.cocursor-code-analysis-steps li {
-  font-size: 13px;
-  color: var(--vscode-foreground);
-  margin-bottom: 10px;
+.ca-tips li {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
   line-height: 1.5;
 }
 
-.cocursor-code-analysis-steps li:last-child {
+.ca-tips li:last-child {
   margin-bottom: 0;
 }
 
-/* 响应式调整 */
-@media (max-width: 400px) {
-  .cocursor-code-analysis-stats {
+/* ========== 响应式 ========== */
+@media (max-width: 500px) {
+  .ca-algorithm-grid {
     grid-template-columns: 1fr;
   }
 
-  .cocursor-code-analysis-info-row {
-    flex-direction: column;
-    gap: 4px;
+  .ca-result-stats {
+    grid-template-columns: 1fr;
   }
 
-  .cocursor-code-analysis-info-label {
-    flex: none;
+  .ca-project-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ca-project-meta {
+    margin-top: 8px;
   }
 }

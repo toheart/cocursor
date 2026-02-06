@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import axios from "axios";
 import { WebviewPanel } from "./webviewPanel";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
+import { SessionProvider, SessionTreeItem } from "./sidebar/sessionProvider";
 import { DaemonManager } from "./daemon/daemonManager";
 import { ReminderService } from "./reminder/reminderService";
 import { TodoModule } from "./todo";
@@ -12,6 +13,7 @@ import { Logger } from "./utils/logger";
 
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: SidebarProvider;
+let sessionProvider: SessionProvider;
 let daemonManager: DaemonManager | null = null;
 let reminderService: ReminderService | null = null;
 let todoModule: TodoModule | null = null;
@@ -169,10 +171,114 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerTreeDataProvider("cocursor.sidebar", sidebarProvider),
   );
 
+  // 注册会话列表提供者
+  sessionProvider = new SessionProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider("cocursor.sessions", sessionProvider),
+  );
+
   // 注册侧边栏相关命令
   context.subscriptions.push(
     vscode.commands.registerCommand("cocursor.refreshSidebar", () => {
       sidebarProvider.refresh();
+    }),
+  );
+
+  // 注册会话列表刷新命令
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.refreshSessions", () => {
+      sessionProvider.refresh();
+    }),
+  );
+
+  // 注册会话分享命令
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cocursor.shareSession", async (item: SessionTreeItem) => {
+      if (!item || item.type !== "session" || !item.composerId) {
+        vscode.window.showWarningMessage("请选择一个会话进行分享");
+        return;
+      }
+
+      try {
+        // 1. 获取用户加入的团队列表
+        const teamsResp = await axios.get("http://localhost:19960/api/v1/team/list", {
+          timeout: 5000
+        });
+        const teams = teamsResp.data?.data?.teams || [];
+
+        if (teams.length === 0) {
+          vscode.window.showWarningMessage("您尚未加入任何团队，请先加入或创建团队");
+          return;
+        }
+
+        // 2. 选择目标团队（如果只有一个团队则直接使用）
+        let targetTeamId: string;
+        let targetTeamName: string;
+
+        if (teams.length === 1) {
+          targetTeamId = teams[0].id;
+          targetTeamName = teams[0].name;
+        } else {
+          // 多个团队时弹出选择框
+          interface TeamQuickPickItem extends vscode.QuickPickItem {
+            teamId: string;
+          }
+          const teamOptions: TeamQuickPickItem[] = teams.map((t: { id: string; name: string }) => ({
+            label: t.name,
+            teamId: t.id
+          }));
+          
+          const selected = await vscode.window.showQuickPick(teamOptions, {
+            placeHolder: "选择要分享到的团队"
+          });
+
+          if (!selected) {
+            return; // 用户取消
+          }
+
+          targetTeamId = selected.teamId;
+          targetTeamName = selected.label;
+        }
+
+        // 3. 可选添加分享说明
+        const description = await vscode.window.showInputBox({
+          prompt: "添加分享说明（可选）",
+          placeHolder: "例如：这个会话展示了如何实现...",
+        });
+
+        // 4. 获取会话详情
+        const sessionResp = await axios.get(
+          `http://localhost:19960/api/v1/sessions/${item.composerId}/detail`,
+          {
+            params: { workspace_id: item.workspaceId },
+            timeout: 10000
+          }
+        );
+
+        if (!sessionResp.data?.data?.session) {
+          vscode.window.showErrorMessage("获取会话详情失败");
+          return;
+        }
+
+        const session = sessionResp.data.data.session;
+
+        // 5. 调用分享 API
+        await axios.post(
+          `http://localhost:19960/api/v1/team/${targetTeamId}/sessions/share`,
+          {
+            title: session.name || item.label,
+            messages: session.messages || [],
+            description: description || undefined
+          },
+          { timeout: 10000 }
+        );
+
+        vscode.window.showInformationMessage(`会话已分享到团队「${targetTeamName}」`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        Logger.error(`分享会话失败: ${message}`);
+        vscode.window.showErrorMessage(`分享失败: ${message}`);
+      }
     }),
   );
 
@@ -402,7 +508,9 @@ async function startBackendServer(
     // 先检查是否已有实例运行
     const isRunning = await daemonManager.isRunning();
     if (isRunning) {
-      Logger.info("后端服务器已在运行");
+      Logger.info("后端服务器已在运行，启动心跳");
+      // 后端已存在，但仍需启动心跳以保持后端不退出
+      daemonManager.ensureHeartbeat();
       return;
     }
 

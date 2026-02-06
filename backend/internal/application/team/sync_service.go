@@ -11,8 +11,8 @@ import (
 
 	"github.com/cocursor/backend/internal/domain/p2p"
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
-	infraTeam "github.com/cocursor/backend/internal/infrastructure/team"
 	"github.com/cocursor/backend/internal/infrastructure/log"
+	infraTeam "github.com/cocursor/backend/internal/infrastructure/team"
 )
 
 // SyncService 同步服务
@@ -20,35 +20,60 @@ import (
 type SyncService struct {
 	mu sync.RWMutex
 
-	// 依赖
-	teamStore        *infraTeam.TeamStore
+	// 通过接口依赖服务层
+	teamService TeamServiceInterface
+
+	// 技能目录存储（本地缓存）
 	skillIndexStores map[string]*infraTeam.SkillIndexStore
 
-	// HTTP 客户端
+	// HTTP 客户端（通过配置共享）
 	httpClient *http.Client
 
 	// 事件回调
-	onSkillUpdate func(teamID string, skillEntry *domainTeam.TeamSkillEntry)
-	onSkillDelete func(teamID, pluginID string)
-	onMemberChange func(teamID string, memberID string, online bool)
-	onTeamDissolved func(teamID string)
+	onSkillUpdate         func(teamID string, skillEntry *domainTeam.TeamSkillEntry)
+	onSkillDelete         func(teamID, pluginID string)
+	onMemberChange        func(teamID string, memberID string, online bool)
+	onTeamDissolved       func(teamID string)
 	onProjectConfigUpdate func(teamID string, config *domainTeam.TeamProjectConfig)
 
 	logger *slog.Logger
 }
 
 // NewSyncService 创建同步服务
+// 参数:
+//   - teamService: 团队服务接口（用于获取团队信息）
+//   - config: 共享配置（可选，为 nil 时使用默认配置）
 func NewSyncService(
-	teamStore *infraTeam.TeamStore,
+	teamService TeamServiceInterface,
+	config *TeamServiceConfig,
+) *SyncService {
+	if config == nil {
+		config = DefaultTeamServiceConfig()
+	}
+
+	return &SyncService{
+		teamService:      teamService,
+		skillIndexStores: make(map[string]*infraTeam.SkillIndexStore),
+		httpClient:       config.HTTPClient,
+		logger:           log.NewModuleLogger("team", "sync"),
+	}
+}
+
+// NewSyncServiceLegacy 创建同步服务（兼容旧接口，将在后续版本移除）
+// Deprecated: 使用 NewSyncService 替代
+func NewSyncServiceLegacy(
+	teamService TeamServiceInterface,
 	skillIndexStores map[string]*infraTeam.SkillIndexStore,
 ) *SyncService {
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
 	return &SyncService{
-		teamStore:        teamStore,
+		teamService:      teamService,
 		skillIndexStores: skillIndexStores,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		logger: log.NewModuleLogger("team", "sync"),
+		httpClient:       httpClient,
+		logger:           log.NewModuleLogger("team", "sync"),
 	}
 }
 
@@ -83,7 +108,8 @@ func (s *SyncService) SetOnProjectConfigUpdate(callback func(teamID string, conf
 
 // SyncSkillIndex 从 Leader 同步技能目录
 func (s *SyncService) SyncSkillIndex(ctx context.Context, teamID string) error {
-	team, err := s.teamStore.Get(teamID)
+	// 通过接口获取团队信息
+	team, err := s.teamService.GetTeam(teamID)
 	if err != nil {
 		return err
 	}
@@ -95,7 +121,7 @@ func (s *SyncService) SyncSkillIndex(ctx context.Context, teamID string) error {
 
 	// 从 Leader 获取技能目录
 	skillsURL := fmt.Sprintf("http://%s/team/%s/skills", team.LeaderEndpoint, teamID)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", skillsURL, nil)
 	if err != nil {
 		return err
@@ -103,7 +129,8 @@ func (s *SyncService) SyncSkillIndex(ctx context.Context, teamID string) error {
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		s.teamStore.UpdateLeaderOnline(teamID, false)
+		// 通过接口更新状态
+		s.teamService.UpdateLeaderOnline(teamID, false)
 		return fmt.Errorf("leader offline: %w", err)
 	}
 	defer resp.Body.Close()
@@ -136,9 +163,9 @@ func (s *SyncService) SyncSkillIndex(ctx context.Context, teamID string) error {
 		return err
 	}
 
-	// 更新同步时间和在线状态
-	s.teamStore.UpdateLastSync(teamID)
-	s.teamStore.UpdateLeaderOnline(teamID, true)
+	// 通过接口更新同步时间和在线状态
+	s.teamService.UpdateLastSync(teamID)
+	s.teamService.UpdateLeaderOnline(teamID, true)
 
 	s.logger.Info("skill index synced",
 		"team_id", teamID,
@@ -310,13 +337,8 @@ func (s *SyncService) handleMemberJoined(event *p2p.Event) error {
 		"member_name", payload.MemberName,
 	)
 
-	// 更新成员数量
-	if team, err := s.teamStore.Get(event.TeamID); err == nil {
-		team.MemberCount++
-		s.teamStore.Update(team)
-	}
-
-	// 触发回调
+	// 触发回调，让上层处理成员数量更新
+	// 注意：成员数量更新由回调处理方负责
 	s.mu.RLock()
 	callback := s.onMemberChange
 	s.mu.RUnlock()
@@ -341,15 +363,8 @@ func (s *SyncService) handleMemberLeft(event *p2p.Event) error {
 		"member_name", payload.MemberName,
 	)
 
-	// 更新成员数量
-	if team, err := s.teamStore.Get(event.TeamID); err == nil {
-		if team.MemberCount > 0 {
-			team.MemberCount--
-		}
-		s.teamStore.Update(team)
-	}
-
-	// 触发回调
+	// 触发回调，让上层处理成员数量更新
+	// 注意：成员数量更新由回调处理方负责
 	s.mu.RLock()
 	callback := s.onMemberChange
 	s.mu.RUnlock()
@@ -403,15 +418,13 @@ func (s *SyncService) handleTeamDissolved(event *p2p.Event) error {
 		"team_name", payload.TeamName,
 	)
 
-	// 从本地移除团队
-	s.teamStore.Remove(event.TeamID)
-
-	// 移除技能目录
+	// 移除本地技能目录缓存
 	s.mu.Lock()
 	delete(s.skillIndexStores, event.TeamID)
 	s.mu.Unlock()
 
-	// 触发回调
+	// 触发回调，让上层处理团队移除
+	// 注意：团队从存储中移除由回调处理方负责
 	s.mu.RLock()
 	callback := s.onTeamDissolved
 	s.mu.RUnlock()
@@ -480,7 +493,8 @@ func (s *SyncService) StartPeriodicSync(ctx context.Context, interval time.Durat
 
 // syncAllTeams 同步所有团队
 func (s *SyncService) syncAllTeams(ctx context.Context) {
-	teams := s.teamStore.List()
+	// 通过接口获取团队列表
+	teams := s.teamService.GetTeamList()
 	for _, team := range teams {
 		// 跳过 Leader 团队
 		if team.IsLeader {
@@ -499,15 +513,15 @@ func (s *SyncService) syncAllTeams(ctx context.Context) {
 // EventListener 实现 p2p.EventListener 接口
 type EventListener struct {
 	syncService *SyncService
-	teamStore   *infraTeam.TeamStore
+	teamService TeamServiceInterface
 	logger      *slog.Logger
 }
 
 // NewEventListener 创建事件监听器
-func NewEventListener(syncService *SyncService, teamStore *infraTeam.TeamStore) *EventListener {
+func NewEventListener(syncService *SyncService, teamService TeamServiceInterface) *EventListener {
 	return &EventListener{
 		syncService: syncService,
-		teamStore:   teamStore,
+		teamService: teamService,
 		logger:      log.NewModuleLogger("team", "event_listener"),
 	}
 }
@@ -527,7 +541,8 @@ func (l *EventListener) OnConnect(teamID string) {
 	l.logger.Info("connected to team leader",
 		"team_id", teamID,
 	)
-	l.teamStore.UpdateLeaderOnline(teamID, true)
+	// 通过接口更新状态
+	l.teamService.UpdateLeaderOnline(teamID, true)
 
 	// 连接成功后立即同步
 	go func() {
@@ -543,5 +558,6 @@ func (l *EventListener) OnDisconnect(teamID string, err error) {
 		"team_id", teamID,
 		"error", err,
 	)
-	l.teamStore.UpdateLeaderOnline(teamID, false)
+	// 通过接口更新状态
+	l.teamService.UpdateLeaderOnline(teamID, false)
 }

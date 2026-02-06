@@ -41,6 +41,8 @@ export class DaemonManager {
   async start(): Promise<void> {
     if (this.process && !this.process.killed) {
       Logger.backendInfo("后端进程已在运行");
+      // 确保心跳仍在运行
+      this.startHeartbeat();
       return;
     }
 
@@ -318,5 +320,15 @@ export class DaemonManager {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * 确保心跳正在运行（用于后端已存在的场景）
+   * 当后端由其他窗口/进程启动时，当前窗口也需要发送心跳
+   */
+  ensureHeartbeat(): void {
+    this.startHeartbeat();
+    this.startHealthCheck();
+    Logger.backendDebug("确保心跳运行（后端已存在）");
   }
 }

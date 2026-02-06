@@ -13,6 +13,84 @@ import (
 	infraTeam "github.com/cocursor/backend/internal/infrastructure/team"
 )
 
+// mockTeamService 实现 TeamServiceInterface 用于测试
+type mockTeamService struct {
+	teams         map[string]*domainTeam.Team
+	members       map[string][]*domainTeam.TeamMember
+	skillIndexes  map[string]*domainTeam.TeamSkillIndex
+	lastSyncCalls []string
+	onlineCalls   []struct {
+		teamID string
+		online bool
+	}
+}
+
+func newMockTeamService() *mockTeamService {
+	return &mockTeamService{
+		teams:        make(map[string]*domainTeam.Team),
+		members:      make(map[string][]*domainTeam.TeamMember),
+		skillIndexes: make(map[string]*domainTeam.TeamSkillIndex),
+	}
+}
+
+func (m *mockTeamService) GetTeam(teamID string) (*domainTeam.Team, error) {
+	if team, ok := m.teams[teamID]; ok {
+		return team, nil
+	}
+	return nil, domainTeam.ErrTeamNotFound
+}
+
+func (m *mockTeamService) GetTeamList() []*domainTeam.Team {
+	var result []*domainTeam.Team
+	for _, team := range m.teams {
+		result = append(result, team)
+	}
+	return result
+}
+
+func (m *mockTeamService) GetTeamMembers(teamID string) ([]*domainTeam.TeamMember, error) {
+	if members, ok := m.members[teamID]; ok {
+		return members, nil
+	}
+	return nil, nil
+}
+
+func (m *mockTeamService) GetOnlineMembers(teamID string) ([]*domainTeam.TeamMember, error) {
+	members, err := m.GetTeamMembers(teamID)
+	if err != nil {
+		return nil, err
+	}
+	var online []*domainTeam.TeamMember
+	for _, member := range members {
+		if member.IsOnline {
+			online = append(online, member)
+		}
+	}
+	return online, nil
+}
+
+func (m *mockTeamService) GetSkillIndex(teamID string) (*domainTeam.TeamSkillIndex, error) {
+	if index, ok := m.skillIndexes[teamID]; ok {
+		return index, nil
+	}
+	return nil, nil
+}
+
+func (m *mockTeamService) UpdateLastSync(teamID string) {
+	m.lastSyncCalls = append(m.lastSyncCalls, teamID)
+}
+
+func (m *mockTeamService) UpdateLeaderOnline(teamID string, online bool) {
+	m.onlineCalls = append(m.onlineCalls, struct {
+		teamID string
+		online bool
+	}{teamID, online})
+	// 同时更新 team 对象
+	if team, ok := m.teams[teamID]; ok {
+		team.LeaderOnline = online
+	}
+}
+
 func TestSyncService_HandleSkillEvents(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "sync-service-test")
 	require.NoError(t, err)
@@ -22,11 +100,16 @@ func TestSyncService_HandleSkillEvents(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", oldHome)
 
-	// 创建存储
-	teamStore, err := infraTeam.NewTeamStore()
-	require.NoError(t, err)
-
 	teamID := "test-team"
+
+	// 创建 mock 服务
+	mockService := newMockTeamService()
+	mockService.teams[teamID] = &domainTeam.Team{
+		ID:       teamID,
+		Name:     "Test Team",
+		IsLeader: false,
+	}
+
 	skillIndexStore, err := infraTeam.NewSkillIndexStore(teamID)
 	require.NoError(t, err)
 
@@ -35,7 +118,7 @@ func TestSyncService_HandleSkillEvents(t *testing.T) {
 	}
 
 	// 创建同步服务
-	syncService := NewSyncService(teamStore, skillIndexStores)
+	syncService := NewSyncServiceLegacy(mockService, skillIndexStores)
 
 	// 设置回调
 	var updatedSkill *domainTeam.TeamSkillEntry
@@ -120,14 +203,11 @@ func TestSyncService_HandleMemberEvents(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", oldHome)
 
-	// 创建存储
-	teamStore, err := infraTeam.NewTeamStore()
-	require.NoError(t, err)
-
 	teamID := "test-team"
 
-	// 添加一个团队
-	team := &domainTeam.Team{
+	// 创建 mock 服务
+	mockService := newMockTeamService()
+	mockService.teams[teamID] = &domainTeam.Team{
 		ID:          teamID,
 		Name:        "Test Team",
 		MemberCount: 2,
@@ -135,10 +215,19 @@ func TestSyncService_HandleMemberEvents(t *testing.T) {
 		JoinedAt:    time.Now(),
 		CreatedAt:   time.Now(),
 	}
-	teamStore.Add(team)
 
 	// 创建同步服务
-	syncService := NewSyncService(teamStore, nil)
+	syncService := NewSyncService(mockService, nil)
+
+	// 设置回调
+	var memberJoined, memberLeft bool
+	syncService.SetEventCallbacks(nil, nil, func(tid, memberID string, joined bool) {
+		if joined {
+			memberJoined = true
+		} else {
+			memberLeft = true
+		}
+	}, nil)
 
 	// 测试成员加入事件
 	joinEvent, _ := p2p.NewEvent(p2p.EventMemberJoined, teamID, p2p.MemberJoinedPayload{
@@ -151,9 +240,8 @@ func TestSyncService_HandleMemberEvents(t *testing.T) {
 	err = syncService.HandleWebSocketEvent(joinEvent)
 	require.NoError(t, err)
 
-	// 验证成员数量增加
-	updatedTeam, _ := teamStore.Get(teamID)
-	assert.Equal(t, 3, updatedTeam.MemberCount)
+	// 验证回调被调用
+	assert.True(t, memberJoined)
 
 	// 测试成员离开事件
 	leftEvent, _ := p2p.NewEvent(p2p.EventMemberLeft, teamID, p2p.MemberLeftPayload{
@@ -165,8 +253,8 @@ func TestSyncService_HandleMemberEvents(t *testing.T) {
 	err = syncService.HandleWebSocketEvent(leftEvent)
 	require.NoError(t, err)
 
-	updatedTeam, _ = teamStore.Get(teamID)
-	assert.Equal(t, 2, updatedTeam.MemberCount)
+	// 验证回调被调用
+	assert.True(t, memberLeft)
 }
 
 func TestSyncService_HandleTeamDissolved(t *testing.T) {
@@ -178,20 +266,16 @@ func TestSyncService_HandleTeamDissolved(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", oldHome)
 
-	// 创建存储
-	teamStore, err := infraTeam.NewTeamStore()
-	require.NoError(t, err)
-
 	teamID := "test-team"
 
-	// 添加团队
-	team := &domainTeam.Team{
+	// 创建 mock 服务
+	mockService := newMockTeamService()
+	mockService.teams[teamID] = &domainTeam.Team{
 		ID:       teamID,
 		Name:     "Test Team",
 		IsLeader: false,
 		JoinedAt: time.Now(),
 	}
-	teamStore.Add(team)
 
 	skillIndexStore, _ := infraTeam.NewSkillIndexStore(teamID)
 	skillIndexStores := map[string]*infraTeam.SkillIndexStore{
@@ -199,7 +283,7 @@ func TestSyncService_HandleTeamDissolved(t *testing.T) {
 	}
 
 	// 创建同步服务
-	syncService := NewSyncService(teamStore, skillIndexStores)
+	syncService := NewSyncServiceLegacy(mockService, skillIndexStores)
 
 	// 设置回调
 	var dissolvedTeamID string
@@ -218,10 +302,6 @@ func TestSyncService_HandleTeamDissolved(t *testing.T) {
 	err = syncService.HandleWebSocketEvent(dissolveEvent)
 	require.NoError(t, err)
 
-	// 验证团队已移除
-	_, err = teamStore.Get(teamID)
-	assert.Error(t, err)
-
 	// 验证回调被调用
 	assert.Equal(t, teamID, dissolvedTeamID)
 }
@@ -235,28 +315,26 @@ func TestEventListener(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", oldHome)
 
-	teamStore, _ := infraTeam.NewTeamStore()
-
 	teamID := "test-team"
-	team := &domainTeam.Team{
+
+	// 创建 mock 服务
+	mockService := newMockTeamService()
+	mockService.teams[teamID] = &domainTeam.Team{
 		ID:           teamID,
 		Name:         "Test Team",
 		IsLeader:     false,
 		LeaderOnline: false,
 		JoinedAt:     time.Now(),
 	}
-	teamStore.Add(team)
 
-	syncService := NewSyncService(teamStore, nil)
-	listener := NewEventListener(syncService, teamStore)
+	syncService := NewSyncService(mockService, nil)
+	listener := NewEventListener(syncService, mockService)
 
 	// 测试连接回调
 	listener.OnConnect(teamID)
-	updatedTeam, _ := teamStore.Get(teamID)
-	assert.True(t, updatedTeam.LeaderOnline)
+	assert.True(t, mockService.teams[teamID].LeaderOnline)
 
 	// 测试断开回调
 	listener.OnDisconnect(teamID, nil)
-	updatedTeam, _ = teamStore.Get(teamID)
-	assert.False(t, updatedTeam.LeaderOnline)
+	assert.False(t, mockService.teams[teamID].LeaderOnline)
 }

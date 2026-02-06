@@ -24,15 +24,15 @@ type WebSocketServer struct {
 
 // WebSocketConnection 单个 WebSocket 连接
 type WebSocketConnection struct {
-	mu           sync.Mutex
-	conn         *websocket.Conn
-	memberID     string
-	memberName   string
-	endpoint     string
+	mu            sync.Mutex
+	conn          *websocket.Conn
+	memberID      string
+	memberName    string
+	endpoint      string
 	authenticated bool
-	lastPing     time.Time
-	sendChan     chan []byte
-	done         chan struct{}
+	lastPing      time.Time
+	sendChan      chan []byte
+	done          chan struct{}
 }
 
 // NewWebSocketServer 创建 WebSocket 服务端
@@ -361,6 +361,13 @@ func (s *WebSocketServer) IsConnected(memberID string) bool {
 
 	conn, exists := s.connections[memberID]
 	return exists && conn.authenticated
+}
+
+// SetEventHandler 设置事件处理器
+func (s *WebSocketServer) SetEventHandler(handler p2p.EventHandler) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.eventHandler = handler
 }
 
 // Close 关闭所有连接

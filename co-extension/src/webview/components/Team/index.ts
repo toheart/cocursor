@@ -13,3 +13,5 @@ export { WeeklyCalendar } from "./WeeklyCalendar";
 export { MemberDayDetailModal } from "./MemberDayDetail";
 export { ProjectConfig } from "./ProjectConfig";
 export { ProjectStats } from "./ProjectStats";
+export { SharedSessionList } from "./SharedSessionList";
+export { SharedSessionDetail } from "./SharedSessionDetail";

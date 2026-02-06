@@ -1,9 +1,9 @@
 /**
  * 代码分析配置组件
- * 用于配置 Go 代码影响面分析功能
+ * 一站式面板设计：配置 + 生成合并为紧凑的操作界面
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { apiService } from "../../services/api";
 import { useToast } from "../../hooks";
@@ -41,6 +41,13 @@ interface CallGraphStatus {
   go_module_error?: string;
 }
 
+// 项目配置
+interface ProjectConfig {
+  entry_points: string[];
+  exclude: string[];
+  algorithm: string;
+}
+
 // 生成结果
 interface GenerateResponse {
   commit: string;
@@ -73,16 +80,19 @@ interface GenerationTask {
     fallback_reason?: string;
   };
   error?: string;
+  error_code?: string;
+  suggestion?: string;
+  details?: string;
   started_at?: string;
   completed_at?: string;
 }
 
 // 算法选项
 const ALGORITHM_OPTIONS = [
-  { value: "static", label: "Static (最快，精度低)" },
-  { value: "cha", label: "CHA (保守，快速)" },
-  { value: "rta", label: "RTA (推荐，平衡)" },
-  { value: "vta", label: "VTA (最精确，较慢)" },
+  { value: "static", label: "Static", desc: "最快，精度低" },
+  { value: "cha", label: "CHA", desc: "保守，快速" },
+  { value: "rta", label: "RTA", desc: "推荐，平衡", recommended: true },
+  { value: "vta", label: "VTA", desc: "最精确，较慢" },
 ];
 
 export const CodeAnalysisConfig: React.FC = () => {
@@ -92,13 +102,11 @@ export const CodeAnalysisConfig: React.FC = () => {
   // 状态
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
-  const [registering, setRegistering] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   // 项目信息
   const [projectPath, setProjectPath] = useState<string>("");
   const [projectName, setProjectName] = useState<string>("");
-  const [remoteUrl, setRemoteUrl] = useState<string>("");
 
   // 配置
   const [candidates, setCandidates] = useState<EntryPointCandidate[]>([]);
@@ -106,6 +114,9 @@ export const CodeAnalysisConfig: React.FC = () => {
   const [excludePaths, setExcludePaths] =
     useState<string>("vendor/\n*_test.go");
   const [algorithm, setAlgorithm] = useState<string>("rta");
+
+  // 展开/折叠状态
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // 调用图状态
   const [callGraphStatus, setCallGraphStatus] =
@@ -116,92 +127,99 @@ export const CodeAnalysisConfig: React.FC = () => {
 
   // Go 模块验证错误
   const [moduleError, setModuleError] = useState<string | null>(null);
+  // 算法失败错误
+  const [lastError, setLastError] = useState<{
+    message: string;
+    code?: string;
+    suggestion?: string;
+    details?: string;
+  } | null>(null);
 
   // 异步生成任务状态
   const [currentTask, setCurrentTask] = useState<GenerationTask | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<ReturnType<
-    typeof setInterval
-  > | null>(null);
-
-  // 初始化加载
-  useEffect(() => {
-    const workspacePath = (window as any).__WORKSPACE_PATH__;
-    if (workspacePath) {
-      setProjectPath(workspacePath);
-      checkStatus(workspacePath);
-    } else {
-      setLoading(false);
-    }
-  }, []);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  // 用于防止重复处理完成状态
+  const taskCompletedRef = useRef<boolean>(false);
+  // 记录已初始化的项目路径
+  const initializedProjectPathRef = useRef<string>("");
 
   // 检查调用图状态
-  const checkStatus = async (path: string) => {
-    try {
-      setLoading(true);
-      setModuleError(null);
-      const status = await apiService.checkCallGraphStatus(path);
-      const callGraphStatus = status as CallGraphStatus;
-      setCallGraphStatus(callGraphStatus);
+  const checkStatus = useCallback(
+    async (path: string): Promise<boolean> => {
+      try {
+        setLoading(true);
+        setModuleError(null);
+        const status = await apiService.checkCallGraphStatus(path);
+        const callGraphStatus = status as CallGraphStatus;
+        setCallGraphStatus(callGraphStatus);
 
-      // 检查是否为有效的 Go 模块
-      if (!callGraphStatus.valid_go_module) {
-        // 不是有效的 Go 模块，设置错误状态
-        setModuleError(
-          callGraphStatus.go_module_error || t("codeAnalysis.error.noGoMod"),
-        );
-        return;
+        // 检查是否为有效的 Go 模块
+        if (!callGraphStatus.valid_go_module) {
+          setModuleError(
+            callGraphStatus.go_module_error || t("codeAnalysis.error.noGoMod"),
+          );
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error("Failed to check status:", error);
+        showToast(t("codeAnalysis.error.checkStatus"), "error");
+        return false;
+      } finally {
+        setLoading(false);
       }
-
-      if (callGraphStatus.project_registered) {
-        // 项目已注册，显示状态
-      } else {
-        // 项目未注册，扫描入口函数
-        await scanEntryPoints(path);
-      }
-    } catch (error) {
-      console.error("Failed to check status:", error);
-      showToast(t("codeAnalysis.error.checkStatus"), "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [t, showToast],
+  );
 
   // 扫描入口函数
-  const scanEntryPoints = async (path: string) => {
-    try {
-      setScanning(true);
-      setModuleError(null);
-      const result = await apiService.scanEntryPoints(path);
-      const response = result as ScanEntryPointsResponse;
+  const scanEntryPoints = useCallback(
+    async (path: string, config?: ProjectConfig | null) => {
+      try {
+        setScanning(true);
+        setModuleError(null);
+        const result = await apiService.scanEntryPoints(path);
+        const response = result as ScanEntryPointsResponse;
 
-      setProjectName(response.project_name);
-      setRemoteUrl(response.remote_url);
-      setCandidates(response.candidates);
-      setExcludePaths(response.default_exclude.join("\n"));
+        setProjectName(response.project_name);
+        setCandidates(response.candidates);
 
-      // 自动选择推荐的入口函数
-      const recommended = response.candidates
-        .filter((c) => c.recommended)
-        .map((c) => `${c.file}:${c.function}`);
-      setSelectedEntryPoints(recommended);
-    } catch (error: any) {
-      console.error("Failed to scan entry points:", error);
-      // 检查是否是 Go 模块验证错误
-      const errorMessage = error?.message || error?.toString() || "";
-      if (
-        errorMessage.includes("go.mod") ||
-        errorMessage.includes("Go module") ||
-        errorMessage.includes("invalid Go module")
-      ) {
-        // 设置模块错误状态，显示专门的错误界面
-        setModuleError(errorMessage);
-      } else {
-        showToast(t("codeAnalysis.error.scan"), "error");
+        if (!config && response.default_exclude.length > 0) {
+          setExcludePaths(response.default_exclude.join("\n"));
+        }
+
+        // 未加载配置且当前未选择时，默认选中推荐入口
+        if (!config) {
+          setSelectedEntryPoints((prev) => {
+            if (prev.length === 0) {
+              const recommended = response.candidates
+                .filter((c) => c.recommended)
+                .map((c) => `${c.file}:${c.function}`);
+              return recommended;
+            }
+            return prev;
+          });
+        }
+      } catch (error: any) {
+        console.error("Failed to scan entry points:", error);
+        const errorMessage = error?.message || error?.toString() || "";
+        if (
+          errorMessage.includes("go.mod") ||
+          errorMessage.includes("Go module") ||
+          errorMessage.includes("invalid Go module")
+        ) {
+          setModuleError(errorMessage);
+        } else {
+          showToast(t("codeAnalysis.error.scan"), "error");
+        }
+      } finally {
+        setScanning(false);
       }
-    } finally {
-      setScanning(false);
-    }
-  };
+    },
+    [t, showToast],
+  );
 
   // 切换入口函数选择
   const toggleEntryPoint = (candidate: EntryPointCandidate) => {
@@ -211,54 +229,96 @@ export const CodeAnalysisConfig: React.FC = () => {
     );
   };
 
-  // 注册项目
-  const handleRegister = async () => {
-    if (selectedEntryPoints.length === 0) {
-      showToast(t("codeAnalysis.error.noEntryPoints"), "error");
+  // 加载已保存的项目配置
+  const loadProjectConfig = useCallback(
+    async (path: string): Promise<ProjectConfig | null> => {
+      try {
+        const config = (await apiService.getProjectConfig(
+          path,
+        )) as ProjectConfig;
+        if (config && !(config as any).error) {
+          setSelectedEntryPoints(config.entry_points || []);
+          setExcludePaths((config.exclude || []).join("\n"));
+          setAlgorithm(config.algorithm || "rta");
+          return config;
+        }
+      } catch (error) {
+        // 未注册项目时不提示错误
+      }
+      return null;
+    },
+    [],
+  );
+
+  // 初始化项目配置和入口函数
+  const initializeProject = useCallback(
+    async (path: string) => {
+      const valid = await checkStatus(path);
+      if (!valid) {
+        setLoading(false);
+        return;
+      }
+      const config = await loadProjectConfig(path);
+      await scanEntryPoints(path, config);
+      setLoading(false);
+    },
+    [checkStatus, loadProjectConfig, scanEntryPoints],
+  );
+
+  // 初始化加载
+  useEffect(() => {
+    if (initializedProjectPathRef.current) {
+      return;
+    }
+    const workspacePath = (window as any).__WORKSPACE_PATH__;
+    if (workspacePath) {
+      setProjectPath(workspacePath);
+      initializedProjectPathRef.current = workspacePath;
+      initializeProject(workspacePath);
+    } else {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 项目路径变化时自动重新扫描
+  useEffect(() => {
+    if (!projectPath || projectPath === initializedProjectPathRef.current) {
       return;
     }
 
-    try {
-      setRegistering(true);
-      await apiService.registerProject({
-        project_path: projectPath,
-        entry_points: selectedEntryPoints,
-        exclude: excludePaths.split("\n").filter((p) => p.trim()),
-        algorithm,
-      });
+    const timer = setTimeout(() => {
+      initializedProjectPathRef.current = projectPath;
+      initializeProject(projectPath);
+    }, 500);
 
-      showToast(t("codeAnalysis.success.register"), "success");
-
-      // 刷新状态
-      await checkStatus(projectPath);
-    } catch (error) {
-      console.error("Failed to register project:", error);
-      showToast(t("codeAnalysis.error.register"), "error");
-    } finally {
-      setRegistering(false);
-    }
-  };
+    return () => clearTimeout(timer);
+  }, [projectPath, initializeProject]);
 
   // 停止轮询
   const stopPolling = useCallback(() => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
-  }, [pollingInterval]);
+  }, []);
 
   // 组件卸载时清理
   useEffect(() => {
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [pollingInterval]);
+  }, []);
 
   // 轮询任务进度
   const pollProgress = useCallback(
     async (taskId: string) => {
+      if (taskCompletedRef.current) {
+        return;
+      }
+
       try {
         const task = (await apiService.getGenerationProgress(
           taskId,
@@ -266,6 +326,11 @@ export const CodeAnalysisConfig: React.FC = () => {
         setCurrentTask(task);
 
         if (task.status === "completed") {
+          if (taskCompletedRef.current) {
+            return;
+          }
+          taskCompletedRef.current = true;
+
           stopPolling();
           setGenerating(false);
           if (task.result) {
@@ -279,8 +344,8 @@ export const CodeAnalysisConfig: React.FC = () => {
               fallback: task.result.fallback,
               fallback_reason: task.result.fallback_reason,
             });
+            setLastError(null);
 
-            // 显示成功消息
             showToast(
               t("codeAnalysis.success.generate", {
                 funcCount: task.result.func_count,
@@ -289,48 +354,76 @@ export const CodeAnalysisConfig: React.FC = () => {
               }),
               "success",
             );
-
-            // 如果发生了算法降级，额外显示警告
-            if (task.result.fallback) {
-              setTimeout(() => {
-                showToast(
-                  t("codeAnalysis.fallbackWarning", {
-                    algorithm: task.result?.actual_algorithm?.toUpperCase(),
-                  }),
-                  "error",
-                );
-              }, 500);
-            }
           }
-          // 刷新状态
           await checkStatus(projectPath);
           setCurrentTask(null);
         } else if (task.status === "failed") {
+          if (taskCompletedRef.current) {
+            return;
+          }
+          taskCompletedRef.current = true;
+
           stopPolling();
           setGenerating(false);
-          showToast(task.error || t("codeAnalysis.error.generate"), "error");
+          setLastError({
+            message: task.error || t("codeAnalysis.error.generate"),
+            code: task.error_code,
+            suggestion: task.suggestion,
+            details: task.details,
+          });
+          if (task.error_code === "ALGORITHM_FAILED") {
+            showToast(t("codeAnalysis.error.algorithmFailed"), "error");
+          } else {
+            showToast(task.error || t("codeAnalysis.error.generate"), "error");
+          }
           setCurrentTask(null);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to poll progress:", error);
-        // 轮询失败不停止，继续重试
+        const errorMessage = error?.message || error?.toString() || "";
+        if (
+          errorMessage.includes("404") ||
+          errorMessage.includes("not found") ||
+          errorMessage.includes("Task not found")
+        ) {
+          taskCompletedRef.current = true;
+          stopPolling();
+          setGenerating(false);
+          setLastError({
+            message: t("codeAnalysis.error.taskNotFound"),
+            code: "TASK_NOT_FOUND",
+          });
+          showToast(t("codeAnalysis.error.taskNotFound"), "error");
+          setCurrentTask(null);
+        }
       }
     },
-    [projectPath, stopPolling, showToast, t],
+    [projectPath, stopPolling, showToast, t, checkStatus],
   );
 
-  // 生成调用图（使用异步 API）
+  // 生成调用图
   const handleGenerate = async () => {
     try {
+      if (selectedEntryPoints.length === 0) {
+        showToast(t("codeAnalysis.error.noEntryPoints"), "error");
+        return;
+      }
+
+      taskCompletedRef.current = false;
+
       setGenerating(true);
       setCurrentTask(null);
+      setLastError(null);
       showToast(t("codeAnalysis.generating"), "success");
 
-      // 使用异步 API 启动任务
-      const result = await apiService.generateCallGraphAsync(projectPath);
+      const result = await apiService.generateCallGraphWithConfig({
+        project_path: projectPath,
+        entry_points: selectedEntryPoints,
+        exclude: excludePaths.split("\n").filter((p) => p.trim()),
+        algorithm,
+      });
       const taskId = result.task_id;
 
-      // 初始化任务状态
       setCurrentTask({
         task_id: taskId,
         project_id: "",
@@ -341,13 +434,11 @@ export const CodeAnalysisConfig: React.FC = () => {
         message: t("codeAnalysis.taskStarting"),
       });
 
-      // 开始轮询进度（每 1 秒）
       const interval = setInterval(() => {
         pollProgress(taskId);
       }, 1000);
-      setPollingInterval(interval);
+      pollingIntervalRef.current = interval;
 
-      // 立即执行一次
       await pollProgress(taskId);
     } catch (error) {
       console.error("Failed to start call graph generation:", error);
@@ -357,10 +448,40 @@ export const CodeAnalysisConfig: React.FC = () => {
     }
   };
 
+  // 渲染状态指示器
+  const renderStatusIndicator = () => {
+    if (!callGraphStatus) return null;
+
+    if (callGraphStatus.exists) {
+      if (callGraphStatus.up_to_date) {
+        return (
+          <span className="ca-status ca-status-success">
+            <span className="ca-status-dot" />
+            {t("codeAnalysis.upToDate")}
+          </span>
+        );
+      }
+      return (
+        <span className="ca-status ca-status-warning">
+          <span className="ca-status-dot" />
+          {t("codeAnalysis.outdated", {
+            count: callGraphStatus.commits_behind || 0,
+          })}
+        </span>
+      );
+    }
+    return (
+      <span className="ca-status ca-status-idle">
+        <span className="ca-status-dot" />
+        {t("codeAnalysis.notGenerated")}
+      </span>
+    );
+  };
+
   // 加载中状态
   if (loading) {
     return (
-      <div className="cocursor-code-analysis">
+      <div className="ca-container">
         <Loading message={t("common.loading")} />
       </div>
     );
@@ -369,9 +490,9 @@ export const CodeAnalysisConfig: React.FC = () => {
   // 没有工作区路径
   if (!projectPath) {
     return (
-      <div className="cocursor-code-analysis">
-        <div className="cocursor-code-analysis-empty">
-          <div className="cocursor-code-analysis-empty-icon">📂</div>
+      <div className="ca-container">
+        <div className="ca-empty">
+          <div className="ca-empty-icon">📂</div>
           <h3>{t("codeAnalysis.noWorkspace")}</h3>
           <p>{t("codeAnalysis.noWorkspaceDesc")}</p>
         </div>
@@ -379,421 +500,293 @@ export const CodeAnalysisConfig: React.FC = () => {
     );
   }
 
-  // Go 模块验证失败
-  if (moduleError) {
-    return (
-      <div className="cocursor-code-analysis">
-        <ToastContainer toasts={toasts} />
-
-        {/* 页面标题 */}
-        <div className="cocursor-code-analysis-header">
-          <div className="cocursor-code-analysis-title-row">
-            <span className="cocursor-code-analysis-icon">🔍</span>
-            <h1 className="cocursor-code-analysis-title">
-              {t("codeAnalysis.title")}
-            </h1>
-          </div>
-          <p className="cocursor-code-analysis-subtitle">
-            {t("codeAnalysis.subtitle")}
-          </p>
-        </div>
-
-        {/* 项目信息卡片 */}
-        <div className="cocursor-code-analysis-card">
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.projectInfo")}</h2>
-          </div>
-          <div className="cocursor-code-analysis-card-body">
-            <div className="cocursor-code-analysis-info-row">
-              <span className="cocursor-code-analysis-info-label">
-                {t("codeAnalysis.projectName")}
-              </span>
-              <span className="cocursor-code-analysis-info-value">
-                {projectPath.split("/").pop()}
-              </span>
-            </div>
-            <div className="cocursor-code-analysis-info-row">
-              <span className="cocursor-code-analysis-info-label">
-                {t("codeAnalysis.projectPath")}
-              </span>
-              <span className="cocursor-code-analysis-info-value cocursor-code-analysis-path">
-                {projectPath}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* 错误提示卡片 */}
-        <div className="cocursor-code-analysis-card cocursor-code-analysis-error-card">
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.error.invalidGoModule")}</h2>
-          </div>
-          <div className="cocursor-code-analysis-card-body">
-            <div className="cocursor-code-analysis-error-content">
-              <div className="cocursor-code-analysis-error-icon">⚠️</div>
-              <div className="cocursor-code-analysis-error-message">
-                <p>{t("codeAnalysis.error.noGoMod")}</p>
-                <p className="cocursor-code-analysis-error-detail">
-                  {moduleError}
-                </p>
-              </div>
-            </div>
-            <div className="cocursor-code-analysis-actions">
-              <Button
-                onClick={() => {
-                  setModuleError(null);
-                  checkStatus(projectPath);
-                }}
-                variant="secondary"
-              >
-                {t("common.retry")}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* 使用说明 */}
-        <div className="cocursor-code-analysis-card cocursor-code-analysis-tips">
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.howToUse")}</h2>
-          </div>
-          <div className="cocursor-code-analysis-card-body">
-            <ol className="cocursor-code-analysis-steps">
-              <li>{t("codeAnalysis.step1")}</li>
-              <li>{t("codeAnalysis.step2")}</li>
-              <li>{t("codeAnalysis.step3")}</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="cocursor-code-analysis">
+    <div className="ca-container">
       <ToastContainer toasts={toasts} />
 
-      {/* 页面标题 */}
-      <div className="cocursor-code-analysis-header">
-        <div className="cocursor-code-analysis-title-row">
-          <span className="cocursor-code-analysis-icon">🔍</span>
-          <h1 className="cocursor-code-analysis-title">
+      {/* 头部 */}
+      <header className="ca-header">
+        <div className="ca-header-content">
+          <h1 className="ca-title">
+            <span className="ca-title-icon">⚡</span>
             {t("codeAnalysis.title")}
           </h1>
+          <p className="ca-subtitle">{t("codeAnalysis.subtitle")}</p>
         </div>
-        <p className="cocursor-code-analysis-subtitle">
-          {t("codeAnalysis.subtitle")}
-        </p>
-      </div>
+      </header>
 
-      {/* 项目信息卡片 */}
-      <div className="cocursor-code-analysis-card">
-        <div className="cocursor-code-analysis-card-header">
-          <h2>{t("codeAnalysis.projectInfo")}</h2>
+      {/* Go 模块错误 */}
+      {moduleError && (
+        <div className="ca-error-banner">
+          <div className="ca-error-banner-icon">⚠️</div>
+          <div className="ca-error-banner-content">
+            <strong>{t("codeAnalysis.error.invalidGoModule")}</strong>
+            <p>{moduleError}</p>
+          </div>
+          <Button
+            onClick={() => {
+              setModuleError(null);
+              initializeProject(projectPath);
+            }}
+            variant="secondary"
+            className="ca-error-banner-action"
+          >
+            {t("common.retry")}
+          </Button>
         </div>
-        <div className="cocursor-code-analysis-card-body">
-          <div className="cocursor-code-analysis-info-row">
-            <span className="cocursor-code-analysis-info-label">
-              {t("codeAnalysis.projectName")}
-            </span>
-            <span className="cocursor-code-analysis-info-value">
-              {projectName || projectPath.split("/").pop()}
-            </span>
-          </div>
-          <div className="cocursor-code-analysis-info-row">
-            <span className="cocursor-code-analysis-info-label">
-              {t("codeAnalysis.projectPath")}
-            </span>
-            <span className="cocursor-code-analysis-info-value cocursor-code-analysis-path">
-              {projectPath}
-            </span>
-          </div>
-          {remoteUrl && (
-            <div className="cocursor-code-analysis-info-row">
-              <span className="cocursor-code-analysis-info-label">
-                {t("codeAnalysis.remoteUrl")}
+      )}
+
+      {/* 主面板 */}
+      <div className="ca-panel">
+        {/* 项目信息行 */}
+        <div className="ca-section ca-section-project">
+          <div className="ca-project-row">
+            <div className="ca-project-info">
+              <span className="ca-project-name">
+                {projectName || projectPath.split("/").pop()}
               </span>
-              <span className="cocursor-code-analysis-info-value cocursor-code-analysis-path">
-                {remoteUrl}
-              </span>
+              {renderStatusIndicator()}
+            </div>
+            {callGraphStatus?.exists && (
+              <div className="ca-project-meta">
+                <code className="ca-commit">
+                  {callGraphStatus.current_commit?.substring(0, 7)}
+                </code>
+                <span className="ca-func-count">
+                  {callGraphStatus.func_count?.toLocaleString()} 函数
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="ca-project-path-row">
+            <input
+              value={projectPath}
+              onChange={(e) => setProjectPath(e.target.value)}
+              className="ca-input ca-input-path"
+              placeholder={t("codeAnalysis.projectPathPlaceholder")}
+            />
+          </div>
+        </div>
+
+        {/* 进度条 */}
+        {generating && currentTask && (
+          <div className="ca-section ca-section-progress">
+            <div className="ca-progress">
+              <div className="ca-progress-info">
+                <span className="ca-progress-message">
+                  {currentTask.status === "pending" && "⏳ "}
+                  {currentTask.status === "running" && "🔄 "}
+                  {currentTask.message || t("codeAnalysis.taskRunning")}
+                </span>
+                <span className="ca-progress-percent">
+                  {currentTask.progress}%
+                </span>
+              </div>
+              <div className="ca-progress-bar">
+                <div
+                  className="ca-progress-fill"
+                  style={{ width: `${currentTask.progress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 错误提示 */}
+        {lastError && (
+          <div className="ca-section ca-section-error">
+            <div className="ca-error-box">
+              <span className="ca-error-icon">⚠️</span>
+              <div className="ca-error-content">
+                <div className="ca-error-message">{lastError.message}</div>
+                {lastError.details && (
+                  <div className="ca-error-details">{lastError.details}</div>
+                )}
+                {lastError.suggestion && (
+                  <div className="ca-error-suggestion">
+                    💡 {lastError.suggestion}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 入口函数选择 */}
+        <div className="ca-section ca-section-entries">
+          <div className="ca-section-header">
+            <h2 className="ca-section-title">
+              {t("codeAnalysis.entryPoints")}
+            </h2>
+            <button
+              className="ca-link-button"
+              onClick={() => scanEntryPoints(projectPath)}
+              disabled={scanning}
+            >
+              {scanning ? "⏳" : "↻"} {t("codeAnalysis.rescan")}
+            </button>
+          </div>
+
+          {scanning ? (
+            <div className="ca-scanning">
+              <Loading message={t("codeAnalysis.scanning")} />
+            </div>
+          ) : (
+            <div className="ca-entry-grid">
+              {candidates.map((candidate, index) => {
+                const key = `${candidate.file}:${candidate.function}`;
+                const isSelected = selectedEntryPoints.includes(key);
+                return (
+                  <div
+                    key={index}
+                    className={`ca-entry-item ${isSelected ? "selected" : ""}`}
+                    onClick={() => toggleEntryPoint(candidate)}
+                  >
+                    <div className="ca-entry-check">
+                      {isSelected ? "✓" : ""}
+                    </div>
+                    <div className="ca-entry-content">
+                      <span className="ca-entry-func">
+                        {candidate.function}()
+                      </span>
+                      <span className="ca-entry-file">{candidate.file}</span>
+                    </div>
+                    {candidate.recommended && (
+                      <span className="ca-entry-badge">★</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
-      </div>
 
-      {/* 调用图状态卡片 */}
-      {callGraphStatus?.project_registered && (
-        <div className="cocursor-code-analysis-card">
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.callGraphStatus")}</h2>
-            <div className="cocursor-code-analysis-status-badge">
-              {callGraphStatus.exists ? (
-                callGraphStatus.up_to_date ? (
-                  <span className="cocursor-code-analysis-badge-success">
-                    ✓ {t("codeAnalysis.upToDate")}
-                  </span>
-                ) : (
-                  <span className="cocursor-code-analysis-badge-warning">
-                    ⚠{" "}
-                    {t("codeAnalysis.outdated", {
-                      count: callGraphStatus.commits_behind || 0,
-                    })}
-                  </span>
-                )
-              ) : (
-                <span className="cocursor-code-analysis-badge-info">
-                  {t("codeAnalysis.notGenerated")}
-                </span>
-              )}
-            </div>
+        {/* 算法选择 */}
+        <div className="ca-section ca-section-algorithm">
+          <div className="ca-section-header">
+            <h2 className="ca-section-title">{t("codeAnalysis.algorithm")}</h2>
+            <button
+              className="ca-link-button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? "收起选项" : "更多选项"}
+            </button>
           </div>
-          <div className="cocursor-code-analysis-card-body">
-            {callGraphStatus.exists && (
-              <>
-                <div className="cocursor-code-analysis-info-row">
-                  <span className="cocursor-code-analysis-info-label">
-                    {t("codeAnalysis.currentCommit")}
-                  </span>
-                  <code className="cocursor-code-analysis-commit">
-                    {callGraphStatus.current_commit?.substring(0, 7)}
-                  </code>
+          <div className="ca-algorithm-grid">
+            {ALGORITHM_OPTIONS.map((opt) => (
+              <div
+                key={opt.value}
+                className={`ca-algorithm-item ${algorithm === opt.value ? "selected" : ""}`}
+                onClick={() => setAlgorithm(opt.value)}
+              >
+                <div className="ca-algorithm-radio">
+                  {algorithm === opt.value && "●"}
                 </div>
-                <div className="cocursor-code-analysis-info-row">
-                  <span className="cocursor-code-analysis-info-label">
-                    {t("codeAnalysis.funcCount")}
+                <div className="ca-algorithm-info">
+                  <span className="ca-algorithm-label">
+                    {opt.label}
+                    {opt.recommended && (
+                      <span className="ca-algorithm-rec">推荐</span>
+                    )}
                   </span>
-                  <span className="cocursor-code-analysis-info-value">
-                    {callGraphStatus.func_count?.toLocaleString()}
-                  </span>
-                </div>
-              </>
-            )}
-            {/* 进度条 */}
-            {generating && currentTask && (
-              <div className="cocursor-code-analysis-progress">
-                <div className="cocursor-code-analysis-progress-header">
-                  <span className="cocursor-code-analysis-progress-status">
-                    {currentTask.status === "pending" && "⏳"}
-                    {currentTask.status === "running" && "🔄"}
-                    {currentTask.message || t("codeAnalysis.taskRunning")}
-                  </span>
-                  <span className="cocursor-code-analysis-progress-percent">
-                    {currentTask.progress}%
-                  </span>
-                </div>
-                <div className="cocursor-code-analysis-progress-bar">
-                  <div
-                    className="cocursor-code-analysis-progress-fill"
-                    style={{ width: `${currentTask.progress}%` }}
-                  />
+                  <span className="ca-algorithm-desc">{opt.desc}</span>
                 </div>
               </div>
-            )}
-
-            <div className="cocursor-code-analysis-actions">
-              <Button
-                onClick={handleGenerate}
-                loading={generating}
-                variant="primary"
-              >
-                {callGraphStatus.exists
-                  ? t("codeAnalysis.regenerate")
-                  : t("codeAnalysis.generate")}
-              </Button>
-            </div>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* 入口函数配置卡片（未注册时显示） */}
-      {!callGraphStatus?.project_registered && (
-        <div className="cocursor-code-analysis-card">
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.entryPoints")}</h2>
+        {/* 高级配置 */}
+        {showAdvanced && (
+          <div className="ca-section ca-section-advanced">
+            <div className="ca-section-header">
+              <h2 className="ca-section-title">
+                {t("codeAnalysis.excludePaths")}
+              </h2>
+            </div>
+            <textarea
+              value={excludePaths}
+              onChange={(e) => setExcludePaths(e.target.value)}
+              className="ca-textarea"
+              rows={3}
+              placeholder="vendor/&#10;*_test.go&#10;*.pb.go"
+            />
+            <span className="ca-hint">
+              {t("codeAnalysis.excludePathsHint")}
+            </span>
           </div>
-          <div className="cocursor-code-analysis-card-body">
-            {scanning ? (
-              <Loading message={t("codeAnalysis.scanning")} />
-            ) : (
-              <>
-                <p className="cocursor-code-analysis-hint">
-                  {t("codeAnalysis.entryPointsHint")}
-                </p>
-                <div className="cocursor-code-analysis-entry-list">
-                  {candidates.map((candidate, index) => {
-                    const key = `${candidate.file}:${candidate.function}`;
-                    const isSelected = selectedEntryPoints.includes(key);
-                    return (
-                      <div
-                        key={index}
-                        className={`cocursor-code-analysis-entry-item ${
-                          isSelected ? "selected" : ""
-                        }`}
-                        onClick={() => toggleEntryPoint(candidate)}
-                      >
-                        <div className="cocursor-code-analysis-entry-checkbox">
-                          {isSelected ? "☑" : "☐"}
-                        </div>
-                        <div className="cocursor-code-analysis-entry-info">
-                          <div className="cocursor-code-analysis-entry-file">
-                            {candidate.file}
-                          </div>
-                          <div className="cocursor-code-analysis-entry-meta">
-                            <span className="cocursor-code-analysis-entry-func">
-                              {candidate.function}()
-                            </span>
-                            <span
-                              className={`cocursor-code-analysis-entry-type ${candidate.type}`}
-                            >
-                              {candidate.type}
-                            </span>
-                            {candidate.recommended && (
-                              <span className="cocursor-code-analysis-entry-recommended">
-                                ★ {t("codeAnalysis.recommended")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
+        )}
+
+        {/* 操作按钮 */}
+        <div className="ca-section ca-section-actions">
+          <Button
+            onClick={handleGenerate}
+            loading={generating}
+            variant="primary"
+            disabled={
+              generating || selectedEntryPoints.length === 0 || !!moduleError
+            }
+            className="ca-generate-button"
+          >
+            {generating
+              ? t("codeAnalysis.generating")
+              : callGraphStatus?.exists
+                ? t("codeAnalysis.regenerate")
+                : t("codeAnalysis.generate")}
+          </Button>
         </div>
-      )}
+      </div>
 
-      {/* 高级配置卡片（未注册时显示） */}
-      {!callGraphStatus?.project_registered && (
-        <div className="cocursor-code-analysis-card">
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.advancedConfig")}</h2>
-          </div>
-          <div className="cocursor-code-analysis-card-body">
-            {/* 算法选择 */}
-            <div className="cocursor-code-analysis-form-group">
-              <label>{t("codeAnalysis.algorithm")}</label>
-              <select
-                value={algorithm}
-                onChange={(e) => setAlgorithm(e.target.value)}
-                className="cocursor-code-analysis-select"
-              >
-                {ALGORITHM_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 排除路径 */}
-            <div className="cocursor-code-analysis-form-group">
-              <label>{t("codeAnalysis.excludePaths")}</label>
-              <textarea
-                value={excludePaths}
-                onChange={(e) => setExcludePaths(e.target.value)}
-                className="cocursor-code-analysis-textarea"
-                rows={4}
-                placeholder="vendor/&#10;*_test.go&#10;*.pb.go"
-              />
-              <span className="cocursor-code-analysis-form-hint">
-                {t("codeAnalysis.excludePathsHint")}
-              </span>
-            </div>
-
-            {/* 注册按钮 */}
-            <div className="cocursor-code-analysis-actions">
-              <Button
-                onClick={handleRegister}
-                loading={registering}
-                variant="primary"
-                disabled={selectedEntryPoints.length === 0}
-              >
-                {t("codeAnalysis.registerAndGenerate")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 生成结果卡片 */}
-      {generateResult && (
-        <div
-          className={`cocursor-code-analysis-card cocursor-code-analysis-result ${generateResult.fallback ? "cocursor-code-analysis-result-warning" : ""}`}
-        >
-          <div className="cocursor-code-analysis-card-header">
-            <h2>{t("codeAnalysis.generateResult")}</h2>
+      {/* 生成结果 */}
+      {generateResult && !generating && (
+        <div className="ca-result">
+          <div className="ca-result-header">
+            <span className="ca-result-title">
+              ✓ {t("codeAnalysis.generateResult")}
+            </span>
             {generateResult.actual_algorithm && (
-              <span className="cocursor-code-analysis-algorithm-badge">
+              <span className="ca-result-algorithm">
                 {generateResult.actual_algorithm.toUpperCase()}
               </span>
             )}
           </div>
-          <div className="cocursor-code-analysis-card-body">
-            {/* 降级警告 */}
-            {generateResult.fallback && generateResult.fallback_reason && (
-              <div className="cocursor-code-analysis-fallback-warning">
-                <div className="cocursor-code-analysis-fallback-icon">⚠️</div>
-                <div className="cocursor-code-analysis-fallback-content">
-                  <div className="cocursor-code-analysis-fallback-title">
-                    {t("codeAnalysis.algorithmFallback")}
-                  </div>
-                  <div className="cocursor-code-analysis-fallback-reason">
-                    {generateResult.fallback_reason}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="cocursor-code-analysis-stats">
-              <div className="cocursor-code-analysis-stat">
-                <div className="cocursor-code-analysis-stat-value">
-                  {generateResult.func_count.toLocaleString()}
-                </div>
-                <div className="cocursor-code-analysis-stat-label">
-                  {t("codeAnalysis.functions")}
-                </div>
-              </div>
-              <div className="cocursor-code-analysis-stat">
-                <div className="cocursor-code-analysis-stat-value">
-                  {generateResult.edge_count.toLocaleString()}
-                </div>
-                <div className="cocursor-code-analysis-stat-label">
-                  {t("codeAnalysis.edges")}
-                </div>
-              </div>
-              <div className="cocursor-code-analysis-stat">
-                <div className="cocursor-code-analysis-stat-value">
-                  {(generateResult.generation_time_ms / 1000).toFixed(1)}s
-                </div>
-                <div className="cocursor-code-analysis-stat-label">
-                  {t("codeAnalysis.generationTime")}
-                </div>
-              </div>
+          <div className="ca-result-stats">
+            <div className="ca-result-stat">
+              <span className="ca-result-stat-value">
+                {generateResult.func_count.toLocaleString()}
+              </span>
+              <span className="ca-result-stat-label">
+                {t("codeAnalysis.functions")}
+              </span>
             </div>
-            <div className="cocursor-code-analysis-info-row">
-              <span className="cocursor-code-analysis-info-label">Commit</span>
-              <code className="cocursor-code-analysis-commit">
-                {generateResult.commit.substring(0, 7)}
-              </code>
+            <div className="ca-result-stat">
+              <span className="ca-result-stat-value">
+                {generateResult.edge_count.toLocaleString()}
+              </span>
+              <span className="ca-result-stat-label">
+                {t("codeAnalysis.edges")}
+              </span>
+            </div>
+            <div className="ca-result-stat">
+              <span className="ca-result-stat-value">
+                {(generateResult.generation_time_ms / 1000).toFixed(1)}s
+              </span>
+              <span className="ca-result-stat-label">
+                {t("codeAnalysis.generationTime")}
+              </span>
             </div>
           </div>
         </div>
       )}
 
       {/* 使用说明 */}
-      <div className="cocursor-code-analysis-card cocursor-code-analysis-tips">
-        <div className="cocursor-code-analysis-card-header">
-          <h2>{t("codeAnalysis.howToUse")}</h2>
-        </div>
-        <div className="cocursor-code-analysis-card-body">
-          <ol className="cocursor-code-analysis-steps">
-            <li>{t("codeAnalysis.step1")}</li>
-            <li>{t("codeAnalysis.step2")}</li>
-            <li>{t("codeAnalysis.step3")}</li>
-          </ol>
-        </div>
+      <div className="ca-tips">
+        <h3>{t("codeAnalysis.howToUse")}</h3>
+        <ol>
+          <li>{t("codeAnalysis.step1")}</li>
+          <li>{t("codeAnalysis.step2")}</li>
+          <li>{t("codeAnalysis.step3")}</li>
+        </ol>
       </div>
     </div>
   );

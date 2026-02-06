@@ -2,6 +2,7 @@ package codeanalysis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -99,6 +100,15 @@ func (s *CallGraphService) CheckStatus(ctx context.Context, req *CheckStatusRequ
 type GenerateRequest struct {
 	ProjectPath string `json:"project_path"`
 	Commit      string `json:"commit"`
+}
+
+// GenerateWithConfigRequest 生成调用图请求（包含配置）
+type GenerateWithConfigRequest struct {
+	ProjectPath string                     `json:"project_path"`
+	EntryPoints []string                   `json:"entry_points"`
+	Exclude     []string                   `json:"exclude"`
+	Algorithm   codeanalysis.AlgorithmType `json:"algorithm"`
+	Commit      string                     `json:"commit"`
 }
 
 // GenerateResponse 生成调用图响应
@@ -267,6 +277,56 @@ func (s *CallGraphService) GenerateAsync(ctx context.Context, req *GenerateReque
 	}, nil
 }
 
+// GenerateWithConfigAsync 生成调用图（异步，包含配置）
+func (s *CallGraphService) GenerateWithConfigAsync(ctx context.Context, req *GenerateWithConfigRequest) (*GenerateAsyncResponse, error) {
+	absPath, err := filepath.Abs(req.ProjectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(req.EntryPoints) == 0 {
+		return nil, fmt.Errorf("entry_points is required")
+	}
+
+	// 验证 Go 模块
+	validation := s.entryPointScanner.ValidateGoModule(ctx, absPath)
+	if !validation.Valid {
+		return nil, fmt.Errorf("invalid Go module: %s", validation.Error)
+	}
+
+	project, err := s.buildProjectFromConfig(ctx, absPath, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建任务
+	taskID := uuid.New().String()
+	now := time.Now()
+
+	task := &codeanalysis.GenerationTask{
+		TaskID:      taskID,
+		ProjectID:   project.ID,
+		ProjectPath: absPath,
+		Commit:      req.Commit,
+		Status:      "pending",
+		Progress:    0,
+		Message:     "Task created",
+		StartedAt:   &now,
+	}
+
+	s.tasksMu.Lock()
+	s.tasks[taskID] = task
+	s.tasksMu.Unlock()
+
+	// 在后台执行
+	go s.runGenerationTaskWithConfig(context.Background(), task, project, req)
+
+	return &GenerateAsyncResponse{
+		TaskID: taskID,
+		Status: "pending",
+	}, nil
+}
+
 // runGenerationTask 执行生成任务
 func (s *CallGraphService) runGenerationTask(ctx context.Context, task *codeanalysis.GenerationTask, project *codeanalysis.Project) {
 	defer func() {
@@ -304,7 +364,7 @@ func (s *CallGraphService) runGenerationTask(ctx context.Context, task *codeanal
 		s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
 			t.Status = "failed"
 			t.Progress = 100
-			t.Error = err.Error()
+			s.applyTaskError(t, err)
 			t.CompletedAt = &now
 		})
 		return
@@ -333,13 +393,84 @@ func (s *CallGraphService) runGenerationTask(ctx context.Context, task *codeanal
 	})
 }
 
+// runGenerationTaskWithConfig 执行生成任务（包含配置）
+func (s *CallGraphService) runGenerationTaskWithConfig(ctx context.Context, task *codeanalysis.GenerationTask, project *codeanalysis.Project, req *GenerateWithConfigRequest) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
+				t.Status = "failed"
+				t.Error = fmt.Sprintf("panic: %v", r)
+				now := time.Now()
+				t.CompletedAt = &now
+			})
+		}
+	}()
+
+	// 更新状态为运行中
+	s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
+		t.Status = "running"
+		t.Progress = 5
+		t.Message = "Loading packages..."
+	})
+
+	// 使用带进度回调的生成方法
+	resp, err := s.generateWithProgressByProject(ctx, &GenerateRequest{
+		ProjectPath: task.ProjectPath,
+		Commit:      task.Commit,
+	}, project, func(progress int, message string) {
+		s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
+			t.Progress = progress
+			t.Message = message
+		})
+	})
+
+	now := time.Now()
+
+	if err != nil {
+		s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
+			t.Status = "failed"
+			t.Progress = 100
+			s.applyTaskError(t, err)
+			t.CompletedAt = &now
+		})
+		return
+	}
+
+	// 生成成功后保存配置
+	_, registerErr := s.projectService.RegisterProject(ctx, &RegisterProjectRequest{
+		ProjectPath: task.ProjectPath,
+		EntryPoints: req.EntryPoints,
+		Exclude:     req.Exclude,
+		Algorithm:   req.Algorithm,
+	})
+	if registerErr != nil {
+		s.logger.Warn("failed to save project config after generation", "error", registerErr)
+	}
+
+	// 更新为完成
+	s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
+		t.Status = "completed"
+		t.Progress = 100
+		t.Message = "Generation completed"
+		t.CompletedAt = &now
+		t.Result = &codeanalysis.CallGraph{
+			Commit:           resp.Commit,
+			FuncCount:        resp.FuncCount,
+			EdgeCount:        resp.EdgeCount,
+			DBPath:           resp.DBPath,
+			GenerationTimeMs: resp.GenerationTimeMs,
+			ActualAlgorithm:  codeanalysis.AlgorithmType(resp.ActualAlgorithm),
+			Fallback:         resp.Fallback,
+			FallbackReason:   resp.FallbackReason,
+		}
+	})
+}
+
 // ProgressCallback 进度回调函数类型
 type ProgressCallback func(progress int, message string)
 
 // generateWithProgress 带进度回调的生成方法
 func (s *CallGraphService) generateWithProgress(ctx context.Context, req *GenerateRequest, onProgress ProgressCallback) (*GenerateResponse, error) {
-	startTime := time.Now()
-
 	absPath, err := filepath.Abs(req.ProjectPath)
 	if err != nil {
 		return nil, err
@@ -350,6 +481,16 @@ func (s *CallGraphService) generateWithProgress(ctx context.Context, req *Genera
 	project, err := s.projectService.GetProject(ctx, absPath)
 	if err != nil {
 		return nil, fmt.Errorf("project not registered: %w", err)
+	}
+
+	return s.generateWithProgressByProject(ctx, req, project, onProgress)
+}
+
+func (s *CallGraphService) generateWithProgressByProject(ctx context.Context, req *GenerateRequest, project *codeanalysis.Project, onProgress ProgressCallback) (*GenerateResponse, error) {
+	startTime := time.Now()
+	absPath, err := filepath.Abs(req.ProjectPath)
+	if err != nil {
+		return nil, err
 	}
 
 	// 获取当前 commit
@@ -445,6 +586,76 @@ func (s *CallGraphService) generateWithProgress(ctx context.Context, req *Genera
 		Fallback:         result.Fallback,
 		FallbackReason:   result.FallbackReason,
 	}, nil
+}
+
+// buildProjectFromConfig 构建生成所需的项目配置（不落盘）
+func (s *CallGraphService) buildProjectFromConfig(ctx context.Context, absPath string, req *GenerateWithConfigRequest) (*codeanalysis.Project, error) {
+	remoteURL, err := s.entryPointScanner.GetRemoteURL(ctx, absPath)
+	if err != nil {
+		s.logger.Warn("failed to get remote URL, using path as identifier", "error", err)
+		remoteURL = absPath
+	}
+
+	projectName := filepath.Base(absPath)
+	projectID := infra.GetProjectID(remoteURL)
+
+	// 尝试读取已有配置
+	existing, _ := s.projectService.GetProject(ctx, absPath)
+	localPaths := []string{absPath}
+	createdAt := time.Time{}
+	if existing != nil {
+		localPaths = existing.LocalPaths
+		createdAt = existing.CreatedAt
+		// 合并本地路径
+		pathSet := make(map[string]bool)
+		for _, p := range existing.LocalPaths {
+			pathSet[p] = true
+		}
+		pathSet[absPath] = true
+		localPaths = make([]string, 0, len(pathSet))
+		for p := range pathSet {
+			localPaths = append(localPaths, p)
+		}
+	}
+
+	project := &codeanalysis.Project{
+		ID:          projectID,
+		Name:        projectName,
+		RemoteURL:   remoteURL,
+		LocalPaths:  localPaths,
+		EntryPoints: req.EntryPoints,
+		Exclude:     req.Exclude,
+		Algorithm:   req.Algorithm,
+		CreatedAt:   createdAt,
+	}
+
+	// 设置默认值
+	if len(project.Exclude) == 0 {
+		project.Exclude = []string{"vendor/", "*_test.go"}
+	}
+	if project.Algorithm == "" {
+		project.Algorithm = codeanalysis.AlgorithmRTA
+	}
+
+	return project, nil
+}
+
+// applyTaskError 填充任务错误信息
+func (s *CallGraphService) applyTaskError(task *codeanalysis.GenerationTask, err error) {
+	if task == nil || err == nil {
+		return
+	}
+
+	var algoErr *codeanalysis.AlgorithmFailedError
+	if errors.As(err, &algoErr) {
+		task.Error = algoErr.Error()
+		task.ErrorCode = codeanalysis.ErrorCodeAlgorithmFailed
+		task.Suggestion = algoErr.Suggestion
+		task.Details = algoErr.Details
+		return
+	}
+
+	task.Error = err.Error()
 }
 
 // updateTask 更新任务

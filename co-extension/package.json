@@ -105,6 +105,16 @@
       {
         "command": "cocursor.todoAdd",
         "title": "CoCursor: 添加待办"
+      },
+      {
+        "command": "cocursor.shareSession",
+        "title": "分享到团队",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "cocursor.refreshSessions",
+        "title": "刷新会话列表",
+        "icon": "$(refresh)"
       }
     ],
     "keybindings": [
@@ -114,12 +124,25 @@
         "mac": "cmd+shift+t"
       }
     ],
-    "menus": {},
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "cocursor.shareSession",
+          "when": "view == cocursor.sessions && viewItem == session",
+          "group": "inline"
+        }
+      ]
+    },
     "views": {
       "cocursor": [
         {
           "id": "cocursor.sidebar",
           "name": "CoCursor",
+          "when": "true"
+        },
+        {
+          "id": "cocursor.sessions",
+          "name": "会话",
           "when": "true"
         }
       ]

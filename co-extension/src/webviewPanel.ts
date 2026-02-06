@@ -470,6 +470,14 @@ export class WebviewPanel {
       case "fetchNetworkInterfaces":
         this._handleFetchNetworkInterfaces();
         break;
+      case "updateNetworkConfig":
+        this._handleUpdateNetworkConfig(
+          message.payload as {
+            preferred_interface: string;
+            preferred_ip: string;
+          },
+        );
+        break;
       case "createTeam":
         this._handleCreateTeam(
           message.payload as {
@@ -640,6 +648,27 @@ export class WebviewPanel {
           message.payload as { teamId: string; weekStart: string },
         );
         break;
+      // ========== 会话分享相关命令 ==========
+      case "fetchSharedSessions":
+        this._handleFetchSharedSessions(
+          message.payload as { teamId: string; page?: number; page_size?: number },
+        );
+        break;
+      case "fetchSharedSessionDetail":
+        this._handleFetchSharedSessionDetail(
+          message.payload as { teamId: string; shareId: string },
+        );
+        break;
+      case "addSessionComment":
+        this._handleAddSessionComment(
+          message.payload as {
+            teamId: string;
+            shareId: string;
+            content: string;
+            mentions?: string[];
+          },
+        );
+        break;
       case "saveDailyReportScreenshot":
         this._handleSaveDailyReportScreenshot(
           message.payload as { filename: string; data: string },
@@ -666,6 +695,11 @@ export class WebviewPanel {
           },
         );
         break;
+      case "getProjectConfig":
+        this._handleGetProjectConfig(
+          message.payload as { project_path: string },
+        );
+        break;
       case "checkCallGraphStatus":
         this._handleCheckCallGraphStatus(
           message.payload as { project_path: string; commit?: string },
@@ -679,6 +713,17 @@ export class WebviewPanel {
       case "generateCallGraphAsync":
         this._handleGenerateCallGraphAsync(
           message.payload as { project_path: string; commit?: string },
+        );
+        break;
+      case "generateCallGraphWithConfig":
+        this._handleGenerateCallGraphWithConfig(
+          message.payload as {
+            project_path: string;
+            entry_points: string[];
+            exclude: string[];
+            algorithm: string;
+            commit?: string;
+          },
         );
         break;
       case "getGenerationProgress":
@@ -2024,6 +2069,32 @@ export class WebviewPanel {
     }
   }
 
+  private async _handleUpdateNetworkConfig(payload: {
+    preferred_interface: string;
+    preferred_ip: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/team/network/config",
+        payload,
+        { timeout: 10000 },
+      );
+      if (response.data.code === 0) {
+        this._sendMessage({
+          type: "updateNetworkConfig-response",
+          data: response.data.data,
+        });
+      } else {
+        throw new Error(response.data.message || "更新网络配置失败");
+      }
+    } catch (error) {
+      this._sendMessage({
+        type: "updateNetworkConfig-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" },
+      });
+    }
+  }
+
   private async _handleCreateTeam(payload: {
     name: string;
     preferred_interface?: string;
@@ -2891,6 +2962,84 @@ export class WebviewPanel {
     this._panel.webview.postMessage(message);
   }
 
+  // ========== 会话分享相关处理方法 ==========
+
+  private async _handleFetchSharedSessions(payload: {
+    teamId: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/sessions`,
+        {
+          params: {
+            page: payload.page || 1,
+            page_size: payload.page_size || 20,
+          },
+          timeout: 10000,
+        },
+      );
+      this._sendMessage({
+        type: "fetchSharedSessions-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchSharedSessions-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" },
+      });
+    }
+  }
+
+  private async _handleFetchSharedSessionDetail(payload: {
+    teamId: string;
+    shareId: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/sessions/${payload.shareId}`,
+        { timeout: 10000 },
+      );
+      this._sendMessage({
+        type: "fetchSharedSessionDetail-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchSharedSessionDetail-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" },
+      });
+    }
+  }
+
+  private async _handleAddSessionComment(payload: {
+    teamId: string;
+    shareId: string;
+    content: string;
+    mentions?: string[];
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/sessions/${payload.shareId}/comments`,
+        {
+          content: payload.content,
+          mentions: payload.mentions,
+        },
+        { timeout: 10000 },
+      );
+      this._sendMessage({
+        type: "addSessionComment-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "addSessionComment-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" },
+      });
+    }
+  }
+
   // ========== 代码分析相关处理方法 ==========
 
   private async _handleScanEntryPoints(payload: {
@@ -2937,6 +3086,29 @@ export class WebviewPanel {
         type: "registerProject-response",
         data: {
           error: error instanceof Error ? error.message : "注册项目失败",
+        },
+      });
+    }
+  }
+
+  private async _handleGetProjectConfig(payload: {
+    project_path: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/projects/config",
+        payload,
+        { timeout: 10000 },
+      );
+      this._sendMessage({
+        type: "getProjectConfig-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "getProjectConfig-response",
+        data: {
+          error: error instanceof Error ? error.message : "获取项目配置失败",
         },
       });
     }
@@ -3009,6 +3181,33 @@ export class WebviewPanel {
         type: "generateCallGraphAsync-response",
         data: {
           error: error instanceof Error ? error.message : "启动异步生成失败",
+        },
+      });
+    }
+  }
+
+  private async _handleGenerateCallGraphWithConfig(payload: {
+    project_path: string;
+    entry_points: string[];
+    exclude: string[];
+    algorithm: string;
+    commit?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/callgraph/generate-with-config",
+        payload,
+        { timeout: 30000 },
+      );
+      this._sendMessage({
+        type: "generateCallGraphWithConfig-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "generateCallGraphWithConfig-response",
+        data: {
+          error: error instanceof Error ? error.message : "生成调用图失败",
         },
       });
     }

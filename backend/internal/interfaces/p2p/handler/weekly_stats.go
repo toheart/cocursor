@@ -4,9 +4,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sourcegraph/conc/pool"
 
 	domainCursor "github.com/cocursor/backend/internal/domain/cursor"
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
@@ -124,6 +126,7 @@ func (h *WeeklyStatsHandler) GetDailyDetail(c *gin.Context) {
 }
 
 // collectWeeklyStats 收集一周的统计数据
+// 使用并发处理 7 天的数据收集，提升性能
 func (h *WeeklyStatsHandler) collectWeeklyStats(startDate time.Time, repoURLs []string) (*domainTeam.MemberWeeklyStats, error) {
 	stats := &domainTeam.MemberWeeklyStats{
 		WeekStart:  startDate.Format("2006-01-02"),
@@ -138,43 +141,51 @@ func (h *WeeklyStatsHandler) collectWeeklyStats(startDate time.Time, repoURLs []
 		userEmail = ""
 	}
 
-	// 收集 7 天的数据
+	// 使用 goroutine pool 并发收集 7 天的数据
+	p := pool.New().WithMaxGoroutines(7)
+
 	for i := 0; i < 7; i++ {
-		currentDate := startDate.AddDate(0, 0, i)
+		dayIndex := i
+		currentDate := startDate.AddDate(0, 0, dayIndex)
 		dateStr := currentDate.Format("2006-01-02")
 
-		dailyStats := domainTeam.MemberDailyStats{
-			Date:      dateStr,
-			WorkItems: []domainTeam.WorkItemSummary{},
-		}
-
-		// 收集 Git 统计
-		if userEmail != "" && len(repoURLs) > 0 {
-			gitStats := h.collectGitStats(dateStr, repoURLs, userEmail)
-			if gitStats != nil && gitStats.TotalCommits > 0 {
-				dailyStats.GitStats = gitStats
+		p.Go(func() {
+			dailyStats := domainTeam.MemberDailyStats{
+				Date:      dateStr,
+				WorkItems: []domainTeam.WorkItemSummary{},
 			}
-		}
 
-		// 收集 Cursor 统计
-		cursorStats := h.collectCursorStats(dateStr, repoURLs)
-		if cursorStats != nil && cursorStats.SessionCount > 0 {
-			dailyStats.CursorStats = cursorStats
-		}
+			// 收集 Git 统计
+			if userEmail != "" && len(repoURLs) > 0 {
+				gitStats := h.collectGitStats(dateStr, repoURLs, userEmail)
+				if gitStats != nil && gitStats.TotalCommits > 0 {
+					dailyStats.GitStats = gitStats
+				}
+			}
 
-		// 收集工作条目
-		workItems, hasReport := h.collectWorkItems(dateStr, repoURLs)
-		dailyStats.WorkItems = workItems
-		dailyStats.HasReport = hasReport
+			// 收集 Cursor 统计
+			cursorStats := h.collectCursorStats(dateStr, repoURLs)
+			if cursorStats != nil && cursorStats.SessionCount > 0 {
+				dailyStats.CursorStats = cursorStats
+			}
 
-		stats.DailyStats[i] = dailyStats
+			// 收集工作条目
+			workItems, hasReport := h.collectWorkItems(dateStr, repoURLs)
+			dailyStats.WorkItems = workItems
+			dailyStats.HasReport = hasReport
+
+			stats.DailyStats[dayIndex] = dailyStats
+		})
 	}
+
+	p.Wait()
 
 	return stats, nil
 }
 
 // collectGitStats 收集 Git 统计
 // 优先通过 ProjectManager 获取项目路径，如果找不到则跳过
+// 使用并发处理多个仓库，提升性能
 func (h *WeeklyStatsHandler) collectGitStats(date string, repoURLs []string, userEmail string) *domainTeam.GitDailyStats {
 	stats := &domainTeam.GitDailyStats{
 		TotalCommits: 0,
@@ -183,37 +194,63 @@ func (h *WeeklyStatsHandler) collectGitStats(date string, repoURLs []string, use
 		Projects:     []domainTeam.ProjectGitStats{},
 	}
 
+	if len(repoURLs) == 0 {
+		return stats
+	}
+
+	// 使用 goroutine pool 并发处理多个仓库，限制最大 5 个并发
+	maxConcurrency := 5
+	if len(repoURLs) < maxConcurrency {
+		maxConcurrency = len(repoURLs)
+	}
+	p := pool.New().WithMaxGoroutines(maxConcurrency)
+
+	var mu sync.Mutex
+	var projectResults []domainTeam.ProjectGitStats
+
 	for _, repoURL := range repoURLs {
-		// 通过 ProjectManager 查找项目（从已注册的工作区中查找）
-		repoPath := h.findRepoPath(repoURL)
-		if repoPath == "" {
-			// 项目不在 ProjectManager 中是正常情况，成员可能没有在 Cursor 中打开过该项目
-			continue
-		}
+		url := repoURL
+		p.Go(func() {
+			// 通过 ProjectManager 查找项目（从已注册的工作区中查找）
+			repoPath := h.findRepoPath(url)
+			if repoPath == "" {
+				// 项目不在 ProjectManager 中是正常情况，成员可能没有在 Cursor 中打开过该项目
+				return
+			}
 
-		// 尝试获取仓库级别的邮箱
-		repoEmail := userEmail
-		if email, err := h.gitCollector.GetRepoUserEmail(repoPath); err == nil && email != "" {
-			repoEmail = email
-		}
+			// 尝试获取仓库级别的邮箱
+			repoEmail := userEmail
+			if email, err := h.gitCollector.GetRepoUserEmail(repoPath); err == nil && email != "" {
+				repoEmail = email
+			}
 
-		// 收集统计
-		projectStats, err := h.gitCollector.CollectDailyStats(repoPath, date, repoEmail)
-		if err != nil {
-			h.logger.Warn("failed to collect git stats",
-				"repo_path", repoPath,
-				"date", date,
-				"error", err,
-			)
-			continue
-		}
+			// 收集统计
+			projectStats, err := h.gitCollector.CollectDailyStats(repoPath, date, repoEmail)
+			if err != nil {
+				h.logger.Warn("failed to collect git stats",
+					"repo_path", repoPath,
+					"date", date,
+					"error", err,
+				)
+				return
+			}
 
-		if projectStats.Commits > 0 {
-			stats.Projects = append(stats.Projects, *projectStats)
-			stats.TotalCommits += projectStats.Commits
-			stats.TotalAdded += projectStats.LinesAdded
-			stats.TotalRemoved += projectStats.LinesRemoved
-		}
+			if projectStats.Commits > 0 {
+				mu.Lock()
+				projectResults = append(projectResults, *projectStats)
+				mu.Unlock()
+			}
+		})
+	}
+
+	p.Wait()
+
+	// 汇总结果
+	for _, projectStats := range projectResults {
+		stats.Projects = append(stats.Projects, projectStats)
+		stats.TotalCommits += projectStats.Commits
+		stats.TotalAdded += projectStats.LinesAdded
+		stats.TotalRemoved += projectStats.LinesRemoved
 	}
 
 	return stats

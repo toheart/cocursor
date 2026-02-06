@@ -256,6 +256,12 @@ type GenerationTask struct {
 	Result *CallGraph `json:"result,omitempty"`
 	// Error 错误信息（失败时填充）
 	Error string `json:"error,omitempty"`
+	// ErrorCode 错误码（失败时填充）
+	ErrorCode string `json:"error_code,omitempty"`
+	// Suggestion 建议操作（失败时填充）
+	Suggestion string `json:"suggestion,omitempty"`
+	// Details 详细错误信息（失败时填充）
+	Details string `json:"details,omitempty"`
 	// StartedAt 开始时间
 	StartedAt *time.Time `json:"started_at,omitempty"`
 	// CompletedAt 完成时间

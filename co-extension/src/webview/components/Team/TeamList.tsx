@@ -11,6 +11,7 @@ import { TeamCreate } from "./TeamCreate";
 import { TeamJoin } from "./TeamJoin";
 import { MemberList } from "./MemberList";
 import { IdentitySetup } from "./IdentitySetup";
+import { NetworkSettings } from "./NetworkSettings";
 import { ToastContainer } from "../shared/ToastContainer";
 
 // 自动刷新间隔（30秒）
@@ -23,6 +24,7 @@ export const TeamList: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showIdentity, setShowIdentity] = useState(false);
+  const [showNetworkSettings, setShowNetworkSettings] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
   // 获取身份
@@ -132,13 +134,22 @@ export const TeamList: React.FC = () => {
       {/* Hero 区域 */}
       <div className="cocursor-team-hero">
         <div className="cocursor-team-title-row">
-          <h1 className="cocursor-team-title">{t("team.title")}</h1>
-          <span
-            className="cocursor-beta-badge"
-            title={t("team.betaTooltip")}
+          <div className="cocursor-team-title-left">
+            <h1 className="cocursor-team-title">{t("team.title")}</h1>
+            <span
+              className="cocursor-beta-badge"
+              title={t("team.betaTooltip")}
+            >
+              {t("team.beta")}
+            </span>
+          </div>
+          <button
+            className="cocursor-team-settings-btn"
+            onClick={() => setShowNetworkSettings(true)}
+            title={t("network.settings")}
           >
-            {t("team.beta")}
-          </span>
+            ⚙️
+          </button>
         </div>
         <p className="cocursor-team-subtitle">{t("team.subtitle")}</p>
       </div>
@@ -244,6 +255,10 @@ export const TeamList: React.FC = () => {
           onClose={() => setShowJoin(false)}
           onSuccess={handleTeamJoined}
         />
+      )}
+
+      {showNetworkSettings && (
+        <NetworkSettings onClose={() => setShowNetworkSettings(false)} />
       )}
     </div>
   );
