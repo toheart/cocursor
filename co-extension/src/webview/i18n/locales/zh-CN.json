@@ -289,7 +289,7 @@
     "ragSearch": "RAG 搜索",
     "ragConfig": "RAG 配置",
     "team": "团队",
-    "codeAnalysis": "代码分析",
+    "codeAnalysis": "Go 影响面分析",
     "switchToChinese": "切换到中文",
     "switchToEnglish": "Switch to English",
     "chinese": "中文",
@@ -301,7 +301,7 @@
     "marketplace": "技能市场 - CoCursor",
     "ragSearch": "RAG 搜索 - CoCursor",
     "team": "团队 - CoCursor",
-    "codeAnalysis": "代码分析 - CoCursor"
+    "codeAnalysis": "Go 影响面分析 - CoCursor"
   },
   "vscode": {
     "saveScreenshot": "保存日报截图",
@@ -332,8 +332,8 @@
     "openMarketplace": "打开技能市场",
     "team": "团队",
     "openTeam": "打开团队",
-    "codeAnalysis": "代码分析",
-    "openCodeAnalysis": "打开代码分析",
+    "codeAnalysis": "Go 影响面分析",
+    "openCodeAnalysis": "打开 Go 影响面分析",
     "recentSessions": "最近对话",
     "openSessions": "打开最近对话",
     "tokenTypes": {
@@ -918,7 +918,7 @@
     }
   },
   "codeAnalysis": {
-    "title": "代码影响面分析",
+    "title": "Go 影响面分析",
     "subtitle": "分析 Go 代码变更对上游函数的影响",
     "noWorkspace": "未打开工作区",
     "noWorkspaceDesc": "请在 VS Code 中打开一个 Go 项目后再使用此功能",

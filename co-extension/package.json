@@ -88,7 +88,7 @@
       },
       {
         "command": "cocursor.openCodeAnalysis",
-        "title": "打开代码分析"
+        "title": "打开 Go 影响面分析"
       },
       {
         "command": "cocursor.toggleStatusSharing",

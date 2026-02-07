@@ -289,7 +289,7 @@
     "ragSearch": "RAG Search",
     "ragConfig": "RAG Config",
     "team": "Team",
-    "codeAnalysis": "Code Analysis",
+    "codeAnalysis": "Go Impact Analysis",
     "switchToChinese": "Switch to Chinese",
     "switchToEnglish": "Switch to English",
     "chinese": "中文",
@@ -301,7 +301,7 @@
     "marketplace": "Skills Market - CoCursor",
     "ragSearch": "RAG Search - CoCursor",
     "team": "Team - CoCursor",
-    "codeAnalysis": "Code Analysis - CoCursor"
+    "codeAnalysis": "Go Impact Analysis - CoCursor"
   },
   "vscode": {
     "saveScreenshot": "Save Daily Report Screenshot",
@@ -332,8 +332,8 @@
     "openMarketplace": "Open Marketplace",
     "team": "Team",
     "openTeam": "Open Team",
-    "codeAnalysis": "Code Analysis",
-    "openCodeAnalysis": "Open Code Analysis",
+    "codeAnalysis": "Go Impact Analysis",
+    "openCodeAnalysis": "Open Go Impact Analysis",
     "recentSessions": "Recent Sessions",
     "openSessions": "Open Recent Sessions",
     "tokenTypes": {
@@ -918,7 +918,7 @@
     }
   },
   "codeAnalysis": {
-    "title": "Code Impact Analysis",
+    "title": "Go Impact Analysis",
     "subtitle": "Analyze how Go code changes affect upstream functions",
     "noWorkspace": "No Workspace Open",
     "noWorkspaceDesc": "Please open a Go project in VS Code to use this feature",
