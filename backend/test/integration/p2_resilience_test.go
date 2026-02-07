@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	domainTeam "github.com/cocursor/backend/internal/domain/team"
 	"github.com/cocursor/backend/test/integration/framework"
 )
 
@@ -78,6 +79,62 @@ func TestResilience_LeaderOffline(t *testing.T) {
 	leaveResp, err := memberClient.LeaveTeam(teamID)
 	require.NoError(t, err)
 	t.Logf("Leave team result: code=%d, message=%s", leaveResp.Code, leaveResp.Message)
+}
+
+// TestResilience_MemberShareWhenLeaderOffline Leader 离线时 Member 分享会话应返回明确错误
+func TestResilience_MemberShareWhenLeaderOffline(t *testing.T) {
+	framework.RequireDaemonBinary(t)
+
+	leader, err := framework.NewTestDaemon(framework.BinaryPath, "leader")
+	require.NoError(t, err)
+	require.NoError(t, leader.Start())
+
+	member, err := framework.NewTestDaemon(framework.BinaryPath, "member")
+	require.NoError(t, err)
+	require.NoError(t, member.Start())
+	defer member.Stop()
+
+	leaderClient := framework.NewAPIClient(leader.BaseURL())
+	memberClient := framework.NewAPIClient(member.BaseURL())
+
+	// 建团并加入
+	_, teamID, err := leaderClient.MustCreateIdentityAndTeam("Leader", "离线分享测试团队")
+	require.NoError(t, err)
+
+	leaderEndpoint := fmt.Sprintf("localhost:%d", leader.HTTPPort)
+	_, err = memberClient.MustJoinTeam("Member", leaderEndpoint)
+	require.NoError(t, err)
+	time.Sleep(2 * time.Second)
+
+	// === 停止 Leader ===
+	t.Log("--- Stopping Leader ---")
+	err = leader.Stop()
+	require.NoError(t, err)
+	t.Log("Leader stopped")
+
+	// 等待 Member 检测到 Leader 离线
+	time.Sleep(3 * time.Second)
+
+	// === Member 尝试分享会话（Leader 已离线） ===
+	t.Log("--- Member 尝试分享会话（Leader 离线） ---")
+	shareReq := &domainTeam.ShareSessionRequest{
+		SessionID: "offline-session-001",
+		Title:     "离线时的分享尝试",
+		Messages: framework.MakeMessages([]map[string]string{
+			{"role": "user", "content": "测试内容"},
+		}),
+		Description: "Leader 离线时的分享测试",
+	}
+
+	shareResp, err := memberClient.ShareSession(teamID, shareReq)
+	require.NoError(t, err)
+
+	// 应返回错误（非 500），而是明确的业务错误
+	assert.NotEqual(t, 0, shareResp.Code, "Leader 离线时分享应返回错误码")
+	t.Logf("Share when leader offline: code=%d, message=%s", shareResp.Code, shareResp.Message)
+
+	// Member 自身应该仍然健康
+	require.NoError(t, memberClient.HealthCheck(), "Member health 应正常")
 }
 
 // TestResilience_DaemonRestart Daemon 重启后数据持久化

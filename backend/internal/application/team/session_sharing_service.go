@@ -1,11 +1,14 @@
 package team
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -28,11 +31,23 @@ type SessionSharingService struct {
 	// 数据库连接（用于初始化仓储）
 	db *sql.DB
 
+	// HTTP 客户端（用于非 Leader 转发请求到 Leader）
+	httpClient *http.Client
+
 	logger *slog.Logger
 }
 
 // NewSessionSharingService 创建会话分享服务
 func NewSessionSharingService(teamService *TeamService, db *sql.DB) (*SessionSharingService, error) {
+	return NewSessionSharingServiceWithConfig(teamService, db, nil)
+}
+
+// NewSessionSharingServiceWithConfig 使用指定配置创建会话分享服务
+func NewSessionSharingServiceWithConfig(teamService *TeamService, db *sql.DB, config *TeamServiceConfig) (*SessionSharingService, error) {
+	if config == nil {
+		config = DefaultTeamServiceConfig()
+	}
+
 	repo := storage.NewSharedSessionRepository(db)
 
 	// 初始化表结构
@@ -44,6 +59,7 @@ func NewSessionSharingService(teamService *TeamService, db *sql.DB) (*SessionSha
 		teamService:       teamService,
 		sharedSessionRepo: repo,
 		db:                db,
+		httpClient:        config.HTTPClient,
 		logger:            log.NewModuleLogger("team", "session_sharing"),
 	}, nil
 }
@@ -116,8 +132,75 @@ func (s *SessionSharingService) ShareSession(ctx context.Context, teamID string,
 		return sharedSession.ID, nil
 	}
 
-	// 非 Leader，需要将请求转发到 Leader（由 HTTP handler 处理）
-	return "", fmt.Errorf("only leader can store shared sessions, please forward to leader")
+	// 非 Leader，转发请求到 Leader
+	if !team.LeaderOnline {
+		return "", fmt.Errorf("leader is offline, cannot share session")
+	}
+
+	return s.forwardShareToLeader(ctx, team, req, sharerID, sharerName)
+}
+
+// forwardShareToLeader 转发分享请求到 Leader
+func (s *SessionSharingService) forwardShareToLeader(ctx context.Context, team *domainTeam.Team, req *domainTeam.ShareSessionRequest, sharerID, sharerName string) (string, error) {
+	url := fmt.Sprintf("http://%s/api/v1/team/%s/sessions/share", team.LeaderEndpoint, team.ID)
+
+	// 构造转发请求体（包含身份信息）
+	forwardReq := struct {
+		SessionID   string          `json:"session_id"`
+		Title       string          `json:"title"`
+		Messages    json.RawMessage `json:"messages"`
+		Description string          `json:"description,omitempty"`
+	}{
+		SessionID:   req.SessionID,
+		Title:       req.Title,
+		Messages:    req.Messages,
+		Description: req.Description,
+	}
+
+	body, err := json.Marshal(forwardReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal forward request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create forward request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to forward share request to leader: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read leader response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("leader rejected share request: %s", string(respBody))
+	}
+
+	// 解析 Leader 返回的 share_id
+	var result struct {
+		Data struct {
+			ShareID string `json:"share_id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("failed to parse leader response: %w", err)
+	}
+
+	s.logger.Info("session shared via leader forwarding",
+		"share_id", result.Data.ShareID,
+		"team_id", team.ID,
+		"sharer_id", sharerID,
+		"title", req.Title,
+	)
+
+	return result.Data.ShareID, nil
 }
 
 // GetSharedSessions 获取团队分享的会话列表
@@ -250,8 +333,62 @@ func (s *SessionSharingService) AddComment(ctx context.Context, teamID, shareID 
 		return comment.ID, nil
 	}
 
-	// 非 Leader，需要将请求转发到 Leader（由 HTTP handler 处理）
-	return "", fmt.Errorf("only leader can store comments, please forward to leader")
+	// 非 Leader，转发请求到 Leader
+	if !team.LeaderOnline {
+		return "", fmt.Errorf("leader is offline, cannot add comment")
+	}
+
+	return s.forwardCommentToLeader(ctx, team, shareID, req, authorID, authorName)
+}
+
+// forwardCommentToLeader 转发评论请求到 Leader
+func (s *SessionSharingService) forwardCommentToLeader(ctx context.Context, team *domainTeam.Team, shareID string, req *domainTeam.AddCommentRequest, authorID, authorName string) (string, error) {
+	url := fmt.Sprintf("http://%s/api/v1/team/%s/sessions/%s/comments", team.LeaderEndpoint, team.ID, shareID)
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal forward request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create forward request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to forward comment request to leader: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read leader response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("leader rejected comment request: %s", string(respBody))
+	}
+
+	// 解析 Leader 返回的 comment_id
+	var result struct {
+		Data struct {
+			CommentID string `json:"comment_id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("failed to parse leader response: %w", err)
+	}
+
+	s.logger.Info("comment added via leader forwarding",
+		"comment_id", result.Data.CommentID,
+		"share_id", shareID,
+		"team_id", team.ID,
+		"author_id", authorID,
+	)
+
+	return result.Data.CommentID, nil
 }
 
 // GetComments 获取评论列表

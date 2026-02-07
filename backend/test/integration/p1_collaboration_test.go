@@ -172,6 +172,124 @@ func TestCollaboration_SessionSharing(t *testing.T) {
 	leaderClient.DissolveTeam(teamID)
 }
 
+// TestCollaboration_MemberShareSession Member 通过转发分享会话到 Leader
+func TestCollaboration_MemberShareSession(t *testing.T) {
+	leader, member, leaderClient, memberClient, teamID := setupTeamWithMembers(t)
+	defer leader.Stop()
+	defer member.Stop()
+
+	// === Member 通过自己的 API 分享会话（应自动转发到 Leader） ===
+	t.Log("--- Member 分享会话（转发到 Leader） ---")
+	shareReq := &domainTeam.ShareSessionRequest{
+		SessionID: "member-session-001",
+		Title:     "Member 的调试记录",
+		Messages: framework.MakeMessages([]map[string]string{
+			{"role": "user", "content": "这个 bug 怎么修？"},
+			{"role": "assistant", "content": "建议检查空指针。"},
+			{"role": "user", "content": "修好了，谢谢！"},
+		}),
+		Description: "Member 分享的一次调试过程",
+	}
+
+	shareResp, err := memberClient.ShareSession(teamID, shareReq)
+	require.NoError(t, err)
+	require.Equal(t, 0, shareResp.Code, "Member 分享会话应成功（转发到 Leader）, message: %s", shareResp.Message)
+	assert.NotEmpty(t, shareResp.Data.ShareID, "分享 ID 不应为空")
+	shareID := shareResp.Data.ShareID
+	t.Logf("Member shared session via forwarding: %s", shareID)
+
+	// === 在 Leader 端验证分享记录已存储 ===
+	t.Log("--- Leader 端验证分享记录 ---")
+	listResp, err := leaderClient.GetSharedSessions(teamID, 20, 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, listResp.Code)
+	assert.GreaterOrEqual(t, listResp.Data.Total, 1, "Leader 端应有至少 1 个分享")
+
+	found := false
+	for _, s := range listResp.Data.Sessions {
+		if s.Title == "Member 的调试记录" {
+			found = true
+			assert.Equal(t, "Member", s.SharerName, "分享者名称应为 Member")
+			t.Logf("Found member's shared session: %s by %s", s.Title, s.SharerName)
+		}
+	}
+	assert.True(t, found, "Leader 端应能找到 Member 分享的会话")
+
+	// === 查看详情验证内容完整性 ===
+	t.Log("--- 验证分享详情 ---")
+	detailResp, err := leaderClient.GetSharedSessionDetail(teamID, shareID)
+	require.NoError(t, err)
+	require.Equal(t, 0, detailResp.Code)
+	require.NotNil(t, detailResp.Data.Session)
+	assert.Equal(t, "Member 的调试记录", detailResp.Data.Session.Title)
+	assert.Equal(t, "Member 分享的一次调试过程", detailResp.Data.Session.Description)
+	assert.Equal(t, 3, detailResp.Data.Session.MessageCount, "消息数量应为 3")
+	t.Logf("Session detail: title=%s, messages=%d", detailResp.Data.Session.Title, detailResp.Data.Session.MessageCount)
+
+	// 清理
+	leaderClient.DissolveTeam(teamID)
+}
+
+// TestCollaboration_MemberAddComment Member 通过转发添加评论到 Leader
+func TestCollaboration_MemberAddComment(t *testing.T) {
+	leader, member, leaderClient, memberClient, teamID := setupTeamWithMembers(t)
+	defer leader.Stop()
+	defer member.Stop()
+
+	// === Leader 先分享一个会话 ===
+	t.Log("--- Leader 分享会话 ---")
+	shareReq := &domainTeam.ShareSessionRequest{
+		SessionID: "leader-session-for-comment",
+		Title:     "架构设计讨论",
+		Messages: framework.MakeMessages([]map[string]string{
+			{"role": "user", "content": "我们应该用什么架构？"},
+			{"role": "assistant", "content": "推荐 DDD 分层架构。"},
+		}),
+		Description: "关于系统架构的讨论",
+	}
+
+	shareResp, err := leaderClient.ShareSession(teamID, shareReq)
+	require.NoError(t, err)
+	require.Equal(t, 0, shareResp.Code, "Leader 分享会话应成功")
+	shareID := shareResp.Data.ShareID
+	t.Logf("Leader shared session: %s", shareID)
+
+	// === Member 通过自己的 API 添加评论（应自动转发到 Leader） ===
+	t.Log("--- Member 添加评论（转发到 Leader） ---")
+	commentResp, err := memberClient.AddComment(teamID, shareID, "DDD 架构很好，我之前用过，推荐！", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, commentResp.Code, "Member 添加评论应成功（转发到 Leader）, message: %s", commentResp.Message)
+	assert.NotEmpty(t, commentResp.Data.CommentID, "评论 ID 不应为空")
+	t.Logf("Member added comment via forwarding: %s", commentResp.Data.CommentID)
+
+	// === Leader 也添加一条评论 ===
+	t.Log("--- Leader 添加评论 ---")
+	commentResp2, err := leaderClient.AddComment(teamID, shareID, "好的，那就定 DDD 了", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, commentResp2.Code, "Leader 添加评论应成功")
+	t.Logf("Leader added comment: %s", commentResp2.Data.CommentID)
+
+	// === 验证 Leader 端能看到所有评论 ===
+	t.Log("--- 验证评论列表 ---")
+	detailResp, err := leaderClient.GetSharedSessionDetail(teamID, shareID)
+	require.NoError(t, err)
+	require.Equal(t, 0, detailResp.Code)
+	assert.GreaterOrEqual(t, len(detailResp.Data.Comments), 2, "应有至少 2 条评论")
+
+	// 验证 Member 的评论存在
+	memberCommentFound := false
+	for _, c := range detailResp.Data.Comments {
+		t.Logf("  Comment by %s: %s", c.AuthorName, c.Content)
+		if c.Content == "DDD 架构很好，我之前用过，推荐！" {
+			memberCommentFound = true
+		}
+	}
+	assert.True(t, memberCommentFound, "应能找到 Member 通过转发添加的评论")
+
+	// 清理
+	leaderClient.DissolveTeam(teamID)
+}
+
 // TestCollaboration_NetworkInterfaces 网络接口查询
 func TestCollaboration_NetworkInterfaces(t *testing.T) {
 	framework.RequireDaemonBinary(t)

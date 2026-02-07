@@ -90,11 +90,11 @@ func (f *TeamFactory) Initialize(port int, version string, dailySummaryRepo stor
 	// 创建周报服务（使用共享配置）
 	weeklyReportService := NewWeeklyReportServiceWithConfig(teamService, config)
 
-	// 创建会话分享服务
+	// 创建会话分享服务（使用共享配置）
 	var sessionSharingService *SessionSharingService
 	if db != nil {
 		var err error
-		sessionSharingService, err = NewSessionSharingService(teamService, db)
+		sessionSharingService, err = NewSessionSharingServiceWithConfig(teamService, db, config)
 		if err != nil {
 			f.logger.Warn("failed to create session sharing service", "error", err)
 			// 不阻塞其他服务初始化
