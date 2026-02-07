@@ -648,6 +648,11 @@ export class WebviewPanel {
           message.payload as { teamId: string; weekStart: string },
         );
         break;
+      case "fetchTeamMemberSummaries":
+        this._handleFetchTeamMemberSummaries(
+          message.payload as { teamId: string; weekStart: string },
+        );
+        break;
       // ========== 会话分享相关命令 ==========
       case "fetchSharedSessions":
         this._handleFetchSharedSessions(
@@ -2953,6 +2958,30 @@ export class WebviewPanel {
     } catch (error) {
       this._sendMessage({
         type: "refreshTeamWeeklyStats-response",
+        data: { error: error instanceof Error ? error.message : "未知错误" },
+      });
+    }
+  }
+
+  private async _handleFetchTeamMemberSummaries(payload: {
+    teamId: string;
+    weekStart: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.get(
+        `http://localhost:19960/api/v1/team/${payload.teamId}/member-summaries`,
+        {
+          params: { week_start: payload.weekStart },
+          timeout: 90000, // 需要从各成员拉取周报，可能较慢
+        },
+      );
+      this._sendMessage({
+        type: "fetchTeamMemberSummaries-response",
+        data: response.data,
+      });
+    } catch (error) {
+      this._sendMessage({
+        type: "fetchTeamMemberSummaries-response",
         data: { error: error instanceof Error ? error.message : "未知错误" },
       });
     }

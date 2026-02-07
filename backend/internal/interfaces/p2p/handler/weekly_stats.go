@@ -20,11 +20,12 @@ import (
 // WeeklyStatsHandler 周统计 P2P 处理器
 // 提供成员端的统计数据接口，供 Leader 拉取
 type WeeklyStatsHandler struct {
-	gitCollector     *git.StatsCollector
-	sessionRepo      storage.WorkspaceSessionRepository
-	dailySummaryRepo storage.DailySummaryRepository
-	projectManager   ProjectManagerInterface
-	logger           *slog.Logger
+	gitCollector      *git.StatsCollector
+	sessionRepo       storage.WorkspaceSessionRepository
+	dailySummaryRepo  storage.DailySummaryRepository
+	weeklySummaryRepo storage.WeeklySummaryRepository
+	projectManager    ProjectManagerInterface
+	logger            *slog.Logger
 }
 
 // ProjectManagerInterface 项目管理器接口
@@ -40,14 +41,16 @@ func NewWeeklyStatsHandler(
 	gitCollector *git.StatsCollector,
 	sessionRepo storage.WorkspaceSessionRepository,
 	dailySummaryRepo storage.DailySummaryRepository,
+	weeklySummaryRepo storage.WeeklySummaryRepository,
 	projectManager ProjectManagerInterface,
 ) *WeeklyStatsHandler {
 	return &WeeklyStatsHandler{
-		gitCollector:     gitCollector,
-		sessionRepo:      sessionRepo,
-		dailySummaryRepo: dailySummaryRepo,
-		projectManager:   projectManager,
-		logger:           log.NewModuleLogger("p2p", "weekly_stats"),
+		gitCollector:      gitCollector,
+		sessionRepo:       sessionRepo,
+		dailySummaryRepo:  dailySummaryRepo,
+		weeklySummaryRepo: weeklySummaryRepo,
+		projectManager:    projectManager,
+		logger:            log.NewModuleLogger("p2p", "weekly_stats"),
 	}
 }
 
@@ -126,7 +129,7 @@ func (h *WeeklyStatsHandler) GetDailyDetail(c *gin.Context) {
 }
 
 // collectWeeklyStats 收集一周的统计数据
-// 使用并发处理 7 天的数据收集，提升性能
+// 使用两级并发：7 天并发 + 每天内 3 类数据并发
 func (h *WeeklyStatsHandler) collectWeeklyStats(startDate time.Time, repoURLs []string) (*domainTeam.MemberWeeklyStats, error) {
 	stats := &domainTeam.MemberWeeklyStats{
 		WeekStart:  startDate.Format("2006-01-02"),
@@ -150,30 +153,7 @@ func (h *WeeklyStatsHandler) collectWeeklyStats(startDate time.Time, repoURLs []
 		dateStr := currentDate.Format("2006-01-02")
 
 		p.Go(func() {
-			dailyStats := domainTeam.MemberDailyStats{
-				Date:      dateStr,
-				WorkItems: []domainTeam.WorkItemSummary{},
-			}
-
-			// 收集 Git 统计
-			if userEmail != "" && len(repoURLs) > 0 {
-				gitStats := h.collectGitStats(dateStr, repoURLs, userEmail)
-				if gitStats != nil && gitStats.TotalCommits > 0 {
-					dailyStats.GitStats = gitStats
-				}
-			}
-
-			// 收集 Cursor 统计
-			cursorStats := h.collectCursorStats(dateStr, repoURLs)
-			if cursorStats != nil && cursorStats.SessionCount > 0 {
-				dailyStats.CursorStats = cursorStats
-			}
-
-			// 收集工作条目
-			workItems, hasReport := h.collectWorkItems(dateStr, repoURLs)
-			dailyStats.WorkItems = workItems
-			dailyStats.HasReport = hasReport
-
+			dailyStats := h.collectDailyStatsParallel(dateStr, repoURLs, userEmail)
 			stats.DailyStats[dayIndex] = dailyStats
 		})
 	}
@@ -181,6 +161,49 @@ func (h *WeeklyStatsHandler) collectWeeklyStats(startDate time.Time, repoURLs []
 	p.Wait()
 
 	return stats, nil
+}
+
+// collectDailyStatsParallel 并发收集单天的 Git/Cursor/WorkItems 三类数据
+func (h *WeeklyStatsHandler) collectDailyStatsParallel(date string, repoURLs []string, userEmail string) domainTeam.MemberDailyStats {
+	dailyStats := domainTeam.MemberDailyStats{
+		Date:      date,
+		WorkItems: []domainTeam.WorkItemSummary{},
+	}
+
+	var gitStats *domainTeam.GitDailyStats
+	var cursorStats *domainTeam.CursorDailyStats
+	var workItems []domainTeam.WorkItemSummary
+	var hasReport bool
+
+	// 三类数据并发收集
+	g := pool.New().WithMaxGoroutines(3)
+
+	g.Go(func() {
+		if userEmail != "" && len(repoURLs) > 0 {
+			gitStats = h.collectGitStats(date, repoURLs, userEmail)
+		}
+	})
+
+	g.Go(func() {
+		cursorStats = h.collectCursorStats(date, repoURLs)
+	})
+
+	g.Go(func() {
+		workItems, hasReport = h.collectWorkItems(date, repoURLs)
+	})
+
+	g.Wait()
+
+	if gitStats != nil && gitStats.TotalCommits > 0 {
+		dailyStats.GitStats = gitStats
+	}
+	if cursorStats != nil && cursorStats.SessionCount > 0 {
+		dailyStats.CursorStats = cursorStats
+	}
+	dailyStats.WorkItems = workItems
+	dailyStats.HasReport = hasReport
+
+	return dailyStats
 }
 
 // collectGitStats 收集 Git 统计
@@ -410,7 +433,7 @@ func (h *WeeklyStatsHandler) collectWorkItems(date string, repoURLs []string) ([
 	return workItems, hasReport
 }
 
-// collectDailyDetail 收集日详情
+// collectDailyDetail 收集日详情（Git/Cursor/WorkItems 并发）
 func (h *WeeklyStatsHandler) collectDailyDetail(date string, repoURLs []string) (*domainTeam.MemberDailyDetail, error) {
 	// 获取用户邮箱
 	userEmail, err := h.gitCollector.GetUserEmail()
@@ -418,25 +441,59 @@ func (h *WeeklyStatsHandler) collectDailyDetail(date string, repoURLs []string) 
 		userEmail = ""
 	}
 
+	// 复用并发收集逻辑
+	dailyStats := h.collectDailyStatsParallel(date, repoURLs, userEmail)
+
 	detail := &domainTeam.MemberDailyDetail{
 		Date:      date,
-		WorkItems: []domainTeam.WorkItemSummary{},
+		GitStats:  dailyStats.GitStats,
+		CursorStats: dailyStats.CursorStats,
+		WorkItems: dailyStats.WorkItems,
+		HasReport: dailyStats.HasReport,
 	}
-
-	// 收集 Git 统计
-	if userEmail != "" && len(repoURLs) > 0 {
-		detail.GitStats = h.collectGitStats(date, repoURLs, userEmail)
-	}
-
-	// 收集 Cursor 统计
-	detail.CursorStats = h.collectCursorStats(date, repoURLs)
-
-	// 收集工作条目
-	workItems, hasReport := h.collectWorkItems(date, repoURLs)
-	detail.WorkItems = workItems
-	detail.HasReport = hasReport
 
 	return detail, nil
+}
+
+// GetWeeklySummary 获取本地周报 Markdown 文本
+// 路由: GET /p2p/weekly-summary?week_start=2026-01-20
+func (h *WeeklyStatsHandler) GetWeeklySummary(c *gin.Context) {
+	weekStart := c.Query("week_start")
+	if weekStart == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "week_start is required"})
+		return
+	}
+
+	// 验证日期格式
+	if _, err := time.Parse("2006-01-02", weekStart); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid week_start format, expected YYYY-MM-DD"})
+		return
+	}
+
+	if h.weeklySummaryRepo == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"has_summary": false,
+			"week_start":  weekStart,
+			"summary":     "",
+		})
+		return
+	}
+
+	summary, err := h.weeklySummaryRepo.FindByWeekStart(weekStart)
+	if err != nil || summary == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"has_summary": false,
+			"week_start":  weekStart,
+			"summary":     "",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"has_summary": true,
+		"week_start":  weekStart,
+		"summary":     summary.Summary,
+	})
 }
 
 // RegisterRoutes 注册路由

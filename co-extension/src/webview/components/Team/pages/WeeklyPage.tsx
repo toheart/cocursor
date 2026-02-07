@@ -7,7 +7,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { apiService } from "../../../services/api";
-import { TeamWeeklyView, TeamProjectConfig, MemberDailyDetail } from "../../../types";
+import { TeamWeeklyView, TeamProjectConfig, MemberDailyDetail, TeamMemberSummariesView } from "../../../types";
 import { useApi, useToast } from "../../../hooks";
 import { useTeamStore } from "../stores";
 import { LoadingState, EmptyState } from "../shared";
@@ -16,6 +16,7 @@ import { WeeklyCalendar } from "../WeeklyCalendar";
 import { MemberDayDetailModal } from "../MemberDayDetail";
 import { ProjectConfig } from "../ProjectConfig";
 import { ProjectStats } from "../ProjectStats";
+import { TeamSummaryModal } from "../TeamSummaryModal";
 import "../../../styles/weekly-report.css";
 
 // 获取周一日期
@@ -69,6 +70,8 @@ export const WeeklyPage: React.FC = () => {
     null,
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingMaterial, setGeneratingMaterial] = useState(false);
+  const [summaryData, setSummaryData] = useState<TeamMemberSummariesView | null>(null);
 
   // 获取周报数据
   const fetchWeeklyReport = useCallback(async (): Promise<TeamWeeklyView> => {
@@ -171,6 +174,25 @@ export const WeeklyPage: React.FC = () => {
     refetch();
   }, [refetchConfig, refetch]);
 
+  const handleGenerateMaterial = useCallback(async () => {
+    if (!teamId) return;
+    setGeneratingMaterial(true);
+    try {
+      const data = await apiService.getTeamMemberSummaries(teamId, weekStart);
+      setSummaryData(data);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : t("weeklyReport.refreshFailed");
+      showToast(message, "error");
+    } finally {
+      setGeneratingMaterial(false);
+    }
+  }, [teamId, weekStart, showToast, t]);
+
+  const handleCloseSummary = useCallback(() => {
+    setSummaryData(null);
+  }, []);
+
   const hasProjects =
     projectConfig &&
     projectConfig.projects &&
@@ -222,6 +244,20 @@ export const WeeklyPage: React.FC = () => {
           )}
           <button
             className="ct-btn primary small"
+            onClick={handleGenerateMaterial}
+            disabled={generatingMaterial || loading}
+          >
+            {generatingMaterial ? (
+              <span className="ct-btn-spinner" />
+            ) : (
+              <span className="codicon codicon-notebook" />
+            )}
+            {generatingMaterial
+              ? t("weeklyReport.generating")
+              : t("weeklyReport.generateMaterial")}
+          </button>
+          <button
+            className="ct-btn secondary small"
             onClick={handleRefresh}
             disabled={refreshing || loading}
           >
@@ -300,6 +336,11 @@ export const WeeklyPage: React.FC = () => {
           teamId={teamId}
           onClose={handleCloseDetail}
         />
+      )}
+
+      {/* 团队周报素材汇总弹窗 */}
+      {summaryData && (
+        <TeamSummaryModal data={summaryData} onClose={handleCloseSummary} />
       )}
     </div>
   );

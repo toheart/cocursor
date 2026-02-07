@@ -116,6 +116,16 @@ func (s *TeamService) initLeaderStores() error {
 	}
 	s.memberStores[leaderTeam.ID] = memberStore
 
+	// 重启时同步成员数量到 teamStore（memberStore 从文件恢复后可能与 teamStore 不一致）
+	if memberCount := memberStore.Count(); memberCount != leaderTeam.MemberCount {
+		leaderTeam.MemberCount = memberCount
+		s.teamStore.Update(leaderTeam)
+		s.logger.Info("synced member count on startup",
+			"team_id", leaderTeam.ID,
+			"member_count", memberCount,
+		)
+	}
+
 	skillIndexStore, err := infraTeam.NewSkillIndexStore(leaderTeam.ID)
 	if err != nil {
 		return err
@@ -772,25 +782,29 @@ func (s *TeamService) HandleLeaveRequest(teamID, memberID string) error {
 	return nil
 }
 
-// updateMDNSMemberCount 更新 mDNS 成员数量
+// updateMDNSMemberCount 更新成员数量（teamStore + mDNS 广播）
 func (s *TeamService) updateMDNSMemberCount(teamID string) {
 	s.memberStoresMu.RLock()
 	memberStore := s.memberStores[teamID]
 	s.memberStoresMu.RUnlock()
 
-	if memberStore == nil || !s.advertiser.IsRunning() {
+	if memberStore == nil {
 		return
 	}
 
 	count := memberStore.Count()
-	s.advertiser.UpdateTxtRecords(map[string]string{
-		"member_count": fmt.Sprintf("%d", count),
-	})
 
-	// 同时更新本地团队信息
+	// 更新本地团队信息（无论 mDNS 是否运行都需要更新）
 	if team, err := s.teamStore.Get(teamID); err == nil {
 		team.MemberCount = count
 		s.teamStore.Update(team)
+	}
+
+	// 更新 mDNS 广播（仅在运行时）
+	if s.advertiser.IsRunning() {
+		s.advertiser.UpdateTxtRecords(map[string]string{
+			"member_count": fmt.Sprintf("%d", count),
+		})
 	}
 }
 

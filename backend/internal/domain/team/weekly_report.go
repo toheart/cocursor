@@ -262,6 +262,32 @@ func (c *WeeklyStatsCache) SetEntry(entry WeeklyStatsCacheEntry) {
 	c.UpdatedAt = time.Now()
 }
 
+// =====================
+// 成员周报汇总（团队周报素材）
+// =====================
+
+// MemberWeeklySummaryInfo 成员周报信息（从成员端拉取）
+type MemberWeeklySummaryInfo struct {
+	MemberID   string `json:"member_id"`   // 成员 ID
+	MemberName string `json:"member_name"` // 成员名称
+	WeekStart  string `json:"week_start"`  // 周起始日期
+	HasSummary bool   `json:"has_summary"` // 是否有周报
+	Summary    string `json:"summary"`     // 周报 Markdown 内容
+	IsOnline   bool   `json:"is_online"`   // 成员是否在线
+	Error      string `json:"error,omitempty"` // 拉取失败的错误信息
+}
+
+// TeamMemberSummariesView 团队成员周报汇总视图
+type TeamMemberSummariesView struct {
+	TeamID     string                    `json:"team_id"`     // 团队 ID
+	TeamName   string                    `json:"team_name"`   // 团队名称
+	WeekStart  string                    `json:"week_start"`  // 周起始日期
+	WeekEnd    string                    `json:"week_end"`    // 周结束日期
+	Members    []MemberWeeklySummaryInfo `json:"members"`     // 成员周报列表
+	AllReady   bool                      `json:"all_ready"`   // 是否所有成员都有周报
+	MissingMembers []string              `json:"missing_members"` // 缺少周报的成员名称列表
+}
+
 // CleanExpired 清理过期条目
 func (c *WeeklyStatsCache) CleanExpired() int {
 	now := time.Now()

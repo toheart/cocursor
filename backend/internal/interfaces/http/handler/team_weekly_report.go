@@ -414,3 +414,37 @@ func (h *TeamWeeklyReportHandler) RefreshWeeklyStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
+
+// GetMemberSummaries 获取成员周报汇总
+// @Summary 获取团队所有成员的周报 Markdown
+// @Description 从所有在线成员拉取周报内容，用于生成团队周报素材
+// @Tags Team Weekly Report
+// @Accept json
+// @Produce json
+// @Param id path string true "团队 ID"
+// @Param week_start query string true "周起始日期（YYYY-MM-DD）"
+// @Success 200 {object} domainTeam.TeamMemberSummariesView
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/team/{id}/member-summaries [get]
+func (h *TeamWeeklyReportHandler) GetMemberSummaries(c *gin.Context) {
+	teamID := c.Param("id")
+	if teamID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "team id is required"})
+		return
+	}
+
+	weekStart := c.Query("week_start")
+	if weekStart == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "week_start is required"})
+		return
+	}
+
+	view, err := h.weeklyReportService.GetMemberSummaries(c.Request.Context(), teamID, weekStart)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, view)
+}

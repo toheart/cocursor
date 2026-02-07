@@ -547,6 +547,28 @@ export interface MemberDailyDetail {
   is_cached: boolean;
 }
 
+// 成员周报信息
+export interface MemberWeeklySummaryInfo {
+  member_id: string;
+  member_name: string;
+  week_start: string;
+  has_summary: boolean;
+  summary: string;
+  is_online: boolean;
+  error?: string;
+}
+
+// 团队成员周报汇总视图
+export interface TeamMemberSummariesView {
+  team_id: string;
+  team_name: string;
+  week_start: string;
+  week_end: string;
+  members: MemberWeeklySummaryInfo[];
+  all_ready: boolean;
+  missing_members: string[];
+}
+
 // ========== VSCode 相关 ==========
 
 declare global {

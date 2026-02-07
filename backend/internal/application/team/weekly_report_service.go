@@ -637,6 +637,137 @@ func (s *WeeklyReportService) fetchMemberDailyDetail(ctx context.Context, endpoi
 	return &detail, nil
 }
 
+// GetMemberSummaries 收集所有成员的周报 Markdown（从各成员 P2P 拉取）
+func (s *WeeklyReportService) GetMemberSummaries(ctx context.Context, teamID, weekStart string) (*domainTeam.TeamMemberSummariesView, error) {
+	// 规范化到周一
+	startDate, err := s.normalizeToMonday(weekStart)
+	if err != nil {
+		return nil, err
+	}
+	weekStart = startDate.Format("2006-01-02")
+	weekEnd := startDate.AddDate(0, 0, 6).Format("2006-01-02")
+
+	// 获取团队信息
+	team, err := s.teamService.GetTeam(teamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get team: %w", err)
+	}
+
+	// 获取团队成员
+	members, err := s.teamService.GetTeamMembers(teamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get team members: %w", err)
+	}
+
+	// 获取本地身份
+	localIdentity, _ := s.teamService.GetIdentity()
+	var localMemberID string
+	if localIdentity != nil {
+		localMemberID = localIdentity.ID
+	}
+
+	// 并发从所有在线成员拉取周报
+	result := &domainTeam.TeamMemberSummariesView{
+		TeamID:    teamID,
+		TeamName:  team.Name,
+		WeekStart: weekStart,
+		WeekEnd:   weekEnd,
+		Members:   make([]domainTeam.MemberWeeklySummaryInfo, len(members)),
+	}
+
+	p := pool.New().WithContext(ctx)
+	for i, member := range members {
+		idx := i
+		m := member
+		p.Go(func(ctx context.Context) error {
+			info := domainTeam.MemberWeeklySummaryInfo{
+				MemberID:   m.ID,
+				MemberName: m.Name,
+				WeekStart:  weekStart,
+				IsOnline:   m.IsOnline,
+			}
+
+			if !m.IsOnline {
+				info.Error = "member offline"
+				result.Members[idx] = info
+				return nil
+			}
+
+			// 如果是本地成员，使用 127.0.0.1
+			endpoint := m.Endpoint
+			if m.ID == localMemberID {
+				endpoint = fmt.Sprintf("127.0.0.1:%d", s.config.Port)
+			}
+
+			summary, err := s.fetchMemberWeeklySummary(ctx, endpoint, weekStart)
+			if err != nil {
+				s.logger.Warn("failed to fetch member weekly summary",
+					"memberID", m.ID,
+					"endpoint", m.Endpoint,
+					"error", err,
+				)
+				info.Error = err.Error()
+				result.Members[idx] = info
+				return nil
+			}
+
+			info.HasSummary = summary.HasSummary
+			info.Summary = summary.Summary
+			result.Members[idx] = info
+			return nil
+		})
+	}
+	_ = p.Wait()
+
+	// 统计缺少周报的成员
+	var missingMembers []string
+	allReady := true
+	for _, m := range result.Members {
+		if !m.HasSummary {
+			allReady = false
+			missingMembers = append(missingMembers, m.MemberName)
+		}
+	}
+	result.AllReady = allReady
+	result.MissingMembers = missingMembers
+
+	return result, nil
+}
+
+// fetchMemberWeeklySummary 从成员端拉取周报 Markdown
+func (s *WeeklyReportService) fetchMemberWeeklySummary(ctx context.Context, endpoint, weekStart string) (*struct {
+	HasSummary bool   `json:"has_summary"`
+	Summary    string `json:"summary"`
+}, error) {
+	url := fmt.Sprintf("http://%s/p2p/weekly-summary?week_start=%s", endpoint, weekStart)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("member returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		HasSummary bool   `json:"has_summary"`
+		Summary    string `json:"summary"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
 func (s *WeeklyReportService) normalizeToMonday(dateStr string) (time.Time, error) {
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {

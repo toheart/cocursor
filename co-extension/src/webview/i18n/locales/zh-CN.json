@@ -577,7 +577,20 @@
     "projectSummary": "项目汇总",
     "added": "添加",
     "removed": "删除",
-    "contributors": "贡献者"
+    "contributors": "贡献者",
+    "generateMaterial": "生成周报素材",
+    "generating": "收集中...",
+    "summaryTitle": "团队周报素材",
+    "summaryDesc": "汇总所有成员的周报内容，复制后粘贴到 Cursor Chat 中生成团队周报。",
+    "missingWarning": "以下成员尚未生成周报，请通知他们先运行 weekly-summary skill：",
+    "cannotGenerate": "无法生成",
+    "cannotGenerateDesc": "所有成员均未生成周报，无法生成团队周报素材。",
+    "copySuccess": "已复制到剪贴板",
+    "copyToClipboard": "复制到剪贴板",
+    "memberSummary": "{{name}} 的周报",
+    "noSummaryContent": "（未生成周报）",
+    "offlineMember": "（离线，无法获取）",
+    "fetchError": "（获取失败）"
   },
   "rag": {
     "beta": "Beta",

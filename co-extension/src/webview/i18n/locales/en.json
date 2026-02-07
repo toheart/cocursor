@@ -577,7 +577,20 @@
     "projectSummary": "Project Summary",
     "added": "Added",
     "removed": "Removed",
-    "contributors": "Contributors"
+    "contributors": "Contributors",
+    "generateMaterial": "Generate Report",
+    "generating": "Collecting...",
+    "summaryTitle": "Team Weekly Report Material",
+    "summaryDesc": "Summarize all members' weekly reports. Copy and paste into Cursor Chat to generate team weekly report.",
+    "missingWarning": "The following members have not generated their weekly reports yet. Please ask them to run the weekly-summary skill:",
+    "cannotGenerate": "Cannot Generate",
+    "cannotGenerateDesc": "No members have generated their weekly reports. Cannot generate team weekly report material.",
+    "copySuccess": "Copied to clipboard",
+    "copyToClipboard": "Copy to Clipboard",
+    "memberSummary": "{{name}}'s Weekly Report",
+    "noSummaryContent": "(No report generated)",
+    "offlineMember": "(Offline, cannot fetch)",
+    "fetchError": "(Fetch failed)"
   },
   "rag": {
     "beta": "Beta",

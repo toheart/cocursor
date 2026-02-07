@@ -6,6 +6,7 @@ import type {
   ProjectMatcher,
   TeamWeeklyView,
   MemberDailyDetail,
+  TeamMemberSummariesView,
 } from "../types";
 
 // VS Code API 单例管理器（每个 webview 实例只能获取一次）
@@ -628,6 +629,19 @@ class ApiService {
       memberId,
       date,
     }) as Promise<MemberDailyDetail>;
+  }
+
+  // 获取团队成员周报汇总
+  // 需要从各成员 P2P 拉取，使用较长超时（90秒）
+  async getTeamMemberSummaries(
+    teamId: string,
+    weekStart: string,
+  ): Promise<TeamMemberSummariesView> {
+    return this.postMessage(
+      "fetchTeamMemberSummaries",
+      { teamId, weekStart },
+      90000,
+    ) as Promise<TeamMemberSummariesView>;
   }
 
   // 刷新团队周统计

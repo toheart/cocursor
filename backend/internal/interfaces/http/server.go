@@ -35,10 +35,11 @@ type HTTPServer struct {
 	logger           *slog.Logger
 	teamComponents   *appTeam.TeamComponents
 	pluginService    *appMarketplace.PluginService
-	dailySummaryRepo storage.DailySummaryRepository
-	sessionRepo      storage.WorkspaceSessionRepository
-	projectManager   *appCursor.ProjectManager
-	shutdownChan     chan struct{} // 用于接收关闭信号
+	dailySummaryRepo    storage.DailySummaryRepository
+	weeklySummaryRepo   storage.WeeklySummaryRepository
+	sessionRepo         storage.WorkspaceSessionRepository
+	projectManager      *appCursor.ProjectManager
+	shutdownChan        chan struct{} // 用于接收关闭信号
 }
 
 // NewServer 创建 HTTP 服务器
@@ -60,6 +61,7 @@ func NewServer(
 	mcpServer *mcp.MCPServer,
 	pluginService *appMarketplace.PluginService,
 	dailySummaryRepo storage.DailySummaryRepository,
+	weeklySummaryRepo storage.WeeklySummaryRepository,
 	sessionRepo storage.WorkspaceSessionRepository,
 	projectManager *appCursor.ProjectManager,
 ) *HTTPServer {
@@ -252,7 +254,8 @@ func NewServer(
 		httpPort:         cfg.Server.HTTPPort,
 		logger:           logger,
 		pluginService:    pluginService,
-		dailySummaryRepo: dailySummaryRepo,
+		dailySummaryRepo:  dailySummaryRepo,
+		weeklySummaryRepo: weeklySummaryRepo,
 		sessionRepo:      sessionRepo,
 		projectManager:   projectManager,
 		shutdownChan:     shutdownChan,
@@ -381,6 +384,7 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 		team.GET("/:id/weekly-report", weeklyReportHandler.GetWeeklyReport)
 		team.GET("/:id/members/:member_id/daily-detail", weeklyReportHandler.GetMemberDailyDetail)
 		team.POST("/:id/weekly-report/refresh", weeklyReportHandler.RefreshWeeklyStats)
+		team.GET("/:id/member-summaries", weeklyReportHandler.GetMemberSummaries)
 
 		// 会话分享功能
 		if components.SessionSharingService != nil {
@@ -410,10 +414,12 @@ func (s *HTTPServer) initTeamRoutes(api *gin.RouterGroup) {
 			gitCollector,
 			s.sessionRepo,
 			s.dailySummaryRepo,
+			s.weeklySummaryRepo,
 			s.projectManager,
 		)
 		p2p.GET("/weekly-stats", weeklyStatsHandler.GetWeeklyStats)
 		p2p.GET("/daily-detail", weeklyStatsHandler.GetDailyDetail)
+		p2p.GET("/weekly-summary", weeklyStatsHandler.GetWeeklySummary)
 	}
 
 	// 注册团队 P2P 路由（用于团队加入、成员管理等）
