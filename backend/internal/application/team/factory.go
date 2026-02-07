@@ -84,6 +84,17 @@ func (f *TeamFactory) Initialize(port int, version string, dailySummaryRepo stor
 	// 创建同步服务（通过接口依赖 TeamService）
 	syncService := NewSyncService(teamService, config)
 
+	// 设置事件监听器，用于 ConnectionManager 延迟初始化时使用
+	eventListener := NewEventListener(syncService, teamService)
+	teamService.SetEventListener(eventListener)
+
+	// 尝试初始化 ConnectionManager（如果身份已存在）
+	// 身份不存在时会在 EnsureIdentity/CreateIdentity 中延迟初始化
+	teamService.EnsureConnectionManager()
+
+	// 恢复已有的 Member 角色 WebSocket 连接
+	teamService.InitMemberConnections()
+
 	// 创建协作服务
 	collaborationService := NewCollaborationService(teamService, dailySummaryRepo)
 

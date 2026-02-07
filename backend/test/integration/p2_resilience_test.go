@@ -137,6 +137,165 @@ func TestResilience_MemberShareWhenLeaderOffline(t *testing.T) {
 	require.NoError(t, memberClient.HealthCheck(), "Member health 应正常")
 }
 
+// TestResilience_MemberOfflineDetection Member 停止后 Leader 应检测到离线
+func TestResilience_MemberOfflineDetection(t *testing.T) {
+	framework.RequireDaemonBinary(t)
+
+	leader, err := framework.NewTestDaemon(framework.BinaryPath, "leader")
+	require.NoError(t, err)
+	require.NoError(t, leader.Start())
+	defer leader.Stop()
+
+	member, err := framework.NewTestDaemon(framework.BinaryPath, "member")
+	require.NoError(t, err)
+	require.NoError(t, member.Start())
+
+	leaderClient := framework.NewAPIClient(leader.BaseURL())
+	memberClient := framework.NewAPIClient(member.BaseURL())
+
+	// 建团并加入
+	_, teamID, err := leaderClient.MustCreateIdentityAndTeam("Leader", "离线检测测试团队")
+	require.NoError(t, err)
+
+	leaderEndpoint := fmt.Sprintf("localhost:%d", leader.HTTPPort)
+	_, err = memberClient.MustJoinTeam("Member", leaderEndpoint)
+	require.NoError(t, err)
+
+	// 等待 WebSocket 连接建立，确认 Member 在线
+	var memberOnline bool
+	for i := 0; i < 15; i++ {
+		time.Sleep(1 * time.Second)
+		members, err := leaderClient.GetTeamMembers(teamID)
+		if err == nil {
+			for _, m := range members.Data.Members {
+				t.Logf("  [wait online %d] %s is_leader=%v is_online=%v", i+1, m.Name, m.IsLeader, m.IsOnline)
+				if !m.IsLeader && m.IsOnline {
+					memberOnline = true
+				}
+			}
+			if memberOnline {
+				break
+			}
+		}
+	}
+	require.True(t, memberOnline, "Member 应该在线（WebSocket 连接应触发 EventMemberOnline）")
+	t.Log("Member is online, confirmed by Leader")
+
+	// === 停止 Member ===
+	t.Log("--- Stopping Member ---")
+	err = member.Stop()
+	require.NoError(t, err)
+	t.Log("Member stopped")
+
+	// 等待 Leader 检测到 Member 离线（正常关闭会发送 TCP FIN，应该很快检测到）
+	var memberOffline bool
+	for i := 0; i < 15; i++ {
+		time.Sleep(1 * time.Second)
+		members, err := leaderClient.GetTeamMembers(teamID)
+		if err != nil {
+			continue
+		}
+		allNonLeaderOffline := true
+		for _, m := range members.Data.Members {
+			if !m.IsLeader {
+				if m.IsOnline {
+					allNonLeaderOffline = false
+				}
+				t.Logf("  [retry %d] Member %s is_online=%v", i+1, m.Name, m.IsOnline)
+			}
+		}
+		if allNonLeaderOffline {
+			memberOffline = true
+			break
+		}
+	}
+	assert.True(t, memberOffline, "Leader 应检测到 Member 离线")
+	t.Log("=== Member 离线检测测试通过 ===")
+}
+
+// TestResilience_LeaderRestartResetsOnlineStatus Leader 重启后成员在线状态应重置为离线
+func TestResilience_LeaderRestartResetsOnlineStatus(t *testing.T) {
+	framework.RequireDaemonBinary(t)
+
+	leader, err := framework.NewTestDaemon(framework.BinaryPath, "leader")
+	require.NoError(t, err)
+	require.NoError(t, leader.Start())
+
+	member, err := framework.NewTestDaemon(framework.BinaryPath, "member")
+	require.NoError(t, err)
+	require.NoError(t, member.Start())
+	defer member.Stop()
+
+	leaderClient := framework.NewAPIClient(leader.BaseURL())
+	memberClient := framework.NewAPIClient(member.BaseURL())
+
+	// 建团并加入
+	_, teamID, err := leaderClient.MustCreateIdentityAndTeam("Leader", "重启状态测试团队")
+	require.NoError(t, err)
+
+	leaderEndpoint := fmt.Sprintf("localhost:%d", leader.HTTPPort)
+	_, err = memberClient.MustJoinTeam("Member", leaderEndpoint)
+	require.NoError(t, err)
+
+	// 等待成员同步，确认 Member 在线
+	var memberOnline bool
+	for i := 0; i < 10; i++ {
+		time.Sleep(1 * time.Second)
+		members, err := leaderClient.GetTeamMembers(teamID)
+		if err == nil && len(members.Data.Members) >= 2 {
+			for _, m := range members.Data.Members {
+				if !m.IsLeader && m.IsOnline {
+					memberOnline = true
+					break
+				}
+			}
+			if memberOnline {
+				break
+			}
+		}
+	}
+	require.True(t, memberOnline, "Member 应该在线")
+	t.Log("Member is online, confirmed by Leader")
+
+	// 记录 Leader 配置用于重启
+	dataDir := leader.DataDir
+	httpPort := leader.HTTPPort
+	mcpPort := leader.MCPPort
+
+	// === 停止 Leader（保留数据） ===
+	t.Log("--- Stopping Leader (data preserved) ---")
+	err = leader.StopWithCleanup(false)
+	require.NoError(t, err)
+	t.Log("Leader stopped")
+
+	time.Sleep(1 * time.Second)
+
+	// === 用相同数据目录和端口重启 Leader ===
+	t.Log("--- Restarting Leader ---")
+	leader2, err := framework.NewTestDaemonWithConfig(framework.BinaryPath, "leader-restarted", dataDir, httpPort, mcpPort)
+	require.NoError(t, err)
+	require.NoError(t, leader2.Start())
+	defer leader2.Stop()
+
+	leaderClient2 := framework.NewAPIClient(leader2.BaseURL())
+
+	// 验证重启后非 Leader 成员应为离线（因为没有 WebSocket 连接）
+	members, err := leaderClient2.GetTeamMembers(teamID)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(members.Data.Members), 2, "重启后成员列表应保留")
+
+	for _, m := range members.Data.Members {
+		if m.IsLeader {
+			assert.True(t, m.IsOnline, "Leader 重启后自身应在线")
+			t.Logf("Leader %s: is_online=%v (expected: true)", m.Name, m.IsOnline)
+		} else {
+			assert.False(t, m.IsOnline, "重启后非 Leader 成员应为离线")
+			t.Logf("Member %s: is_online=%v (expected: false)", m.Name, m.IsOnline)
+		}
+	}
+	t.Log("=== Leader 重启后在线状态重置测试通过 ===")
+}
+
 // TestResilience_DaemonRestart Daemon 重启后数据持久化
 func TestResilience_DaemonRestart(t *testing.T) {
 	framework.RequireDaemonBinary(t)

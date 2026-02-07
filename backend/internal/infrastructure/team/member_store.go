@@ -61,6 +61,10 @@ func (s *MemberStore) load() error {
 	s.members = make(map[string]*domainTeam.TeamMember)
 	for i := range file.Members {
 		member := file.Members[i]
+		// 启动时重置非 Leader 成员的在线状态，因为此时尚无 WebSocket 连接
+		if !member.IsLeader {
+			member.IsOnline = false
+		}
 		s.members[member.ID] = &member
 	}
 
