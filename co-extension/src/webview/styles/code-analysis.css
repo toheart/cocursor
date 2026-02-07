@@ -698,6 +698,53 @@
   margin-bottom: 0;
 }
 
+/* ========== 集成测试配置 ========== */
+.ca-field {
+  margin-bottom: 16px;
+}
+
+.ca-field:last-child {
+  margin-bottom: 0;
+}
+
+.ca-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ca-field-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ca-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+}
+
+/* ========== Skill 使用提示 ========== */
+.ca-skill-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-top: 12px;
+  background: var(--vscode-textBlockQuote-background);
+  border-left: 3px solid var(--vscode-textLink-foreground);
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+}
+
+.ca-skill-hint-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
 /* ========== 响应式 ========== */
 @media (max-width: 500px) {
   .ca-algorithm-grid {

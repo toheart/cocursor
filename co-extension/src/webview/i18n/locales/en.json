@@ -951,9 +951,16 @@
     "edges": "Call Edges",
     "generationTime": "Generation Time",
     "howToUse": "How to Use",
-    "step1": "After generating call graph, use \"code-impact-analysis\" Skill in Cursor",
+    "baseCommit": "Base Commit / Branch",
+    "baseCommitHint": "The call graph will be generated based on this commit. E.g. HEAD, main, abc1234",
+    "integrationTest": "Integration Test",
+    "testDir": "Test Directory",
+    "testTag": "Build Tag",
+    "integrationTestHint": "Configure the integration test directory and build tag for precision test analysis",
+    "skillHint": "Install \"Go Precision Test\" from the Marketplace first, then type \"precision test analysis\" in chat to analyze which integration tests need to run.",
+    "step1": "After generating call graph, use \"go-precision-test\" Skill in Cursor",
     "step2": "The skill will automatically analyze Git diff and identify changed functions",
-    "step3": "Query impact surface using call graph and generate analysis report",
+    "step3": "Query impact surface using call graph and recommend integration tests to run",
     "success": {
       "register": "Project registered successfully",
       "generate": "Call graph generated: {{funcCount}} functions, {{edgeCount}} edges, took {{time}}s"

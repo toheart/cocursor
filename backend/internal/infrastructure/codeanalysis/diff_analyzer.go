@@ -157,15 +157,26 @@ func (a *DiffAnalyzer) GetCommitsBetween(ctx context.Context, projectPath string
 }
 
 // getDiffHunks 获取 diff 块
+// commitRange 支持以下值：
+//   - "working" 或 ""：分析工作区未提交的改动（git diff HEAD）
+//   - "HEAD~1..HEAD"：分析最近一次提交
+//   - "main..HEAD"：分析分支对比
 func (a *DiffAnalyzer) getDiffHunks(ctx context.Context, projectPath string, commitRange string) ([]diffHunk, error) {
 	cmdCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// 使用 --unified=0 获取精确的行号
-	cmd := exec.CommandContext(cmdCtx, "git", "-C", projectPath, "diff", "--unified=0", commitRange)
+	// 构建 git diff 命令参数
+	args := []string{"-C", projectPath, "diff", "--unified=0"}
+	if commitRange == "" || commitRange == "working" {
+		// 工作区未提交的改动：对比 HEAD
+		args = append(args, "HEAD")
+	} else {
+		args = append(args, commitRange)
+	}
+
+	cmd := exec.CommandContext(cmdCtx, "git", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		// 尝试不同的方式
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			a.logger.Warn("git diff failed", "stderr", string(exitErr.Stderr))
 		}

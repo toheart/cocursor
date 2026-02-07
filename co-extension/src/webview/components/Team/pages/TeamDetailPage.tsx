@@ -86,15 +86,16 @@ export const TeamDetailPage: React.FC = () => {
         icon: "comment-discussion",
         path: "sessions",
       },
-      {
-        id: "skills",
-        label: t("team.skills"),
-        icon: "package",
-        count: skills?.length || 0,
-        path: "skills",
-      },
+      // 团队技能功能暂时隐藏，技能通过内建技能市场分发
+      // {
+      //   id: "skills",
+      //   label: t("team.skills"),
+      //   icon: "package",
+      //   count: skills?.length || 0,
+      //   path: "skills",
+      // },
     ],
-    [t, members?.length, skills?.length],
+    [t, members?.length],
   );
 
   if (!team) {

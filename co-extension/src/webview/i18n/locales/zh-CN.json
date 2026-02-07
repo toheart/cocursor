@@ -951,9 +951,16 @@
     "edges": "调用边",
     "generationTime": "生成耗时",
     "howToUse": "如何使用",
-    "step1": "配置并生成调用图后，在 Cursor 中使用 \"code-impact-analysis\" Skill",
+    "baseCommit": "Base Commit / 分支",
+    "baseCommitHint": "调用图将基于此 commit 的代码生成。如 HEAD、main、abc1234",
+    "integrationTest": "集成测试",
+    "testDir": "测试目录",
+    "testTag": "Build Tag",
+    "integrationTestHint": "配置集成测试目录和 build tag，用于精准测试分析",
+    "skillHint": "请先在技能市场安装「Go 精准测试」技能，然后在对话中输入「精准测试分析」来分析当前改动需要运行哪些集成测试。",
+    "step1": "配置并生成调用图后，在 Cursor 中使用 \"go-precision-test\" Skill",
     "step2": "Skill 会自动分析 Git diff，识别变更的函数",
-    "step3": "结合调用图查询影响面，生成分析报告",
+    "step3": "结合调用图查询影响面，推荐需要运行的集成测试",
     "success": {
       "register": "项目注册成功",
       "generate": "调用图生成成功：{{funcCount}} 个函数，{{edgeCount}} 条调用边，耗时 {{time}}s"

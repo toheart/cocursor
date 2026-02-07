@@ -206,7 +206,7 @@ func (s *SessionSharingService) forwardShareToLeader(ctx context.Context, team *
 // GetSharedSessions 获取团队分享的会话列表
 func (s *SessionSharingService) GetSharedSessions(ctx context.Context, teamID string, limit, offset int) ([]domainTeam.SharedSessionListItem, int, error) {
 	// 验证团队存在
-	_, err := s.teamService.GetTeam(teamID)
+	team, err := s.teamService.GetTeam(teamID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("team not found: %w", err)
 	}
@@ -219,17 +219,42 @@ func (s *SessionSharingService) GetSharedSessions(ctx context.Context, teamID st
 		limit = 100
 	}
 
-	return s.sharedSessionRepo.FindByTeamID(teamID, limit, offset)
+	// 如果是 Leader，直接查本地数据库
+	if team.IsLeader {
+		return s.sharedSessionRepo.FindByTeamID(teamID, limit, offset)
+	}
+
+	// 非 Leader，转发请求到 Leader
+	if !team.LeaderOnline {
+		return nil, 0, fmt.Errorf("leader is offline, cannot get shared sessions")
+	}
+
+	return s.forwardGetSessionsToLeader(ctx, team, limit, offset)
 }
 
 // GetSharedSessionDetail 获取分享会话详情
 func (s *SessionSharingService) GetSharedSessionDetail(ctx context.Context, teamID, shareID string) (*domainTeam.SharedSession, []domainTeam.SessionComment, error) {
 	// 验证团队存在
-	_, err := s.teamService.GetTeam(teamID)
+	team, err := s.teamService.GetTeam(teamID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("team not found: %w", err)
 	}
 
+	// 如果是 Leader，直接从本地数据库查询
+	if team.IsLeader {
+		return s.getSharedSessionDetailLocal(shareID, teamID)
+	}
+
+	// 非 Leader，转发请求到 Leader
+	if !team.LeaderOnline {
+		return nil, nil, fmt.Errorf("leader is offline, cannot get shared session detail")
+	}
+
+	return s.forwardGetSessionDetailToLeader(ctx, team, shareID)
+}
+
+// getSharedSessionDetailLocal 从本地数据库获取分享会话详情（Leader 端）
+func (s *SessionSharingService) getSharedSessionDetailLocal(shareID, teamID string) (*domainTeam.SharedSession, []domainTeam.SessionComment, error) {
 	// 获取分享详情
 	session, err := s.sharedSessionRepo.FindByID(shareID)
 	if err != nil {
@@ -394,6 +419,93 @@ func (s *SessionSharingService) forwardCommentToLeader(ctx context.Context, team
 // GetComments 获取评论列表
 func (s *SessionSharingService) GetComments(ctx context.Context, shareID string) ([]domainTeam.SessionComment, error) {
 	return s.sharedSessionRepo.FindCommentsByShareID(shareID)
+}
+
+// forwardGetSessionsToLeader 转发获取会话列表请求到 Leader
+func (s *SessionSharingService) forwardGetSessionsToLeader(ctx context.Context, team *domainTeam.Team, limit, offset int) ([]domainTeam.SharedSessionListItem, int, error) {
+	url := fmt.Sprintf("http://%s/api/v1/team/%s/sessions?limit=%d&offset=%d", team.LeaderEndpoint, team.ID, limit, offset)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to create forward request: %w", err)
+	}
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to forward get sessions request to leader: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to read leader response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("leader rejected get sessions request: %s", string(respBody))
+	}
+
+	// 解析 Leader 返回的会话列表
+	var result struct {
+		Data struct {
+			Sessions []domainTeam.SharedSessionListItem `json:"sessions"`
+			Total    int                                `json:"total"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, 0, fmt.Errorf("failed to parse leader response: %w", err)
+	}
+
+	s.logger.Info("fetched shared sessions via leader forwarding",
+		"team_id", team.ID,
+		"count", len(result.Data.Sessions),
+		"total", result.Data.Total,
+	)
+
+	return result.Data.Sessions, result.Data.Total, nil
+}
+
+// forwardGetSessionDetailToLeader 转发获取会话详情请求到 Leader
+func (s *SessionSharingService) forwardGetSessionDetailToLeader(ctx context.Context, team *domainTeam.Team, shareID string) (*domainTeam.SharedSession, []domainTeam.SessionComment, error) {
+	url := fmt.Sprintf("http://%s/api/v1/team/%s/sessions/%s", team.LeaderEndpoint, team.ID, shareID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create forward request: %w", err)
+	}
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forward get session detail request to leader: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read leader response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("leader rejected get session detail request: %s", string(respBody))
+	}
+
+	// 解析 Leader 返回的会话详情
+	var result struct {
+		Data struct {
+			Session  *domainTeam.SharedSession    `json:"session"`
+			Comments []domainTeam.SessionComment  `json:"comments"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse leader response: %w", err)
+	}
+
+	s.logger.Info("fetched shared session detail via leader forwarding",
+		"team_id", team.ID,
+		"share_id", shareID,
+	)
+
+	return result.Data.Session, result.Data.Comments, nil
 }
 
 // HandleSessionSharedEvent 处理会话分享事件（Leader 端）

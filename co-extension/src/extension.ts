@@ -255,22 +255,22 @@ export function activate(context: vscode.ExtensionContext): void {
           }
         );
 
-        if (!sessionResp.data?.data?.session) {
+        const sessionDetail = sessionResp.data?.data;
+        if (!sessionDetail?.session) {
           vscode.window.showErrorMessage("获取会话详情失败");
           return;
         }
-
-        const session = sessionResp.data.data.session;
 
         // 5. 调用分享 API
         await axios.post(
           `http://localhost:19960/api/v1/team/${targetTeamId}/sessions/share`,
           {
-            title: session.name || item.label,
-            messages: session.messages || [],
+            session_id: item.composerId,
+            title: sessionDetail.session.name || item.label,
+            messages: sessionDetail.messages || [],
             description: description || undefined
           },
-          { timeout: 10000 }
+          { timeout: 30000 }
         );
 
         vscode.window.showInformationMessage(`会话已分享到团队「${targetTeamName}」`);

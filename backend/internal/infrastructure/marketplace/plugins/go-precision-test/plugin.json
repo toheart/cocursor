@@ -1,0 +1,23 @@
+{
+  "id": "go-precision-test",
+  "name": "Go 精准测试",
+  "name_i18n": {
+    "zh-CN": "Go 精准测试",
+    "en": "Go Precision Test"
+  },
+  "description": "基于静态调用图和 Git diff 分析代码变更影响面，推断需要运行的集成测试",
+  "description_i18n": {
+    "zh-CN": "基于静态调用图和 Git diff 分析代码变更影响面，推断需要运行的集成测试，生成精准测试命令。包含影响面调用链可视化和测试推荐。",
+    "en": "Analyzes code change impact using static call graph and Git diff, infers which integration tests to run, and generates precise test commands. Includes call chain visualization and test recommendations."
+  },
+  "author": "CoCursor Team",
+  "version": "1.0.0",
+  "category": "tools",
+  "category_i18n": {
+    "zh-CN": "工具",
+    "en": "Tools"
+  },
+  "skill": {
+    "skill_name": "go-precision-test"
+  }
+}

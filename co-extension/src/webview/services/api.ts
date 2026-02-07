@@ -925,6 +925,8 @@ export interface ProjectConfig {
   entry_points: string[];
   exclude: string[];
   algorithm: string;
+  integration_test_dir?: string;
+  integration_test_tag?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -935,6 +937,8 @@ export interface GenerateWithConfigRequest {
   exclude: string[];
   algorithm: string;
   commit?: string;
+  integration_test_dir?: string;
+  integration_test_tag?: string;
 }
 
 export interface GenerateResponse {

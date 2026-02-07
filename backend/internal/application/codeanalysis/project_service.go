@@ -80,10 +80,12 @@ func (s *ProjectService) ScanEntryPoints(ctx context.Context, req *ScanEntryPoin
 
 // RegisterProjectRequest 注册项目请求
 type RegisterProjectRequest struct {
-	ProjectPath string                     `json:"project_path"`
-	EntryPoints []string                   `json:"entry_points"`
-	Exclude     []string                   `json:"exclude"`
-	Algorithm   codeanalysis.AlgorithmType `json:"algorithm"`
+	ProjectPath        string                     `json:"project_path"`
+	EntryPoints        []string                   `json:"entry_points"`
+	Exclude            []string                   `json:"exclude"`
+	Algorithm          codeanalysis.AlgorithmType `json:"algorithm"`
+	IntegrationTestDir string                     `json:"integration_test_dir"`
+	IntegrationTestTag string                     `json:"integration_test_tag"`
 }
 
 // RegisterProjectResponse 注册项目响应
@@ -131,13 +133,15 @@ func (s *ProjectService) RegisterProject(ctx context.Context, req *RegisterProje
 
 	// 创建或更新项目配置
 	project := &codeanalysis.Project{
-		ID:          projectID,
-		Name:        projectName,
-		RemoteURL:   remoteURL,
-		LocalPaths:  []string{absPath},
-		EntryPoints: req.EntryPoints,
-		Exclude:     req.Exclude,
-		Algorithm:   req.Algorithm,
+		ID:                 projectID,
+		Name:               projectName,
+		RemoteURL:          remoteURL,
+		LocalPaths:         []string{absPath},
+		EntryPoints:        req.EntryPoints,
+		Exclude:            req.Exclude,
+		Algorithm:          req.Algorithm,
+		IntegrationTestDir: req.IntegrationTestDir,
+		IntegrationTestTag: req.IntegrationTestTag,
 	}
 
 	// 如果是更新，保留现有的本地路径

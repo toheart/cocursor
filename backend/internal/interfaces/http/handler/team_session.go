@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -8,6 +9,7 @@ import (
 
 	appTeam "github.com/cocursor/backend/internal/application/team"
 	domainTeam "github.com/cocursor/backend/internal/domain/team"
+	"github.com/cocursor/backend/internal/infrastructure/log"
 	"github.com/cocursor/backend/internal/interfaces/http/response"
 )
 
@@ -15,6 +17,7 @@ import (
 type TeamSessionHandler struct {
 	sessionSharingService *appTeam.SessionSharingService
 	identityService       *appTeam.IdentityService
+	logger                *slog.Logger
 }
 
 // NewTeamSessionHandler 创建团队会话分享处理器
@@ -25,15 +28,8 @@ func NewTeamSessionHandler(
 	return &TeamSessionHandler{
 		sessionSharingService: sessionSharingService,
 		identityService:       identityService,
+		logger:                log.NewModuleLogger("http", "team_session"),
 	}
-}
-
-// ShareSessionRequest 分享会话请求
-type ShareSessionRequest struct {
-	SessionID   string                 `json:"session_id" binding:"required"`
-	Title       string                 `json:"title" binding:"required"`
-	Messages    []map[string]interface{} `json:"messages" binding:"required"`
-	Description string                 `json:"description"`
 }
 
 // ShareSession 分享会话到团队
@@ -54,6 +50,12 @@ func (h *TeamSessionHandler) ShareSession(c *gin.Context) {
 
 	var req domainTeam.ShareSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("failed to bind share session request",
+			"error", err,
+			"team_id", teamID,
+			"content_length", c.Request.ContentLength,
+			"content_type", c.GetHeader("Content-Type"),
+		)
 		response.Error(c, http.StatusBadRequest, 610002, "Invalid request: "+err.Error())
 		return
 	}
@@ -62,6 +64,19 @@ func (h *TeamSessionHandler) ShareSession(c *gin.Context) {
 	identity, err := h.identityService.GetIdentity()
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, 610003, "Identity not found, please create identity first")
+		return
+	}
+
+	// 验证请求参数
+	if err := req.Validate(); err != nil {
+		h.logger.Warn("share session request validation failed",
+			"error", err,
+			"team_id", teamID,
+			"session_id", req.SessionID,
+			"title", req.Title,
+			"messages_len", len(req.Messages),
+		)
+		response.Error(c, http.StatusBadRequest, 610002, "Invalid request: "+err.Error())
 		return
 	}
 

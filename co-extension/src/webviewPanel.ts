@@ -728,6 +728,8 @@ export class WebviewPanel {
             exclude: string[];
             algorithm: string;
             commit?: string;
+            integration_test_dir?: string;
+            integration_test_tag?: string;
           },
         );
         break;
@@ -3221,6 +3223,8 @@ export class WebviewPanel {
     exclude: string[];
     algorithm: string;
     commit?: string;
+    integration_test_dir?: string;
+    integration_test_tag?: string;
   }): Promise<void> {
     try {
       const response = await axios.post(

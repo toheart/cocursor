@@ -23,6 +23,7 @@ type CallGraphService struct {
 	callGraphRepo     *infra.CallGraphRepository
 	callGraphManager  *infra.CallGraphManager
 	entryPointScanner *infra.EntryPointScanner
+	worktreeManager   *infra.WorktreeManager
 
 	// 异步任务管理
 	tasksMu sync.RWMutex
@@ -44,6 +45,7 @@ func NewCallGraphService(
 		callGraphRepo:     callGraphRepo,
 		callGraphManager:  callGraphManager,
 		entryPointScanner: entryPointScanner,
+		worktreeManager:   infra.NewWorktreeManager(),
 		tasks:             make(map[string]*codeanalysis.GenerationTask),
 	}
 }
@@ -104,11 +106,13 @@ type GenerateRequest struct {
 
 // GenerateWithConfigRequest 生成调用图请求（包含配置）
 type GenerateWithConfigRequest struct {
-	ProjectPath string                     `json:"project_path"`
-	EntryPoints []string                   `json:"entry_points"`
-	Exclude     []string                   `json:"exclude"`
-	Algorithm   codeanalysis.AlgorithmType `json:"algorithm"`
-	Commit      string                     `json:"commit"`
+	ProjectPath        string                     `json:"project_path"`
+	EntryPoints        []string                   `json:"entry_points"`
+	Exclude            []string                   `json:"exclude"`
+	Algorithm          codeanalysis.AlgorithmType `json:"algorithm"`
+	Commit             string                     `json:"commit"`
+	IntegrationTestDir string                     `json:"integration_test_dir"`
+	IntegrationTestTag string                     `json:"integration_test_tag"`
 }
 
 // GenerateResponse 生成调用图响应
@@ -438,10 +442,12 @@ func (s *CallGraphService) runGenerationTaskWithConfig(ctx context.Context, task
 
 	// 生成成功后保存配置
 	_, registerErr := s.projectService.RegisterProject(ctx, &RegisterProjectRequest{
-		ProjectPath: task.ProjectPath,
-		EntryPoints: req.EntryPoints,
-		Exclude:     req.Exclude,
-		Algorithm:   req.Algorithm,
+		ProjectPath:        task.ProjectPath,
+		EntryPoints:        req.EntryPoints,
+		Exclude:            req.Exclude,
+		Algorithm:          req.Algorithm,
+		IntegrationTestDir: req.IntegrationTestDir,
+		IntegrationTestTag: req.IntegrationTestTag,
 	})
 	if registerErr != nil {
 		s.logger.Warn("failed to save project config after generation", "error", registerErr)
@@ -493,14 +499,42 @@ func (s *CallGraphService) generateWithProgressByProject(ctx context.Context, re
 		return nil, err
 	}
 
-	// 获取当前 commit
-	onProgress(15, "Getting current commit...")
+	// 判断是否需要 worktree
+	isHead, err := s.worktreeManager.IsHeadCommit(ctx, absPath, req.Commit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check commit: %w", err)
+	}
+
+	// SSA 分析的目标路径（可能是 worktree 路径）
+	analysisPath := absPath
 	commit := req.Commit
-	if commit == "" || commit == "HEAD" {
-		diffAnalyzer := infra.NewDiffAnalyzer()
-		commit, err = diffAnalyzer.GetCurrentCommit(ctx, absPath)
+
+	if !isHead {
+		// 非 HEAD commit，需要创建 worktree
+		onProgress(10, "Creating worktree for base commit...")
+		wtResult, err := s.worktreeManager.CreateWorktree(ctx, absPath, req.Commit)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current commit: %w", err)
+			return nil, fmt.Errorf("failed to create worktree: %w", err)
+		}
+		analysisPath = wtResult.WorktreePath
+		commit = wtResult.ResolvedCommit
+		// 确保分析完成后清理 worktree
+		defer func() {
+			onProgress(98, "Cleaning up worktree...")
+			if rmErr := s.worktreeManager.RemoveWorktree(ctx, absPath, wtResult.WorktreePath); rmErr != nil {
+				s.logger.Warn("failed to remove worktree", "error", rmErr)
+			}
+		}()
+		onProgress(15, "Worktree ready, resolving commit...")
+	} else {
+		// HEAD commit，直接获取完整 hash
+		onProgress(15, "Getting current commit...")
+		if commit == "" || commit == "HEAD" {
+			diffAnalyzer := infra.NewDiffAnalyzer()
+			commit, err = diffAnalyzer.GetCurrentCommit(ctx, absPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get current commit: %w", err)
+			}
 		}
 	}
 
@@ -511,11 +545,13 @@ func (s *CallGraphService) generateWithProgressByProject(ctx context.Context, re
 		"project", project.Name,
 		"commit", commit,
 		"algorithm", project.Algorithm,
+		"analysis_path", analysisPath,
+		"using_worktree", !isHead,
 	)
 
 	// 执行 SSA 分析（这是最耗时的步骤，占 20%-80%）
 	onProgress(20, "Loading and building SSA...")
-	result, err := s.ssaAnalyzer.Analyze(ctx, absPath, project.EntryPoints, project.Algorithm)
+	result, err := s.ssaAnalyzer.Analyze(ctx, analysisPath, project.EntryPoints, project.Algorithm)
 	if err != nil {
 		return nil, fmt.Errorf("SSA analysis failed: %w", err)
 	}
@@ -618,15 +654,29 @@ func (s *CallGraphService) buildProjectFromConfig(ctx context.Context, absPath s
 		}
 	}
 
+	// 集成测试配置：优先使用请求中的值，否则保留已有配置
+	integrationTestDir := req.IntegrationTestDir
+	integrationTestTag := req.IntegrationTestTag
+	if existing != nil {
+		if integrationTestDir == "" {
+			integrationTestDir = existing.IntegrationTestDir
+		}
+		if integrationTestTag == "" {
+			integrationTestTag = existing.IntegrationTestTag
+		}
+	}
+
 	project := &codeanalysis.Project{
-		ID:          projectID,
-		Name:        projectName,
-		RemoteURL:   remoteURL,
-		LocalPaths:  localPaths,
-		EntryPoints: req.EntryPoints,
-		Exclude:     req.Exclude,
-		Algorithm:   req.Algorithm,
-		CreatedAt:   createdAt,
+		ID:                 projectID,
+		Name:               projectName,
+		RemoteURL:          remoteURL,
+		LocalPaths:         localPaths,
+		EntryPoints:        req.EntryPoints,
+		Exclude:            req.Exclude,
+		Algorithm:          req.Algorithm,
+		IntegrationTestDir: integrationTestDir,
+		IntegrationTestTag: integrationTestTag,
+		CreatedAt:          createdAt,
 	}
 
 	// 设置默认值

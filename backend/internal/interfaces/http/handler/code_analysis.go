@@ -171,11 +171,13 @@ type GenerateCallGraphRequest struct {
 
 // GenerateCallGraphWithConfigRequest 生成调用图请求（包含配置）
 type GenerateCallGraphWithConfigRequest struct {
-	ProjectPath string   `json:"project_path" binding:"required"`
-	EntryPoints []string `json:"entry_points" binding:"required"`
-	Exclude     []string `json:"exclude"`
-	Algorithm   string   `json:"algorithm"`
-	Commit      string   `json:"commit"`
+	ProjectPath        string   `json:"project_path" binding:"required"`
+	EntryPoints        []string `json:"entry_points" binding:"required"`
+	Exclude            []string `json:"exclude"`
+	Algorithm          string   `json:"algorithm"`
+	Commit             string   `json:"commit"`
+	IntegrationTestDir string   `json:"integration_test_dir"`
+	IntegrationTestTag string   `json:"integration_test_tag"`
 }
 
 // GenerateCallGraph 生成调用图
@@ -251,11 +253,13 @@ func (h *CodeAnalysisHandler) GenerateCallGraphWithConfig(c *gin.Context) {
 	}
 
 	result, err := h.callGraphService.GenerateWithConfigAsync(c.Request.Context(), &codeanalysis.GenerateWithConfigRequest{
-		ProjectPath: req.ProjectPath,
-		EntryPoints: req.EntryPoints,
-		Exclude:     req.Exclude,
-		Algorithm:   parseAlgorithm(req.Algorithm),
-		Commit:      req.Commit,
+		ProjectPath:        req.ProjectPath,
+		EntryPoints:        req.EntryPoints,
+		Exclude:            req.Exclude,
+		Algorithm:          parseAlgorithm(req.Algorithm),
+		Commit:             req.Commit,
+		IntegrationTestDir: req.IntegrationTestDir,
+		IntegrationTestTag: req.IntegrationTestTag,
 	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, err.Error())

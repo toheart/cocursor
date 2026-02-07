@@ -44,6 +44,10 @@ type Project struct {
 	Exclude []string `json:"exclude" yaml:"exclude"`
 	// Algorithm 分析算法
 	Algorithm AlgorithmType `json:"algorithm" yaml:"algorithm"`
+	// IntegrationTestDir 集成测试目录（相对于项目根目录）
+	IntegrationTestDir string `json:"integration_test_dir,omitempty" yaml:"integration_test_dir,omitempty"`
+	// IntegrationTestTag 集成测试 build tag
+	IntegrationTestTag string `json:"integration_test_tag,omitempty" yaml:"integration_test_tag,omitempty"`
 	// CreatedAt 创建时间
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// UpdatedAt 更新时间

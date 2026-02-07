@@ -46,6 +46,8 @@ interface ProjectConfig {
   entry_points: string[];
   exclude: string[];
   algorithm: string;
+  integration_test_dir?: string;
+  integration_test_tag?: string;
 }
 
 // 生成结果
@@ -114,6 +116,12 @@ export const CodeAnalysisConfig: React.FC = () => {
   const [excludePaths, setExcludePaths] =
     useState<string>("vendor/\n*_test.go");
   const [algorithm, setAlgorithm] = useState<string>("rta");
+
+  // Base commit / 分支
+  const [baseCommit, setBaseCommit] = useState<string>("HEAD");
+  // 集成测试配置
+  const [integrationTestDir, setIntegrationTestDir] = useState<string>("");
+  const [integrationTestTag, setIntegrationTestTag] = useState<string>("");
 
   // 展开/折叠状态
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -240,6 +248,12 @@ export const CodeAnalysisConfig: React.FC = () => {
           setSelectedEntryPoints(config.entry_points || []);
           setExcludePaths((config.exclude || []).join("\n"));
           setAlgorithm(config.algorithm || "rta");
+          if (config.integration_test_dir) {
+            setIntegrationTestDir(config.integration_test_dir);
+          }
+          if (config.integration_test_tag) {
+            setIntegrationTestTag(config.integration_test_tag);
+          }
           return config;
         }
       } catch (error) {
@@ -421,6 +435,9 @@ export const CodeAnalysisConfig: React.FC = () => {
         entry_points: selectedEntryPoints,
         exclude: excludePaths.split("\n").filter((p) => p.trim()),
         algorithm,
+        commit: baseCommit || undefined,
+        integration_test_dir: integrationTestDir || undefined,
+        integration_test_tag: integrationTestTag || undefined,
       });
       const taskId = result.task_id;
 
@@ -699,21 +716,74 @@ export const CodeAnalysisConfig: React.FC = () => {
         {/* 高级配置 */}
         {showAdvanced && (
           <div className="ca-section ca-section-advanced">
-            <div className="ca-section-header">
-              <h2 className="ca-section-title">
-                {t("codeAnalysis.excludePaths")}
-              </h2>
+            {/* Base Commit */}
+            <div className="ca-field">
+              <div className="ca-section-header">
+                <h2 className="ca-section-title">
+                  {t("codeAnalysis.baseCommit")}
+                </h2>
+              </div>
+              <input
+                value={baseCommit}
+                onChange={(e) => setBaseCommit(e.target.value)}
+                className="ca-input"
+                placeholder="HEAD"
+              />
+              <span className="ca-hint">
+                {t("codeAnalysis.baseCommitHint")}
+              </span>
             </div>
-            <textarea
-              value={excludePaths}
-              onChange={(e) => setExcludePaths(e.target.value)}
-              className="ca-textarea"
-              rows={3}
-              placeholder="vendor/&#10;*_test.go&#10;*.pb.go"
-            />
-            <span className="ca-hint">
-              {t("codeAnalysis.excludePathsHint")}
-            </span>
+
+            {/* 集成测试配置 */}
+            <div className="ca-field">
+              <div className="ca-section-header">
+                <h2 className="ca-section-title">
+                  {t("codeAnalysis.integrationTest")}
+                </h2>
+              </div>
+              <div className="ca-field-row">
+                <div className="ca-field-col">
+                  <label className="ca-label">{t("codeAnalysis.testDir")}</label>
+                  <input
+                    value={integrationTestDir}
+                    onChange={(e) => setIntegrationTestDir(e.target.value)}
+                    className="ca-input"
+                    placeholder="test/integration/"
+                  />
+                </div>
+                <div className="ca-field-col">
+                  <label className="ca-label">{t("codeAnalysis.testTag")}</label>
+                  <input
+                    value={integrationTestTag}
+                    onChange={(e) => setIntegrationTestTag(e.target.value)}
+                    className="ca-input"
+                    placeholder="integration"
+                  />
+                </div>
+              </div>
+              <span className="ca-hint">
+                {t("codeAnalysis.integrationTestHint")}
+              </span>
+            </div>
+
+            {/* 排除路径 */}
+            <div className="ca-field">
+              <div className="ca-section-header">
+                <h2 className="ca-section-title">
+                  {t("codeAnalysis.excludePaths")}
+                </h2>
+              </div>
+              <textarea
+                value={excludePaths}
+                onChange={(e) => setExcludePaths(e.target.value)}
+                className="ca-textarea"
+                rows={3}
+                placeholder="vendor/&#10;*_test.go&#10;*.pb.go"
+              />
+              <span className="ca-hint">
+                {t("codeAnalysis.excludePathsHint")}
+              </span>
+            </div>
           </div>
         )}
 
@@ -787,6 +857,12 @@ export const CodeAnalysisConfig: React.FC = () => {
           <li>{t("codeAnalysis.step2")}</li>
           <li>{t("codeAnalysis.step3")}</li>
         </ol>
+      </div>
+
+      {/* 精准测试 Skill 提示 */}
+      <div className="ca-skill-hint">
+        <span className="ca-skill-hint-icon">💡</span>
+        <span>{t("codeAnalysis.skillHint")}</span>
       </div>
     </div>
   );
