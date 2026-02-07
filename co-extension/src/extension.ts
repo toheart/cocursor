@@ -262,12 +262,20 @@ export function activate(context: vscode.ExtensionContext): void {
 
         const session = sessionResp.data.data.session;
 
-        // 5. 调用分享 API
+        // 5. 将消息格式从后端模型 (type/text) 转换为共享会话格式 (role/content)
+        const normalizedMessages = (session.messages || []).map(
+          (msg: { type?: string; text?: string; role?: string; content?: string }) => ({
+            role: msg.role || (msg.type === "ai" ? "assistant" : msg.type) || "user",
+            content: msg.content || msg.text || "",
+          })
+        );
+
+        // 6. 调用分享 API
         await axios.post(
           `http://localhost:19960/api/v1/team/${targetTeamId}/sessions/share`,
           {
             title: session.name || item.label,
-            messages: session.messages || [],
+            messages: normalizedMessages,
             description: description || undefined
           },
           { timeout: 10000 }
