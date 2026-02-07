@@ -30,7 +30,11 @@ func BuildDaemon() error {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
-	BinaryPath = filepath.Join(tmpDir, "cocursor-daemon")
+	binaryName := "cocursor-daemon"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	BinaryPath = filepath.Join(tmpDir, binaryName)
 
 	// 编译二进制
 	cmd := exec.Command("go", "build", "-o", BinaryPath, "./cmd/server")

@@ -41,6 +41,7 @@ type TeamService struct {
 	advertiser     *infraP2P.MDNSAdvertiser
 	wsServer       *infraP2P.WebSocketServer
 	connManager    *infraP2P.ConnectionManager
+	eventListener  p2p.EventListener // 事件监听器，用于延迟初始化 ConnectionManager
 
 	// HTTP 客户端
 	httpClient *http.Client
@@ -138,6 +139,80 @@ func (s *TeamService) initLeaderStores() error {
 	return nil
 }
 
+// SetEventListener 设置事件监听器（用于延迟初始化 ConnectionManager）
+func (s *TeamService) SetEventListener(listener p2p.EventListener) {
+	s.componentsMu.Lock()
+	defer s.componentsMu.Unlock()
+	s.eventListener = listener
+}
+
+// EnsureConnectionManager 确保 ConnectionManager 已初始化
+// 需要身份已存在才能创建，身份不存在时静默返回
+func (s *TeamService) EnsureConnectionManager() {
+	s.componentsMu.RLock()
+	if s.connManager != nil {
+		s.componentsMu.RUnlock()
+		return
+	}
+	s.componentsMu.RUnlock()
+
+	identity, err := s.identityStore.Get()
+	if err != nil || identity == nil {
+		return
+	}
+
+	s.componentsMu.Lock()
+	defer s.componentsMu.Unlock()
+
+	// 双重检查
+	if s.connManager != nil {
+		return
+	}
+
+	if s.eventListener == nil {
+		return
+	}
+
+	localEndpoint := s.GetCurrentEndpoint()
+	s.connManager = infraP2P.NewConnectionManager(
+		identity.ID,
+		identity.Name,
+		localEndpoint,
+		s.eventListener,
+	)
+	s.logger.Info("connection manager initialized",
+		"member_id", identity.ID,
+		"endpoint", localEndpoint,
+	)
+}
+
+// InitMemberConnections 恢复 Member 角色的 WebSocket 连接
+// 遍历已加入的非 Leader 团队，主动建立到 Leader 的 WebSocket 连接
+func (s *TeamService) InitMemberConnections() {
+	if s.connManager == nil {
+		return
+	}
+
+	teams := s.teamStore.List()
+	for _, team := range teams {
+		if team.IsLeader {
+			continue
+		}
+		go func(teamID, leaderEndpoint string) {
+			s.logger.Info("restoring websocket connection to leader",
+				"team_id", teamID,
+				"leader_endpoint", leaderEndpoint,
+			)
+			if err := s.connManager.Connect(teamID, leaderEndpoint); err != nil {
+				s.logger.Warn("failed to restore websocket connection",
+					"team_id", teamID,
+					"error", err,
+				)
+			}
+		}(team.ID, team.LeaderEndpoint)
+	}
+}
+
 // SetWebSocketServer 设置 WebSocket 服务端
 func (s *TeamService) SetWebSocketServer(server *infraP2P.WebSocketServer) {
 	s.componentsMu.Lock()
@@ -159,7 +234,13 @@ func (s *TeamService) GetIdentity() (*domainTeam.Identity, error) {
 
 // CreateIdentity 创建本机身份
 func (s *TeamService) CreateIdentity(name string) (*domainTeam.Identity, error) {
-	return s.identityStore.Create(name)
+	identity, err := s.identityStore.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	// 身份创建后尝试初始化 ConnectionManager
+	s.EnsureConnectionManager()
+	return identity, nil
 }
 
 // UpdateIdentity 更新本机身份
@@ -173,12 +254,23 @@ func (s *TeamService) EnsureIdentity(name string) (*domainTeam.Identity, error) 
 	if err == nil {
 		// 身份已存在，检查名称是否需要更新
 		if identity.Name != name {
-			return s.identityStore.UpdateName(name)
+			identity, err = s.identityStore.UpdateName(name)
+			if err != nil {
+				return nil, err
+			}
 		}
+		// 确保 ConnectionManager 已初始化
+		s.EnsureConnectionManager()
 		return identity, nil
 	}
 	if err == domainTeam.ErrIdentityNotFound {
-		return s.identityStore.Create(name)
+		identity, err = s.identityStore.Create(name)
+		if err != nil {
+			return nil, err
+		}
+		// 身份创建后尝试初始化 ConnectionManager
+		s.EnsureConnectionManager()
+		return identity, nil
 	}
 	return nil, err
 }
@@ -695,17 +787,16 @@ func (s *TeamService) HandleJoinRequest(teamID string, req *domainTeam.JoinReque
 
 	// 检查是否已是成员
 	if memberStore.Exists(req.MemberID) {
-		// 更新端点
+		// 更新端点（在线状态由 WebSocket 连接事件驱动，此处不设置）
 		memberStore.UpdateEndpoint(req.MemberID, req.Endpoint)
-		memberStore.SetOnline(req.MemberID, true)
 	} else {
-		// 添加新成员
+		// 添加新成员（在线状态初始为 false，由后续 WebSocket 连接事件设为 true）
 		member := &domainTeam.TeamMember{
 			ID:       req.MemberID,
 			Name:     req.MemberName,
 			Endpoint: req.Endpoint,
 			IsLeader: false,
-			IsOnline: true,
+			IsOnline: false,
 			JoinedAt: time.Now(),
 		}
 		if err := memberStore.Add(member); err != nil {
