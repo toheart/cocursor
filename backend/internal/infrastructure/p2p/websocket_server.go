@@ -181,10 +181,16 @@ func (s *WebSocketServer) readPump(wsConn *WebSocketConnection, teamID string) {
 	}()
 
 	wsConn.conn.SetReadLimit(512 * 1024) // 512KB
+
+	// 设置初始读取超时，超过 HeartbeatTimeout 未收到任何消息则断开
+	_ = wsConn.conn.SetReadDeadline(time.Now().Add(p2p.HeartbeatTimeout))
+
 	wsConn.conn.SetPongHandler(func(string) error {
 		wsConn.mu.Lock()
 		wsConn.lastPing = time.Now()
 		wsConn.mu.Unlock()
+		// 收到 Pong 说明对方存活，续期读取超时
+		_ = wsConn.conn.SetReadDeadline(time.Now().Add(p2p.HeartbeatTimeout))
 		return nil
 	})
 
@@ -205,6 +211,9 @@ func (s *WebSocketServer) readPump(wsConn *WebSocketConnection, teamID string) {
 			}
 			return
 		}
+
+		// 收到任何消息都续期读取超时
+		_ = wsConn.conn.SetReadDeadline(time.Now().Add(p2p.HeartbeatTimeout))
 
 		// 解析并处理事件
 		var event p2p.Event

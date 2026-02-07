@@ -171,10 +171,16 @@ func (c *WebSocketClient) readPump() {
 	defer c.handleDisconnect()
 
 	c.conn.SetReadLimit(512 * 1024)
+
+	// 设置初始读取超时，超过 HeartbeatTimeout 未收到任何消息则断开
+	_ = c.conn.SetReadDeadline(time.Now().Add(p2p.HeartbeatTimeout))
+
 	c.conn.SetPongHandler(func(string) error {
 		c.mu.Lock()
 		c.lastPing = time.Now()
 		c.mu.Unlock()
+		// 收到 Pong 说明 Leader 存活，续期读取超时
+		_ = c.conn.SetReadDeadline(time.Now().Add(p2p.HeartbeatTimeout))
 		return nil
 	})
 
@@ -195,6 +201,9 @@ func (c *WebSocketClient) readPump() {
 			}
 			return
 		}
+
+		// 收到任何消息都续期读取超时
+		_ = c.conn.SetReadDeadline(time.Now().Add(p2p.HeartbeatTimeout))
 
 		// 解析事件
 		var event p2p.Event

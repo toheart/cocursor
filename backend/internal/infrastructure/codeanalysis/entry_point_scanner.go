@@ -28,61 +28,64 @@ func NewEntryPointScanner() *EntryPointScanner {
 }
 
 // ScanEntryPoints 扫描项目中的入口函数候选
+// 通过遍历项目所有 .go 文件，查找 package main + func main() 来发现入口函数，
+// 不依赖固定的目录命名约定（如 cmd/、apps/）。
 func (s *EntryPointScanner) ScanEntryPoints(ctx context.Context, projectPath string) ([]codeanalysis.EntryPointCandidate, error) {
-	var candidates []codeanalysis.EntryPointCandidate
-
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	// 策略 1: 扫描 cmd/*/main.go
-	cmdPattern := filepath.Join(absPath, "cmd", "*", "main.go")
-	cmdFiles, _ := filepath.Glob(cmdPattern)
-	for _, f := range cmdFiles {
-		relPath, _ := filepath.Rel(absPath, f)
-		candidates = append(candidates, codeanalysis.EntryPointCandidate{
-			File:        relPath,
-			Function:    "main",
-			Type:        "cmd",
-			Priority:    1,
-			Recommended: true,
-		})
-	}
+	var candidates []codeanalysis.EntryPointCandidate
+	// 记录已发现的 main 包目录，同一目录下多个文件只生成一个候选
+	seenDirs := make(map[string]bool)
 
-	// 策略 2: 根目录 main.go
-	rootMain := filepath.Join(absPath, "main.go")
-	if _, err := os.Stat(rootMain); err == nil {
-		candidates = append(candidates, codeanalysis.EntryPointCandidate{
-			File:        "main.go",
-			Function:    "main",
-			Type:        "root",
-			Priority:    2,
-			Recommended: len(cmdFiles) == 0, // 如果没有 cmd，则推荐
-		})
-	}
-
-	// 策略 3: 扫描 cmd/ 下的其他模式（如 cmd/tool/tool.go）
-	cmdDirs, _ := filepath.Glob(filepath.Join(absPath, "cmd", "*"))
-	for _, dir := range cmdDirs {
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
-			dirName := filepath.Base(dir)
-			// 检查是否有同名 .go 文件包含 main 函数
-			mainFile := filepath.Join(dir, dirName+".go")
-			if hasMainFunc(mainFile) {
-				relPath, _ := filepath.Rel(absPath, mainFile)
-				// 避免重复
-				if !containsCandidate(candidates, relPath) {
-					candidates = append(candidates, codeanalysis.EntryPointCandidate{
-						File:        relPath,
-						Function:    "main",
-						Type:        "cmd",
-						Priority:    1,
-						Recommended: true,
-					})
-				}
-			}
+	err = filepath.Walk(absPath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil // 忽略单个文件错误，继续遍历
 		}
+
+		// 跳过不需要扫描的目录
+		if info.IsDir() {
+			dirName := info.Name()
+			if dirName == "vendor" || dirName == "testdata" || dirName == "node_modules" || strings.HasPrefix(dirName, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// 只处理 .go 文件，排除测试文件
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+
+		// 检查文件是否同时包含 package main 和 func main()
+		if !isMainPackageWithMainFunc(path) {
+			return nil
+		}
+
+		dir := filepath.Dir(path)
+		if seenDirs[dir] {
+			return nil // 同一目录已经记录，跳过
+		}
+		seenDirs[dir] = true
+
+		relPath, _ := filepath.Rel(absPath, path)
+		entryType, priority := classifyEntryPoint(absPath, path)
+
+		candidates = append(candidates, codeanalysis.EntryPointCandidate{
+			File:        filepath.ToSlash(relPath),
+			Function:    "main",
+			Type:        entryType,
+			Priority:    priority,
+			Recommended: priority <= 2,
+		})
+
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Warn("error walking project directory", "error", err)
 	}
 
 	// 如果没有找到任何入口函数，提供"分析所有导出函数"选项
@@ -96,7 +99,79 @@ func (s *EntryPointScanner) ScanEntryPoints(ctx context.Context, projectPath str
 		})
 	}
 
+	// 按优先级排序
+	sortCandidates(candidates)
+
 	return candidates, nil
+}
+
+// isMainPackageWithMainFunc 检查文件是否属于 package main 且包含 func main()
+func isMainPackageWithMainFunc(filePath string) bool {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	hasPackageMain := false
+	hasFuncMain := false
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// 跳过注释行
+		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") {
+			continue
+		}
+
+		if line == "package main" {
+			hasPackageMain = true
+		}
+		if strings.HasPrefix(line, "func main()") {
+			hasFuncMain = true
+		}
+
+		// 两者都找到就可以提前退出
+		if hasPackageMain && hasFuncMain {
+			return true
+		}
+	}
+
+	return false
+}
+
+// classifyEntryPoint 根据文件在项目中的位置推断入口类型和优先级
+// 优先级: 1(最高) - 常见入口目录(cmd/, apps/ 等)  2 - 根目录  3 - 其他位置
+func classifyEntryPoint(projectRoot, filePath string) (entryType string, priority int) {
+	relPath, _ := filepath.Rel(projectRoot, filePath)
+	relPath = filepath.ToSlash(relPath)
+	parts := strings.Split(relPath, "/")
+
+	// 根目录下的 main.go
+	if len(parts) == 1 {
+		return "root", 2
+	}
+
+	// 第一级目录名用于判断类型
+	topDir := strings.ToLower(parts[0])
+	switch topDir {
+	case "cmd", "apps", "app", "cmds", "command", "commands", "tools", "tool":
+		return "cmd", 1
+	case "bench", "benchmark", "benchmarks", "example", "examples", "hack", "test", "tests":
+		return "auxiliary", 3
+	}
+
+	return "other", 2
+}
+
+// sortCandidates 按优先级排序候选列表（优先级数字越小越优先）
+func sortCandidates(candidates []codeanalysis.EntryPointCandidate) {
+	for i := 1; i < len(candidates); i++ {
+		for j := i; j > 0 && candidates[j].Priority < candidates[j-1].Priority; j-- {
+			candidates[j], candidates[j-1] = candidates[j-1], candidates[j]
+		}
+	}
 }
 
 // GoModuleValidation Go 模块验证结果
@@ -308,33 +383,6 @@ func (s *EntryPointScanner) readRemoteFromGitConfig(projectPath string) (string,
 	return "", fmt.Errorf("remote origin not found")
 }
 
-// hasMainFunc 检查文件是否包含 main 函数
-func hasMainFunc(filePath string) bool {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return false
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "func main()") {
-			return true
-		}
-	}
-	return false
-}
-
-// containsCandidate 检查候选列表中是否已包含指定文件
-func containsCandidate(candidates []codeanalysis.EntryPointCandidate, file string) bool {
-	for _, c := range candidates {
-		if c.File == file {
-			return true
-		}
-	}
-	return false
-}
 
 // 确保实现接口
 var _ codeanalysis.EntryPointScanner = (*EntryPointScanner)(nil)
