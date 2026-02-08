@@ -1,5 +1,6 @@
 dir: '{{.InterfaceDir}}/mocks'
 structname: Mock{{.InterfaceName}}
+filename: mock_{{.InterfaceName | snakecase}}.go
 pkgname: mocks
 template: testify
 template-data:
@@ -7,6 +8,7 @@ template-data:
 packages:
   github.com/cocursor/backend/internal/application/team:
     interfaces:
+      CacheManager: {}
       HTTPClientInterface: {}
       ProjectConfigStoreInterface: {}
       TeamServiceInterface: {}

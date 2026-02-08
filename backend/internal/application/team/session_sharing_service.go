@@ -150,11 +150,15 @@ func (s *SessionSharingService) forwardShareToLeader(ctx context.Context, team *
 		Title       string          `json:"title"`
 		Messages    json.RawMessage `json:"messages"`
 		Description string          `json:"description,omitempty"`
+		SharerID    string          `json:"sharer_id"`
+		SharerName  string          `json:"sharer_name"`
 	}{
 		SessionID:   req.SessionID,
 		Title:       req.Title,
 		Messages:    req.Messages,
 		Description: req.Description,
+		SharerID:    sharerID,
+		SharerName:  sharerName,
 	}
 
 	body, err := json.Marshal(forwardReq)
@@ -295,31 +299,31 @@ func (s *SessionSharingService) AddComment(ctx context.Context, teamID, shareID 
 		return "", fmt.Errorf("team not found: %w", err)
 	}
 
-	// 验证分享会话存在
-	session, err := s.sharedSessionRepo.FindByID(shareID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get shared session: %w", err)
-	}
-	if session == nil {
-		return "", fmt.Errorf("shared session not found")
-	}
-	if session.TeamID != teamID {
-		return "", fmt.Errorf("shared session not found in this team")
-	}
-
-	// 创建评论
-	comment := &domainTeam.SessionComment{
-		ID:         uuid.New().String(),
-		ShareID:    shareID,
-		AuthorID:   authorID,
-		AuthorName: authorName,
-		Content:    req.Content,
-		Mentions:   req.Mentions,
-		CreatedAt:  time.Now(),
-	}
-
-	// 如果是 Leader，直接存储并广播
+	// 如果是 Leader，在本地验证并存储
 	if team.IsLeader {
+		// 验证分享会话存在（只有 Leader 端有完整数据）
+		session, err := s.sharedSessionRepo.FindByID(shareID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get shared session: %w", err)
+		}
+		if session == nil {
+			return "", fmt.Errorf("shared session not found")
+		}
+		if session.TeamID != teamID {
+			return "", fmt.Errorf("shared session not found in this team")
+		}
+
+		// 创建评论
+		comment := &domainTeam.SessionComment{
+			ID:         uuid.New().String(),
+			ShareID:    shareID,
+			AuthorID:   authorID,
+			AuthorName: authorName,
+			Content:    req.Content,
+			Mentions:   req.Mentions,
+			CreatedAt:  time.Now(),
+		}
+
 		if err := s.sharedSessionRepo.CreateComment(comment); err != nil {
 			return "", fmt.Errorf("failed to save comment: %w", err)
 		}
@@ -358,7 +362,7 @@ func (s *SessionSharingService) AddComment(ctx context.Context, teamID, shareID 
 		return comment.ID, nil
 	}
 
-	// 非 Leader，转发请求到 Leader
+	// 非 Leader，转发请求到 Leader（由 Leader 端负责验证和存储）
 	if !team.LeaderOnline {
 		return "", fmt.Errorf("leader is offline, cannot add comment")
 	}
@@ -369,6 +373,10 @@ func (s *SessionSharingService) AddComment(ctx context.Context, teamID, shareID 
 // forwardCommentToLeader 转发评论请求到 Leader
 func (s *SessionSharingService) forwardCommentToLeader(ctx context.Context, team *domainTeam.Team, shareID string, req *domainTeam.AddCommentRequest, authorID, authorName string) (string, error) {
 	url := fmt.Sprintf("http://%s/api/v1/team/%s/sessions/%s/comments", team.LeaderEndpoint, team.ID, shareID)
+
+	// 在转发请求中携带评论者身份信息，避免 Leader 端使用自身身份
+	req.AuthorID = authorID
+	req.AuthorName = authorName
 
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -492,8 +500,8 @@ func (s *SessionSharingService) forwardGetSessionDetailToLeader(ctx context.Cont
 	// 解析 Leader 返回的会话详情
 	var result struct {
 		Data struct {
-			Session  *domainTeam.SharedSession    `json:"session"`
-			Comments []domainTeam.SessionComment  `json:"comments"`
+			Session  *domainTeam.SharedSession   `json:"session"`
+			Comments []domainTeam.SessionComment `json:"comments"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {

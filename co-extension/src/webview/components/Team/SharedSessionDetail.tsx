@@ -1,9 +1,12 @@
 /**
  * 共享会话详情组件
  * 显示会话内容和评论区
+ * - 左右布局：User 靠左，Assistant 靠右
+ * - 连续同角色消息自动合并为一个气泡
+ * - AI 回复过长时默认截断，可展开
  */
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,6 +19,12 @@ import { ToastContainer } from "../shared/ToastContainer";
 interface SessionMessage {
   role: string;
   content: string;
+}
+
+// 合并后的消息组（连续同角色消息合并为一组）
+interface MergedMessage {
+  role: string;
+  contents: string[];
 }
 
 // 共享会话详情
@@ -47,6 +56,78 @@ interface SharedSessionDetailProps {
   onBack: () => void;
 }
 
+/** 将连续同角色消息合并为一组 */
+function mergeMessages(messages: SessionMessage[]): MergedMessage[] {
+  if (!messages || messages.length === 0) return [];
+
+  const merged: MergedMessage[] = [];
+  let current: MergedMessage | null = null;
+
+  for (const msg of messages) {
+    if (current && current.role === msg.role) {
+      // 同角色，追加到当前组
+      current.contents.push(msg.content);
+    } else {
+      // 新角色，开始新组
+      if (current) merged.push(current);
+      current = { role: msg.role, contents: [msg.content] };
+    }
+  }
+  if (current) merged.push(current);
+
+  return merged;
+}
+
+/** 可折叠的消息内容组件 */
+const CollapsibleContent: React.FC<{
+  contents: string[];
+  role: string;
+}> = ({ contents, role }) => {
+  const [expanded, setExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [needsCollapse, setNeedsCollapse] = useState(false);
+
+  // 内容渲染后检测是否需要折叠（高度超过 150px）
+  useEffect(() => {
+    if (contentRef.current) {
+      setNeedsCollapse(contentRef.current.scrollHeight > 150);
+    }
+  }, [contents]);
+
+  // Assistant 消息才做折叠，User 消息通常很短
+  const shouldCollapse = role === "assistant" && needsCollapse && !expanded;
+
+  return (
+    <>
+      <div
+        ref={contentRef}
+        className={`cocursor-shared-session-message-content${shouldCollapse ? " collapsed" : ""}`}
+      >
+        {contents.map((content, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <hr className="cocursor-msg-merged-separator" />}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+            >
+              {content}
+            </ReactMarkdown>
+          </React.Fragment>
+        ))}
+      </div>
+      {role === "assistant" && needsCollapse && (
+        <button
+          className={`cocursor-msg-expand-btn${expanded ? " expanded" : ""}`}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <span className="cocursor-msg-expand-arrow">▼</span>
+          {expanded ? "收起" : "展开全文"}
+        </button>
+      )}
+    </>
+  );
+};
+
 export const SharedSessionDetail: React.FC<SharedSessionDetailProps> = ({
   teamId,
   sessionId,
@@ -74,6 +155,12 @@ export const SharedSessionDetail: React.FC<SharedSessionDetailProps> = ({
 
   const session = data?.session;
   const comments = data?.comments || [];
+
+  // 合并连续同角色消息
+  const mergedMessages = useMemo(
+    () => mergeMessages(session?.messages || []),
+    [session?.messages]
+  );
 
   // 滚动到评论底部
   useEffect(() => {
@@ -176,26 +263,40 @@ export const SharedSessionDetail: React.FC<SharedSessionDetailProps> = ({
       {/* 会话内容 */}
       <div className="cocursor-shared-session-messages">
         <h3>{t("session.conversation")}</h3>
-        <div className="cocursor-shared-session-message-list">
-          {session.messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`cocursor-shared-session-message ${msg.role}`}
-            >
-              <div className="cocursor-shared-session-message-role">
-                {msg.role === "user" ? "👤 User" : "🤖 Assistant"}
+
+        {mergedMessages.length === 0 ? (
+          <div className="cocursor-shared-session-empty">
+            <span className="cocursor-shared-session-empty-icon">💬</span>
+            <span className="cocursor-shared-session-empty-title">
+              {t("session.noMessages", "暂无对话内容")}
+            </span>
+            <span className="cocursor-shared-session-empty-desc">
+              {t("session.noMessagesDesc", "该会话未包含可显示的对话记录")}
+            </span>
+          </div>
+        ) : (
+          <div className="cocursor-shared-session-message-list">
+            {mergedMessages.map((msg, index) => (
+              <div
+                key={index}
+                className={`cocursor-shared-session-message ${msg.role}`}
+              >
+                <div className="cocursor-shared-session-message-role">
+                  <span className="cocursor-msg-role-icon">
+                    {msg.role === "user" ? "U" : "A"}
+                  </span>
+                  {msg.role === "user" ? "User" : "Assistant"}
+                  {msg.contents.length > 1 && (
+                    <span className="cocursor-msg-merged-badge">
+                      {msg.contents.length} 条合并
+                    </span>
+                  )}
+                </div>
+                <CollapsibleContent contents={msg.contents} role={msg.role} />
               </div>
-              <div className="cocursor-shared-session-message-content">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 评论区 */}
