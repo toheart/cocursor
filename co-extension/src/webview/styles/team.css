@@ -1582,28 +1582,29 @@
 
 /* 共享会话详情 */
 .cocursor-shared-session-detail {
-  padding: 0 16px 16px;
+  padding: 0 12px 16px;
 }
 
 .cocursor-shared-session-detail-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .cocursor-shared-session-detail-info {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .cocursor-shared-session-detail-info h2 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  margin: 0 0 6px 0;
+  font-size: 15px;
   font-weight: 600;
   color: var(--vscode-foreground);
+  line-height: 1.3;
 }
 
 .cocursor-shared-session-detail-meta {
   display: flex;
-  gap: 16px;
-  font-size: 13px;
+  gap: 12px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   flex-wrap: wrap;
 }
@@ -1617,7 +1618,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--vscode-foreground);
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
@@ -1625,52 +1626,220 @@
 .cocursor-shared-session-message-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-height: 500px;
+  gap: 2px;
+  max-height: 600px;
   overflow-y: auto;
-  padding-right: 8px;
+  padding: 0;
 }
 
+/* 消息卡片：全宽，通过左侧色条和背景色区分角色 */
 .cocursor-shared-session-message {
-  background: var(--vscode-sideBar-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
-  padding: 12px 16px;
+  padding: 10px 12px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s;
 }
 
+/* User 消息 */
 .cocursor-shared-session-message.user {
-  border-left: 3px solid var(--vscode-charts-blue);
+  border-left-color: var(--vscode-charts-blue);
+  background: rgba(79, 193, 255, 0.04);
 }
 
+/* Assistant 消息 */
 .cocursor-shared-session-message.assistant {
-  border-left: 3px solid var(--vscode-charts-green);
+  border-left-color: var(--vscode-charts-green);
+  background: rgba(106, 153, 85, 0.04);
 }
 
+.cocursor-shared-session-message:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* 角色标签行 */
 .cocursor-shared-session-message-role {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--vscode-descriptionForeground);
-  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.3px;
 }
 
+.cocursor-shared-session-message.user .cocursor-shared-session-message-role {
+  color: var(--vscode-charts-blue);
+}
+
+.cocursor-shared-session-message.assistant .cocursor-shared-session-message-role {
+  color: var(--vscode-charts-green);
+}
+
+/* 角色图标 */
+.cocursor-msg-role-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.cocursor-shared-session-message.user .cocursor-msg-role-icon {
+  background: rgba(79, 193, 255, 0.15);
+  color: var(--vscode-charts-blue);
+}
+
+.cocursor-shared-session-message.assistant .cocursor-msg-role-icon {
+  background: rgba(106, 153, 85, 0.15);
+  color: var(--vscode-charts-green);
+}
+
+/* 合并消息标识 */
+.cocursor-msg-merged-badge {
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(106, 153, 85, 0.15);
+  color: var(--vscode-charts-green);
+  padding: 1px 6px;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+/* 合并消息分隔线 */
+.cocursor-msg-merged-separator {
+  border: none;
+  border-top: 1px dashed var(--vscode-panel-border);
+  margin: 8px 0;
+  opacity: 0.4;
+}
+
+/* 消息正文 */
 .cocursor-shared-session-message-content {
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.6;
   color: var(--vscode-foreground);
+  word-break: break-word;
 }
 
+.cocursor-shared-session-message-content p {
+  margin: 0 0 6px;
+}
+
+.cocursor-shared-session-message-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* 内容折叠态 */
+.cocursor-shared-session-message-content.collapsed {
+  max-height: 140px;
+  overflow: hidden;
+  position: relative;
+}
+
+.cocursor-shared-session-message.user .cocursor-shared-session-message-content.collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, rgba(79, 193, 255, 0.04));
+  pointer-events: none;
+}
+
+.cocursor-shared-session-message.assistant .cocursor-shared-session-message-content.collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, rgba(106, 153, 85, 0.04));
+  pointer-events: none;
+}
+
+/* 展开/收起按钮 */
+.cocursor-msg-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0 0;
+  margin: 0;
+  opacity: 0.85;
+}
+
+.cocursor-msg-expand-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.cocursor-msg-expand-arrow {
+  font-size: 9px;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.cocursor-msg-expand-btn.expanded .cocursor-msg-expand-arrow {
+  transform: rotate(180deg);
+}
+
+/* 代码块 */
 .cocursor-shared-session-message-content pre {
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 4px;
-  padding: 12px;
+  padding: 8px 10px;
   overflow-x: auto;
-  margin: 8px 0;
+  margin: 6px 0;
+  font-size: 11.5px;
 }
 
 .cocursor-shared-session-message-content code {
   font-family: var(--vscode-editor-font-family);
+  font-size: 11.5px;
+}
+
+/* 内联 code */
+.cocursor-shared-session-message-content p code,
+.cocursor-shared-session-message-content li code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* 空对话状态 */
+.cocursor-shared-session-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cocursor-shared-session-empty-icon {
+  font-size: 28px;
+  opacity: 0.35;
+}
+
+.cocursor-shared-session-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cocursor-shared-session-empty-desc {
   font-size: 12px;
+  text-align: center;
+  line-height: 1.5;
+  opacity: 0.7;
 }
 
 /* 评论区 */

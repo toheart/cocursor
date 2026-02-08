@@ -276,15 +276,241 @@ func TestCollaboration_MemberAddComment(t *testing.T) {
 	require.Equal(t, 0, detailResp.Code)
 	assert.GreaterOrEqual(t, len(detailResp.Data.Comments), 2, "应有至少 2 条评论")
 
-	// 验证 Member 的评论存在
+	// 验证 Member 的评论存在，且评论者名称正确（应为 Member 而非 Leader）
 	memberCommentFound := false
 	for _, c := range detailResp.Data.Comments {
 		t.Logf("  Comment by %s: %s", c.AuthorName, c.Content)
 		if c.Content == "DDD 架构很好，我之前用过，推荐！" {
 			memberCommentFound = true
+			assert.Equal(t, "Member", c.AuthorName, "Member 转发的评论，评论者名称应为 Member 而非 Leader")
 		}
 	}
 	assert.True(t, memberCommentFound, "应能找到 Member 通过转发添加的评论")
+
+	// 清理
+	leaderClient.DissolveTeam(teamID)
+}
+
+// TestCollaboration_MemberViewSharedSessions Member 通过转发查看分享列表和详情
+func TestCollaboration_MemberViewSharedSessions(t *testing.T) {
+	leader, member, leaderClient, memberClient, teamID := setupTeamWithMembers(t)
+	defer leader.Stop()
+	defer member.Stop()
+
+	// === Leader 分享两个会话 ===
+	t.Log("--- Leader 分享会话 ---")
+	for i := 1; i <= 2; i++ {
+		shareReq := &domainTeam.ShareSessionRequest{
+			SessionID: fmt.Sprintf("view-test-session-%d", i),
+			Title:     fmt.Sprintf("可查看会话 %d", i),
+			Messages: framework.MakeMessages([]map[string]string{
+				{"role": "user", "content": fmt.Sprintf("第 %d 条消息", i)},
+			}),
+		}
+		resp, err := leaderClient.ShareSession(teamID, shareReq)
+		require.NoError(t, err)
+		require.Equal(t, 0, resp.Code, "Leader 分享会话 %d 应成功", i)
+		t.Logf("Leader shared session %d: %s", i, resp.Data.ShareID)
+	}
+
+	// === Member 通过转发查看分享列表 ===
+	t.Log("--- Member 查看分享列表（转发到 Leader） ---")
+	listResp, err := memberClient.GetSharedSessions(teamID, 20, 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, listResp.Code, "Member 查看分享列表应成功, message: %s", listResp.Message)
+	assert.GreaterOrEqual(t, listResp.Data.Total, 2, "应有至少 2 个分享")
+	t.Logf("Member sees %d shared sessions", listResp.Data.Total)
+
+	// 取第一条分享 ID 用于查看详情
+	require.NotEmpty(t, listResp.Data.Sessions, "分享列表不应为空")
+	shareID := listResp.Data.Sessions[0].ID
+
+	// === Member 通过转发查看分享详情 ===
+	t.Log("--- Member 查看分享详情（转发到 Leader） ---")
+	detailResp, err := memberClient.GetSharedSessionDetail(teamID, shareID)
+	require.NoError(t, err)
+	require.Equal(t, 0, detailResp.Code, "Member 查看分享详情应成功, message: %s", detailResp.Message)
+	require.NotNil(t, detailResp.Data.Session, "会话详情不应为空")
+	assert.NotEmpty(t, detailResp.Data.Session.Title)
+	t.Logf("Member viewed session detail: title=%s", detailResp.Data.Session.Title)
+
+	// 清理
+	leaderClient.DissolveTeam(teamID)
+}
+
+// TestCollaboration_CommentCountIncrement 评论数递增验证
+func TestCollaboration_CommentCountIncrement(t *testing.T) {
+	leader, member, leaderClient, memberClient, teamID := setupTeamWithMembers(t)
+	defer leader.Stop()
+	defer member.Stop()
+
+	// === Leader 分享会话 ===
+	t.Log("--- Leader 分享会话 ---")
+	shareReq := &domainTeam.ShareSessionRequest{
+		SessionID: "count-test-session",
+		Title:     "评论数测试",
+		Messages: framework.MakeMessages([]map[string]string{
+			{"role": "user", "content": "测试评论数递增"},
+		}),
+	}
+	shareResp, err := leaderClient.ShareSession(teamID, shareReq)
+	require.NoError(t, err)
+	require.Equal(t, 0, shareResp.Code)
+	shareID := shareResp.Data.ShareID
+
+	// === 验证初始评论数为 0 ===
+	detailResp, err := leaderClient.GetSharedSessionDetail(teamID, shareID)
+	require.NoError(t, err)
+	require.Equal(t, 0, detailResp.Code)
+	assert.Equal(t, 0, detailResp.Data.Session.CommentCount, "初始评论数应为 0")
+
+	// === 添加 3 条评论（Leader 2 条 + Member 转发 1 条） ===
+	t.Log("--- 添加多条评论 ---")
+	_, err = leaderClient.AddComment(teamID, shareID, "Leader 第一条评论", nil)
+	require.NoError(t, err)
+
+	commentResp, err := memberClient.AddComment(teamID, shareID, "Member 转发的评论", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, commentResp.Code, "Member 添加评论应成功（转发到 Leader）, message: %s", commentResp.Message)
+
+	_, err = leaderClient.AddComment(teamID, shareID, "Leader 第二条评论", nil)
+	require.NoError(t, err)
+
+	// === 验证评论数递增到 3 ===
+	t.Log("--- 验证评论数 ---")
+	detailResp2, err := leaderClient.GetSharedSessionDetail(teamID, shareID)
+	require.NoError(t, err)
+	require.Equal(t, 0, detailResp2.Code)
+	assert.Equal(t, 3, detailResp2.Data.Session.CommentCount, "评论数应递增到 3")
+	assert.Len(t, detailResp2.Data.Comments, 3, "应有 3 条评论记录")
+	t.Logf("Comment count: %d, actual comments: %d", detailResp2.Data.Session.CommentCount, len(detailResp2.Data.Comments))
+
+	// === 验证列表中的评论数也正确 ===
+	listResp, err := leaderClient.GetSharedSessions(teamID, 20, 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, listResp.Code)
+
+	for _, s := range listResp.Data.Sessions {
+		if s.ID == shareID {
+			assert.Equal(t, 3, s.CommentCount, "列表中的评论数应为 3")
+			t.Logf("Session in list: comment_count=%d", s.CommentCount)
+		}
+	}
+
+	// 清理
+	leaderClient.DissolveTeam(teamID)
+}
+
+// TestCollaboration_CommentValidation 评论参数校验
+func TestCollaboration_CommentValidation(t *testing.T) {
+	framework.RequireDaemonBinary(t)
+
+	leaderDaemon, err := framework.NewTestDaemon(framework.BinaryPath, "comment-validation-leader")
+	require.NoError(t, err)
+	require.NoError(t, leaderDaemon.Start())
+	defer leaderDaemon.Stop()
+
+	leaderClient := framework.NewAPIClient(leaderDaemon.BaseURL())
+	_, teamID, err := leaderClient.MustCreateIdentityAndTeam("Validator", "校验测试团队")
+	require.NoError(t, err)
+
+	// === 先分享一个会话 ===
+	shareReq := &domainTeam.ShareSessionRequest{
+		SessionID: "validation-session",
+		Title:     "校验测试",
+		Messages: framework.MakeMessages([]map[string]string{
+			{"role": "user", "content": "测试"},
+		}),
+	}
+	shareResp, err := leaderClient.ShareSession(teamID, shareReq)
+	require.NoError(t, err)
+	require.Equal(t, 0, shareResp.Code)
+	shareID := shareResp.Data.ShareID
+
+	// === 空内容评论应失败 ===
+	t.Log("--- 测试空内容评论 ---")
+	emptyResp, err := leaderClient.AddComment(teamID, shareID, "", nil)
+	require.NoError(t, err)
+	assert.NotEqual(t, 0, emptyResp.Code, "空内容评论应失败")
+	t.Logf("Empty content response: code=%d, message=%s", emptyResp.Code, emptyResp.Message)
+
+	// === 不存在的 shareID 应失败 ===
+	t.Log("--- 测试不存在的 shareID ---")
+	notFoundResp, err := leaderClient.AddComment(teamID, "non-existent-share-id", "这条评论不该成功", nil)
+	require.NoError(t, err)
+	assert.NotEqual(t, 0, notFoundResp.Code, "不存在的 shareID 应失败")
+	t.Logf("Not found response: code=%d, message=%s", notFoundResp.Code, notFoundResp.Message)
+
+	// === 不存在的 teamID 应失败 ===
+	t.Log("--- 测试不存在的 teamID ---")
+	badTeamResp, err := leaderClient.AddComment("non-existent-team-id", shareID, "这条评论不该成功", nil)
+	require.NoError(t, err)
+	assert.NotEqual(t, 0, badTeamResp.Code, "不存在的 teamID 应失败")
+	t.Logf("Bad team response: code=%d, message=%s", badTeamResp.Code, badTeamResp.Message)
+
+	// === 带 mentions 的正常评论应成功 ===
+	t.Log("--- 测试带 mentions 的评论 ---")
+	mentionResp, err := leaderClient.AddComment(teamID, shareID, "@someone 你看看这个", []string{"someone-id"})
+	require.NoError(t, err)
+	require.Equal(t, 0, mentionResp.Code, "带 mentions 的评论应成功")
+	assert.NotEmpty(t, mentionResp.Data.CommentID)
+	t.Logf("Comment with mentions: %s", mentionResp.Data.CommentID)
+
+	// 清理
+	leaderClient.DissolveTeam(teamID)
+}
+
+// TestCollaboration_MemberCommentRoundtrip Member 评论完整往返验证
+func TestCollaboration_MemberCommentRoundtrip(t *testing.T) {
+	leader, member, leaderClient, memberClient, teamID := setupTeamWithMembers(t)
+	defer leader.Stop()
+	defer member.Stop()
+
+	// === Leader 分享会话 ===
+	t.Log("--- Leader 分享会话 ---")
+	shareReq := &domainTeam.ShareSessionRequest{
+		SessionID: "roundtrip-session",
+		Title:     "评论往返测试",
+		Messages: framework.MakeMessages([]map[string]string{
+			{"role": "user", "content": "测试评论往返"},
+		}),
+	}
+	shareResp, err := leaderClient.ShareSession(teamID, shareReq)
+	require.NoError(t, err)
+	require.Equal(t, 0, shareResp.Code)
+	shareID := shareResp.Data.ShareID
+
+	// === Member 添加评论（转发到 Leader） ===
+	t.Log("--- Member 添加评论 ---")
+	memberComment, err := memberClient.AddComment(teamID, shareID, "Member 的评论，包含中文和 emoji 🎉", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, memberComment.Code, "Member 添加评论应成功, message: %s", memberComment.Message)
+	memberCommentID := memberComment.Data.CommentID
+	assert.NotEmpty(t, memberCommentID, "评论 ID 不应为空")
+	t.Logf("Member comment ID: %s", memberCommentID)
+
+	// === Leader 添加评论 ===
+	t.Log("--- Leader 添加评论 ---")
+	leaderComment, err := leaderClient.AddComment(teamID, shareID, "Leader 回复 Member 的评论", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, leaderComment.Code)
+
+	// === Member 通过转发查看详情，验证两条评论都存在 ===
+	t.Log("--- Member 查看评论（转发到 Leader） ---")
+	detailResp, err := memberClient.GetSharedSessionDetail(teamID, shareID)
+	require.NoError(t, err)
+	require.Equal(t, 0, detailResp.Code, "Member 查看详情应成功, message: %s", detailResp.Message)
+	assert.Len(t, detailResp.Data.Comments, 2, "应有 2 条评论")
+
+	// 验证评论内容和顺序（按 created_at ASC）
+	if len(detailResp.Data.Comments) >= 2 {
+		assert.Equal(t, "Member 的评论，包含中文和 emoji 🎉", detailResp.Data.Comments[0].Content, "第一条应是 Member 的评论")
+		assert.Equal(t, "Leader 回复 Member 的评论", detailResp.Data.Comments[1].Content, "第二条应是 Leader 的评论")
+	}
+
+	for _, c := range detailResp.Data.Comments {
+		t.Logf("  Comment by %s: %s (at %s)", c.AuthorName, c.Content, c.CreatedAt)
+	}
 
 	// 清理
 	leaderClient.DissolveTeam(teamID)

@@ -80,8 +80,16 @@ func (h *TeamSessionHandler) ShareSession(c *gin.Context) {
 		return
 	}
 
+	// 确定分享者身份：转发请求中携带了原始分享者信息时优先使用
+	sharerID := identity.ID
+	sharerName := identity.Name
+	if req.SharerID != "" && req.SharerName != "" {
+		sharerID = req.SharerID
+		sharerName = req.SharerName
+	}
+
 	// 分享会话
-	shareID, err := h.sessionSharingService.ShareSession(c.Request.Context(), teamID, &req, identity.ID, identity.Name)
+	shareID, err := h.sessionSharingService.ShareSession(c.Request.Context(), teamID, &req, sharerID, sharerName)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 610004, "Failed to share session: "+err.Error())
 		return
@@ -194,16 +202,28 @@ func (h *TeamSessionHandler) AddComment(c *gin.Context) {
 		return
 	}
 
-	// 获取当前用户身份
-	identity, err := h.identityService.GetIdentity()
-	if err != nil {
-		response.Error(c, http.StatusUnauthorized, 610003, "Identity not found, please create identity first")
-		return
+	// 确定评论者身份：优先使用请求体中携带的身份信息（转发场景），否则使用本地身份
+	authorID := req.AuthorID
+	authorName := req.AuthorName
+	if authorID == "" || authorName == "" {
+		identity, err := h.identityService.GetIdentity()
+		if err != nil {
+			response.Error(c, http.StatusUnauthorized, 610003, "Identity not found, please create identity first")
+			return
+		}
+		authorID = identity.ID
+		authorName = identity.Name
 	}
 
 	// 添加评论
-	commentID, err := h.sessionSharingService.AddComment(c.Request.Context(), teamID, shareID, &req, identity.ID, identity.Name)
+	commentID, err := h.sessionSharingService.AddComment(c.Request.Context(), teamID, shareID, &req, authorID, authorName)
 	if err != nil {
+		h.logger.Error("failed to add comment",
+			"error", err,
+			"team_id", teamID,
+			"share_id", shareID,
+			"author_id", authorID,
+		)
 		response.Error(c, http.StatusInternalServerError, 610007, "Failed to add comment: "+err.Error())
 		return
 	}

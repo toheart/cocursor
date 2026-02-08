@@ -64,10 +64,12 @@ type SessionComment struct {
 
 // ShareSessionRequest 分享会话请求
 type ShareSessionRequest struct {
-	SessionID   string          `json:"session_id"`            // 原始会话 ID
-	Title       string          `json:"title"`                 // 会话标题
-	Messages    json.RawMessage `json:"messages"`              // 消息内容
-	Description string          `json:"description,omitempty"` // 可选分享说明
+	SessionID   string          `json:"session_id"`                      // 原始会话 ID
+	Title       string          `json:"title"`                           // 会话标题
+	Messages    json.RawMessage `json:"messages"`                        // 消息内容
+	Description string          `json:"description,omitempty"`           // 可选分享说明
+	SharerID    string          `json:"sharer_id,omitempty"`             // 分享者 ID（转发场景携带）
+	SharerName  string          `json:"sharer_name,omitempty"`           // 分享者名称（转发场景携带）
 }
 
 // Validate 验证分享请求
@@ -86,8 +88,10 @@ func (r *ShareSessionRequest) Validate() error {
 
 // AddCommentRequest 添加评论请求
 type AddCommentRequest struct {
-	Content  string   `json:"content"`            // 评论内容
-	Mentions []string `json:"mentions,omitempty"` // @提及的成员 ID 列表
+	Content    string   `json:"content"`                        // 评论内容
+	Mentions   []string `json:"mentions,omitempty"`             // @提及的成员 ID 列表
+	AuthorID   string   `json:"author_id,omitempty"`            // 评论者 ID（转发场景携带）
+	AuthorName string   `json:"author_name,omitempty"`          // 评论者名称（转发场景携带）
 }
 
 // Validate 验证评论请求

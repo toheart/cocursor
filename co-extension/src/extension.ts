@@ -262,9 +262,10 @@ export function activate(context: vscode.ExtensionContext): void {
         }
 
         const session = sessionResp.data.data.session;
+        const messages = sessionResp.data.data.messages || [];
 
         // 5. 将消息格式从后端模型 (type/text) 转换为共享会话格式 (role/content)
-        const normalizedMessages = (session.messages || []).map(
+        const normalizedMessages = messages.map(
           (msg: { type?: string; text?: string; role?: string; content?: string }) => ({
             role: msg.role || (msg.type === "ai" ? "assistant" : msg.type) || "user",
             content: msg.content || msg.text || "",
@@ -275,6 +276,7 @@ export function activate(context: vscode.ExtensionContext): void {
         await axios.post(
           `http://localhost:19960/api/v1/team/${targetTeamId}/sessions/share`,
           {
+            session_id: item.composerId,
             title: session.name || item.label,
             messages: normalizedMessages,
             description: description || undefined
