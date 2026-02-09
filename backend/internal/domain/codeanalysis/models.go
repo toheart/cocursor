@@ -72,8 +72,11 @@ type EntryPointCandidate struct {
 type FuncNode struct {
 	// ID 节点 ID（数据库自增）
 	ID int64 `json:"id"`
-	// FullName 完整函数名（包含包路径），如 github.com/example/pkg.FuncName
+	// FullName 完整函数名（SSA 原始格式），如 (*github.com/example/pkg.Type).Method
 	FullName string `json:"full_name"`
+	// CanonicalName 规范化函数名（去掉指针接收者语法），如 github.com/example/pkg.Type.Method
+	// 用于跨分析器匹配（SSA 分析器 ↔ Diff 分析器）和 MCP 工具查询
+	CanonicalName string `json:"canonical_name"`
 	// Package 包路径
 	Package string `json:"package"`
 	// FuncName 函数名

@@ -89,18 +89,38 @@ func (a *DiffAnalyzer) AnalyzeDiff(ctx context.Context, projectPath string, comm
 		}
 	}
 
-	// 3. 获取模块路径
-	modulePath, err := a.getModulePath(absPath)
+	// 3. 查找 go.mod 目录（支持全栈项目，go.mod 可能在 backend/ 等子目录）
+	goModDir, goModPrefix := a.findGoModDir(absPath)
+	modulePath, err := a.getModulePath(goModDir)
 	if err != nil {
-		a.logger.Warn("failed to get module path", "error", err)
+		a.logger.Warn("failed to get module path", "error", err, "go_mod_dir", goModDir)
 		modulePath = ""
+	} else {
+		a.logger.Info("found go module",
+			"module_path", modulePath,
+			"go_mod_dir", goModDir,
+			"prefix", goModPrefix,
+		)
 	}
 
 	// 4. 定位变更的函数
+	// 对于全栈项目，diff 返回的文件路径是相对于 git 根目录的（如 "backend/internal/foo.go"），
+	// 只分析 go module 目录下的文件
 	var changedFunctions []codeanalysis.ChangedFunction
 	for file, hunks := range fileHunks {
+		// 如果有子目录前缀，只处理该前缀下的文件，并将路径转为相对于 go module 目录的路径
+		relFile := file
+		if goModPrefix != "" {
+			prefix := goModPrefix + "/"
+			if !strings.HasPrefix(file, prefix) {
+				// 不属于 go module 目录下的文件，跳过
+				continue
+			}
+			relFile = strings.TrimPrefix(file, prefix)
+		}
+
 		filePath := filepath.Join(absPath, file)
-		funcs, err := a.locateFunctionsInFile(filePath, file, hunks, modulePath)
+		funcs, err := a.locateFunctionsInFile(filePath, relFile, hunks, modulePath)
 		if err != nil {
 			a.logger.Warn("failed to locate functions in file",
 				"file", file,
@@ -376,6 +396,9 @@ func (a *DiffAnalyzer) locateFunctionsInFile(filePath string, relPath string, hu
 }
 
 // getTypeName 从 AST 类型表达式获取类型名
+// 注意：对于指针接收者 *ast.StarExpr，此方法会剥掉 '*'，返回不含指针语法的类型名。
+// 这使得 DiffAnalyzer 生成的 FullName（如 pkg.Type.Method）天然与 SSA 分析器的
+// canonical_name 格式一致（SSA 原始格式为 (*pkg.Type).Method，canonical_name 去掉指针语法）。
 func (a *DiffAnalyzer) getTypeName(expr ast.Expr) string {
 	switch t := expr.(type) {
 	case *ast.Ident:
@@ -389,9 +412,51 @@ func (a *DiffAnalyzer) getTypeName(expr ast.Expr) string {
 	}
 }
 
+// findGoModDir 查找 go.mod 所在目录
+// 先检查当前目录，再检查常见子目录，最后遍历一级子目录
+// 返回 go.mod 所在目录的绝对路径，以及相对于 projectPath 的前缀（如 "backend"）
+func (a *DiffAnalyzer) findGoModDir(projectPath string) (goModDir string, relPrefix string) {
+	// 先检查当前目录
+	if _, err := os.Stat(filepath.Join(projectPath, "go.mod")); err == nil {
+		return projectPath, ""
+	}
+
+	// 检查常见 Go 子目录
+	commonDirs := []string{"backend", "server", "go", "api", "service", "services", "app", "src"}
+	for _, dirName := range commonDirs {
+		candidate := filepath.Join(projectPath, dirName, "go.mod")
+		if _, err := os.Stat(candidate); err == nil {
+			a.logger.Info("found go.mod in subdirectory", "dir", dirName)
+			return filepath.Join(projectPath, dirName), dirName
+		}
+	}
+
+	// 遍历一级子目录
+	entries, err := os.ReadDir(projectPath)
+	if err != nil {
+		return projectPath, ""
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == "frontend" || name == "web" || name == "dist" {
+			continue
+		}
+		candidate := filepath.Join(projectPath, name, "go.mod")
+		if _, err := os.Stat(candidate); err == nil {
+			a.logger.Info("found go.mod in subdirectory", "dir", name)
+			return filepath.Join(projectPath, name), name
+		}
+	}
+
+	return projectPath, ""
+}
+
 // getModulePath 获取模块路径
-func (a *DiffAnalyzer) getModulePath(projectPath string) (string, error) {
-	goModPath := filepath.Join(projectPath, "go.mod")
+func (a *DiffAnalyzer) getModulePath(goModDir string) (string, error) {
+	goModPath := filepath.Join(goModDir, "go.mod")
 	file, err := os.Open(goModPath)
 	if err != nil {
 		return "", err

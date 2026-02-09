@@ -45,6 +45,7 @@ func (r *CallGraphRepository) Init(_ context.Context, dbPath string) error {
 		CREATE TABLE IF NOT EXISTS func_nodes (
 			id INTEGER PRIMARY KEY,
 			full_name TEXT UNIQUE NOT NULL,
+			canonical_name TEXT NOT NULL DEFAULT '',
 			package TEXT NOT NULL,
 			func_name TEXT NOT NULL,
 			file_path TEXT,
@@ -74,6 +75,7 @@ func (r *CallGraphRepository) Init(_ context.Context, dbPath string) error {
 		-- 创建索引
 		CREATE INDEX IF NOT EXISTS idx_func_nodes_package ON func_nodes(package);
 		CREATE INDEX IF NOT EXISTS idx_func_nodes_file ON func_nodes(file_path);
+		CREATE INDEX IF NOT EXISTS idx_func_nodes_canonical ON func_nodes(canonical_name);
 		CREATE INDEX IF NOT EXISTS idx_func_edges_caller ON func_edges(caller_id);
 		CREATE INDEX IF NOT EXISTS idx_func_edges_callee ON func_edges(callee_id);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_func_edges_unique ON func_edges(caller_id, callee_id, call_site_line);
@@ -96,16 +98,17 @@ func (r *CallGraphRepository) SaveFuncNode(_ context.Context, dbPath string, nod
 	defer db.Close()
 
 	result, err := db.Exec(`
-		INSERT INTO func_nodes (id, full_name, package, func_name, file_path, line_start, line_end, is_exported)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO func_nodes (id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(full_name) DO UPDATE SET
+			canonical_name = excluded.canonical_name,
 			package = excluded.package,
 			func_name = excluded.func_name,
 			file_path = excluded.file_path,
 			line_start = excluded.line_start,
 			line_end = excluded.line_end,
 			is_exported = excluded.is_exported
-	`, node.ID, node.FullName, node.Package, node.FuncName, node.FilePath, node.LineStart, node.LineEnd, node.IsExported)
+	`, node.ID, node.FullName, node.CanonicalName, node.Package, node.FuncName, node.FilePath, node.LineStart, node.LineEnd, node.IsExported)
 	if err != nil {
 		return 0, err
 	}
@@ -129,9 +132,10 @@ func (r *CallGraphRepository) SaveFuncNodes(_ context.Context, dbPath string, no
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO func_nodes (id, full_name, package, func_name, file_path, line_start, line_end, is_exported)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO func_nodes (id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(full_name) DO UPDATE SET
+			canonical_name = excluded.canonical_name,
 			package = excluded.package,
 			func_name = excluded.func_name,
 			file_path = excluded.file_path,
@@ -145,7 +149,7 @@ func (r *CallGraphRepository) SaveFuncNodes(_ context.Context, dbPath string, no
 	defer stmt.Close()
 
 	for _, node := range nodes {
-		_, err = stmt.Exec(node.ID, node.FullName, node.Package, node.FuncName, node.FilePath, node.LineStart, node.LineEnd, node.IsExported)
+		_, err = stmt.Exec(node.ID, node.FullName, node.CanonicalName, node.Package, node.FuncName, node.FilePath, node.LineStart, node.LineEnd, node.IsExported)
 		if err != nil {
 			return err
 		}
@@ -246,9 +250,9 @@ func (r *CallGraphRepository) GetFuncNodeByFullName(_ context.Context, dbPath st
 
 	node := &codeanalysis.FuncNode{}
 	err = db.QueryRow(`
-		SELECT id, full_name, package, func_name, file_path, line_start, line_end, is_exported
+		SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
 		FROM func_nodes WHERE full_name = ?
-	`, fullName).Scan(&node.ID, &node.FullName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
+	`, fullName).Scan(&node.ID, &node.FullName, &node.CanonicalName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
 
 	if err != nil {
 		return nil, err
@@ -277,25 +281,36 @@ func (r *CallGraphRepository) GetFuncNodesByFullNames(_ context.Context, dbPath 
 		args[i] = name
 	}
 
+	// 同时按 full_name 和 canonical_name 匹配，确保 SSA 格式和 Diff 格式都能命中
 	query := fmt.Sprintf(`
-		SELECT id, full_name, package, func_name, file_path, line_start, line_end, is_exported
-		FROM func_nodes WHERE full_name IN (%s)
-	`, strings.Join(placeholders, ","))
+		SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
+		FROM func_nodes WHERE full_name IN (%s) OR canonical_name IN (%s)
+	`, strings.Join(placeholders, ","), strings.Join(placeholders, ","))
 
-	rows, err := db.Query(query, args...)
+	// 参数需要重复一次（分别给 full_name IN 和 canonical_name IN）
+	doubleArgs := make([]interface{}, 0, len(args)*2)
+	doubleArgs = append(doubleArgs, args...)
+	doubleArgs = append(doubleArgs, args...)
+
+	rows, err := db.Query(query, doubleArgs...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	seen := make(map[int64]bool)
 	var nodes []*codeanalysis.FuncNode
 	for rows.Next() {
 		node := &codeanalysis.FuncNode{}
-		err = rows.Scan(&node.ID, &node.FullName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
+		err = rows.Scan(&node.ID, &node.FullName, &node.CanonicalName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, node)
+		// 去重（full_name 和 canonical_name 可能匹配到同一行）
+		if !seen[node.ID] {
+			seen[node.ID] = true
+			nodes = append(nodes, node)
+		}
 	}
 
 	return nodes, nil
@@ -310,7 +325,7 @@ func (r *CallGraphRepository) GetFuncNodeByFile(_ context.Context, dbPath string
 	defer db.Close()
 
 	rows, err := db.Query(`
-		SELECT id, full_name, package, func_name, file_path, line_start, line_end, is_exported
+		SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
 		FROM func_nodes WHERE file_path = ?
 	`, filePath)
 	if err != nil {
@@ -321,7 +336,7 @@ func (r *CallGraphRepository) GetFuncNodeByFile(_ context.Context, dbPath string
 	var nodes []*codeanalysis.FuncNode
 	for rows.Next() {
 		node := &codeanalysis.FuncNode{}
-		err = rows.Scan(&node.ID, &node.FullName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
+		err = rows.Scan(&node.ID, &node.FullName, &node.CanonicalName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +355,7 @@ func (r *CallGraphRepository) GetCallers(_ context.Context, dbPath string, funcI
 	defer db.Close()
 
 	rows, err := db.Query(`
-		SELECT fn.id, fn.full_name, fn.package, fn.func_name, fn.file_path, fn.line_start, fn.line_end, fn.is_exported
+		SELECT fn.id, fn.full_name, fn.canonical_name, fn.package, fn.func_name, fn.file_path, fn.line_start, fn.line_end, fn.is_exported
 		FROM func_nodes fn
 		JOIN func_edges fe ON fe.caller_id = fn.id
 		WHERE fe.callee_id = ?
@@ -353,7 +368,7 @@ func (r *CallGraphRepository) GetCallers(_ context.Context, dbPath string, funcI
 	var nodes []*codeanalysis.FuncNode
 	for rows.Next() {
 		node := &codeanalysis.FuncNode{}
-		err = rows.Scan(&node.ID, &node.FullName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
+		err = rows.Scan(&node.ID, &node.FullName, &node.CanonicalName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
 		if err != nil {
 			return nil, err
 		}
@@ -462,6 +477,168 @@ func (r *CallGraphRepository) GetEdgeCount(_ context.Context, dbPath string) (in
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM func_edges").Scan(&count)
 	return count, err
+}
+
+// SearchFunctions 多维搜索函数节点
+// 支持按文件+行号、canonical_name、包名+函数名、函数短名模糊搜索
+func (r *CallGraphRepository) SearchFunctions(_ context.Context, dbPath string, filePath string, line int, fullName string, pkg string, funcName string, limit int) ([]*codeanalysis.FuncNode, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var query string
+	var args []interface{}
+
+	switch {
+	case filePath != "" && line > 0:
+		// 按文件路径 + 行号精确定位
+		query = `
+			SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
+			FROM func_nodes
+			WHERE file_path = ? AND line_start <= ? AND line_end >= ?
+			LIMIT ?`
+		args = []interface{}{filePath, line, line, limit}
+
+	case filePath != "":
+		// 按文件路径搜索（返回该文件所有函数）
+		query = `
+			SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
+			FROM func_nodes
+			WHERE file_path = ?
+			ORDER BY line_start
+			LIMIT ?`
+		args = []interface{}{filePath, limit}
+
+	case fullName != "":
+		// 按 canonical_name 精确匹配
+		query = `
+			SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
+			FROM func_nodes
+			WHERE canonical_name = ? OR full_name = ?
+			LIMIT ?`
+		args = []interface{}{fullName, fullName, limit}
+
+	case pkg != "" && funcName != "":
+		// 按包名 + 函数短名精确匹配
+		query = `
+			SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
+			FROM func_nodes
+			WHERE package = ? AND func_name = ?
+			LIMIT ?`
+		args = []interface{}{pkg, funcName, limit}
+
+	case funcName != "":
+		// 按函数短名模糊搜索
+		query = `
+			SELECT id, full_name, canonical_name, package, func_name, file_path, line_start, line_end, is_exported
+			FROM func_nodes
+			WHERE func_name LIKE ?
+			ORDER BY is_exported DESC, func_name
+			LIMIT ?`
+		args = []interface{}{"%" + funcName + "%", limit}
+
+	default:
+		return nil, fmt.Errorf("at least one search parameter is required")
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []*codeanalysis.FuncNode
+	for rows.Next() {
+		node := &codeanalysis.FuncNode{}
+		err = rows.Scan(&node.ID, &node.FullName, &node.CanonicalName, &node.Package, &node.FuncName, &node.FilePath, &node.LineStart, &node.LineEnd, &node.IsExported)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
+}
+
+// GetCalleesWithDepth 递归获取函数调用的下游函数（带深度限制）
+func (r *CallGraphRepository) GetCalleesWithDepth(_ context.Context, dbPath string, funcIDs []int64, maxDepth int) ([]codeanalysis.CallerInfo, error) {
+	if len(funcIDs) == 0 {
+		return nil, nil
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// 构建 ID 列表
+	idStrings := make([]string, len(funcIDs))
+	for i, id := range funcIDs {
+		idStrings[i] = fmt.Sprintf("%d", id)
+	}
+	idList := strings.Join(idStrings, ",")
+
+	// 使用递归 CTE 查询下游调用链
+	query := fmt.Sprintf(`
+		WITH RECURSIVE call_chain AS (
+			-- 基础：起始函数直接调用的函数
+			SELECT 
+				fn.id,
+				fn.full_name,
+				fn.func_name,
+				fn.package,
+				fn.file_path,
+				fe.call_site_line as line,
+				1 as depth
+			FROM func_nodes fn
+			JOIN func_edges fe ON fe.callee_id = fn.id
+			WHERE fe.caller_id IN (%s)
+			
+			UNION ALL
+			
+			-- 递归：查找被调用者的被调用者
+			SELECT 
+				fn.id,
+				fn.full_name,
+				fn.func_name,
+				fn.package,
+				fn.file_path,
+				fe.call_site_line as line,
+				cc.depth + 1 as depth
+			FROM func_nodes fn
+			JOIN func_edges fe ON fe.callee_id = fn.id
+			JOIN call_chain cc ON fe.caller_id = cc.id
+			WHERE cc.depth < ?
+		)
+		SELECT DISTINCT full_name, func_name, package, file_path, line, depth
+		FROM call_chain
+		ORDER BY depth, full_name
+	`, idList)
+
+	rows, err := db.Query(query, maxDepth)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var callees []codeanalysis.CallerInfo
+	for rows.Next() {
+		var callee codeanalysis.CallerInfo
+		err = rows.Scan(&callee.Function, &callee.DisplayName, &callee.Package, &callee.File, &callee.Line, &callee.Depth)
+		if err != nil {
+			return nil, err
+		}
+		callees = append(callees, callee)
+	}
+
+	return callees, nil
 }
 
 // 确保实现接口

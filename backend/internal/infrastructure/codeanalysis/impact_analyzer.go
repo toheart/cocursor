@@ -46,16 +46,23 @@ func (a *ImpactAnalyzer) AnalyzeImpact(ctx context.Context, dbPath string, funct
 	commit, _ := a.repository.GetMetadata(ctx, dbPath, "commit")
 	result.AnalysisCommit = commit
 
-	// 获取所有目标函数的节点
+	// 获取所有目标函数的节点（同时按 full_name 和 canonical_name 匹配）
 	nodes, err := a.repository.GetFuncNodesByFullNames(ctx, dbPath, functions)
 	if err != nil {
 		a.logger.Warn("failed to get function nodes", "error", err)
 	}
 
 	if len(nodes) == 0 {
-		a.logger.Warn("no matching functions found in call graph")
+		a.logger.Warn("no matching functions found in call graph",
+			"functions", functions,
+		)
 		return result, nil
 	}
+
+	a.logger.Info("matched function nodes",
+		"requested", len(functions),
+		"matched", len(nodes),
+	)
 
 	// 收集所有函数 ID
 	funcIDs := make([]int64, len(nodes))

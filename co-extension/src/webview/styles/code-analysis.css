@@ -556,6 +556,17 @@
   color: var(--vscode-descriptionForeground);
 }
 
+.ca-algorithm-warning {
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 6px;
+  line-height: 1.4;
+}
+
 /* ========== 高级配置 ========== */
 .ca-section-advanced {
   background: var(--vscode-sideBar-background);
@@ -665,37 +676,60 @@
   letter-spacing: 0.5px;
 }
 
-/* ========== 使用说明 ========== */
-.ca-tips {
-  max-width: 600px;
-  margin: 20px auto;
-  padding: 16px 20px;
+/* ========== MCP 工具使用指引 ========== */
+.ca-mcp-guide {
   background: var(--vscode-textBlockQuote-background);
-  border-radius: 8px;
 }
 
-.ca-tips h3 {
-  font-size: 13px;
+.ca-mcp-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ca-mcp-tool-item {
+  padding: 12px 14px;
+  background: var(--vscode-editor-background);
+  border-radius: 6px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.ca-mcp-tool-name {
+  margin-bottom: 4px;
+}
+
+.ca-mcp-tool-name code {
+  font-size: 12px;
   font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+  background: rgba(0, 122, 204, 0.08);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.ca-mcp-tool-desc {
+  font-size: 12px;
   color: var(--vscode-foreground);
-  margin: 0 0 12px;
-  opacity: 0.8;
+  margin-bottom: 4px;
+  line-height: 1.4;
 }
 
-.ca-tips ol {
-  margin: 0;
-  padding-left: 20px;
+.ca-mcp-tool-example {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
 }
 
-.ca-tips li {
+.ca-mcp-tip {
+  margin-top: 12px;
+  padding: 10px 14px;
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  margin-bottom: 6px;
+  background: rgba(0, 122, 204, 0.06);
+  border-radius: 6px;
+  border-left: 3px solid var(--vscode-textLink-foreground);
   line-height: 1.5;
-}
-
-.ca-tips li:last-child {
-  margin-bottom: 0;
 }
 
 /* ========== 集成测试配置 ========== */
@@ -725,7 +759,7 @@
   font-weight: 500;
 }
 
-/* ========== Skill 使用提示 ========== */
+/* ========== Skill 使用提示（保留兼容） ========== */
 .ca-skill-hint {
   display: flex;
   align-items: flex-start;
@@ -743,6 +777,271 @@
 .ca-skill-hint-icon {
   flex-shrink: 0;
   font-size: 14px;
+}
+
+/* ========== 影响面分析 ========== */
+
+.ca-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+}
+
+.ca-section-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.ca-section-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ca-impact-config {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.ca-impact-config .ca-form-group {
+  flex: 1;
+  min-width: 180px;
+}
+
+.ca-form-group-inline {
+  flex: 0 0 auto !important;
+  min-width: auto !important;
+}
+
+.ca-form-group-inline .ca-select {
+  width: 80px;
+}
+
+.ca-loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 13px;
+}
+
+.ca-empty-hint {
+  padding: 12px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  font-size: 13px;
+}
+
+.ca-impact-results {
+  margin-top: 12px;
+}
+
+.ca-impact-diff h4,
+.ca-impact-detail h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.ca-impact-func-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.ca-impact-func-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  background: var(--vscode-list-hoverBackground);
+}
+
+.ca-change-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.ca-change-added {
+  background: rgba(35, 134, 54, 0.2);
+  color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
+}
+
+.ca-change-modified {
+  background: rgba(187, 128, 9, 0.2);
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, #d29922);
+}
+
+.ca-change-deleted {
+  background: rgba(248, 81, 73, 0.2);
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
+}
+
+.ca-func-name {
+  font-family: var(--vscode-editor-font-family);
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.ca-func-file {
+  margin-left: auto;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+
+.ca-impact-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ca-impact-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  background: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.ca-impact-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+}
+
+.ca-impact-stat-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 2px;
+}
+
+.ca-impact-item {
+  margin-bottom: 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ca-impact-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: var(--vscode-sideBar-background);
+  transition: background 0.15s;
+}
+
+.ca-impact-item-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.ca-expand-icon {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.ca-expand-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.ca-impact-func-name {
+  font-family: var(--vscode-editor-font-family);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--vscode-foreground);
+}
+
+.ca-impact-callers-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-badge-background);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ca-impact-item-body {
+  padding: 8px 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.ca-impact-file {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  margin-bottom: 8px;
+}
+
+.ca-caller-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ca-caller-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.ca-depth-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.ca-caller-name {
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-foreground);
+}
+
+.ca-caller-file {
+  margin-left: auto;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+
+.ca-impact-version {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-align: right;
 }
 
 /* ========== 响应式 ========== */

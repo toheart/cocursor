@@ -113,10 +113,16 @@ type EntryPointScanner interface {
 	GetRemoteURL(ctx context.Context, projectPath string) (string, error)
 }
 
+// SSAProgressCallback SSA 分析进度回调
+// progress: 0-100 的进度值，message: 当前阶段描述
+type SSAProgressCallback func(progress int, message string)
+
 // SSAAnalyzer SSA 分析器接口
 type SSAAnalyzer interface {
 	// Analyze 分析项目，生成调用图
 	Analyze(ctx context.Context, projectPath string, entryPoints []string, algorithm AlgorithmType) (*AnalysisResult, error)
+	// AnalyzeWithProgress 分析项目，生成调用图（带进度回调）
+	AnalyzeWithProgress(ctx context.Context, projectPath string, entryPoints []string, algorithm AlgorithmType, onProgress SSAProgressCallback) (*AnalysisResult, error)
 }
 
 // AnalysisResult SSA 分析结果

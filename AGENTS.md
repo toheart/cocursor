@@ -171,6 +171,13 @@ Usage notes:
 <location>global</location>
 </skill>
 
+<skill>
+<name>weekly-summary</name>
+<description>Generate weekly work reports by aggregating daily summaries. Use when users request weekly reports, weekly summaries, or need to review accomplishments over a week period. Focuses on key accomplishments and progress suitable for upward reporting.</description>
+<path>C:\Users\Administrator\.claude\skills\weekly-summary\SKILL.md</path>
+<location>global</location>
+</skill>
+
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>

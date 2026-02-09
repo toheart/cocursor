@@ -939,6 +939,13 @@
     "rescan": "重新扫描",
     "advancedConfig": "高级配置",
     "algorithm": "分析算法",
+    "algorithmDesc": {
+      "static": "最快，精度低",
+      "cha": "保守，快速",
+      "rta": "推荐，平衡",
+      "vta": "最精确，较慢"
+    },
+    "vtaWarning": "VTA 算法对大型项目可能需要数分钟，建议先尝试 RTA 算法",
     "excludePaths": "排除路径",
     "excludePathsHint": "每行一个匹配模式，支持通配符",
     "registerAndGenerate": "注册项目并生成调用图",
@@ -961,6 +968,17 @@
     "step1": "配置并生成调用图后，在 Cursor 中使用 \"go-precision-test\" Skill",
     "step2": "Skill 会自动分析 Git diff，识别变更的函数",
     "step3": "结合调用图查询影响面，推荐需要运行的集成测试",
+    "mcpGuide": {
+      "title": "在 Cursor 中使用",
+      "subtitle": "调用图已就绪，以下 MCP 工具可在 Cursor 对话中自动调用",
+      "analyzeDiff": "一键分析 Git diff 变更及其影响面",
+      "analyzeDiffExample": "\"分析一下我当前改动的影响面\"",
+      "queryImpact": "查询指定函数的上游调用链",
+      "queryImpactExample": "\"谁调用了 HandleLogin 函数？\"",
+      "searchFunction": "在调用图中搜索函数节点",
+      "searchFunctionExample": "\"查找 UserService 相关的函数\"",
+      "tip": "无需手动操作，在 Cursor 对话中直接描述你的需求即可，AI 会自动选择合适的工具。"
+    },
     "success": {
       "register": "项目注册成功",
       "generate": "调用图生成成功：{{funcCount}} 个函数，{{edgeCount}} 条调用边，耗时 {{time}}s"
@@ -975,12 +993,39 @@
       "invalidGoModule": "无效的 Go 模块",
       "noGoMod": "当前目录不是 Go 模块，请确保项目有 go.mod 文件。",
       "noGoFiles": "项目中未找到 Go 源文件。",
-      "taskNotFound": "生成任务已丢失，请重新生成"
+      "taskNotFound": "生成任务已丢失，请重新生成",
+      "timeout": "生成超时（超过 10 分钟），请检查项目规模或尝试使用更快的算法",
+      "stalled": "生成进度长时间无变化，任务可能已异常终止，请重试"
     },
     "taskStarting": "正在启动任务...",
     "taskRunning": "正在分析...",
     "algorithmFallback": "算法已自动降级",
-    "fallbackWarning": "由于分析问题，算法已自动切换为 {{algorithm}}"
+    "fallbackWarning": "由于分析问题，算法已自动切换为 {{algorithm}}",
+    "impact": {
+      "title": "影响面分析",
+      "subtitle": "分析代码变更影响了哪些上游函数",
+      "commitRange": "Commit 范围",
+      "commitRangePlaceholder": "如 HEAD~1..HEAD 或 main..HEAD",
+      "commitRangeHint": "留空默认分析最近一次提交，输入 working 分析未提交变更",
+      "analyze": "分析影响面",
+      "analyzing": "正在分析...",
+      "depth": "分析深度",
+      "depthHint": "调用链最大追溯深度",
+      "changedFunctions": "变更函数",
+      "changedFiles": "变更文件",
+      "noChanges": "未发现 Go 函数变更",
+      "impactResult": "影响面结果",
+      "callers": "上游调用者",
+      "noCallers": "无上游调用者（可能是入口函数）",
+      "affectedFunctions": "受影响函数",
+      "affectedFiles": "受影响文件",
+      "directCallers": "直接调用者",
+      "maxDepth": "最大深度",
+      "summary": "汇总",
+      "analysisCommit": "分析版本",
+      "needCallGraph": "请先生成调用图",
+      "error": "影响面分析失败"
+    }
   },
   "session": {
     "sharedSessions": "共享会话",

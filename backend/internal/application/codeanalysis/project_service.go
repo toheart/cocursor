@@ -44,6 +44,7 @@ type ScanEntryPointsResponse struct {
 }
 
 // ScanEntryPoints 扫描项目中的入口函数
+// 支持全栈项目：当 go.mod 不在根目录而在子目录（如 backend/）时，自动使用子目录进行扫描
 func (s *ProjectService) ScanEntryPoints(ctx context.Context, req *ScanEntryPointsRequest) (*ScanEntryPointsResponse, error) {
 	absPath, err := filepath.Abs(req.ProjectPath)
 	if err != nil {
@@ -60,13 +61,34 @@ func (s *ProjectService) ScanEntryPoints(ctx context.Context, req *ScanEntryPoin
 		return nil, fmt.Errorf("invalid Go module: %s", validation.Error)
 	}
 
+	// 确定实际的扫描路径（可能是子目录，如全栈项目的 backend/）
+	scanPath := absPath
+	if validation.GoModDir != "" && validation.GoModDir != absPath {
+		s.logger.Info("go.mod found in subdirectory, using it as scan root",
+			"original_path", absPath,
+			"go_mod_dir", validation.GoModDir,
+		)
+		scanPath = validation.GoModDir
+	}
+
 	// 扫描入口函数
-	candidates, err := s.entryPointScanner.ScanEntryPoints(ctx, absPath)
+	candidates, err := s.entryPointScanner.ScanEntryPoints(ctx, scanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan entry points: %w", err)
 	}
 
-	// 获取项目名称和远程 URL
+	// 如果扫描路径与原始路径不同（全栈项目），调整候选项的文件路径为相对于原始项目根目录
+	if scanPath != absPath {
+		relPrefix, _ := filepath.Rel(absPath, scanPath)
+		relPrefix = filepath.ToSlash(relPrefix)
+		for i := range candidates {
+			if candidates[i].File != "*" {
+				candidates[i].File = relPrefix + "/" + candidates[i].File
+			}
+		}
+	}
+
+	// 获取项目名称和远程 URL（使用原始路径，因为 .git 在项目根目录）
 	projectName := filepath.Base(absPath)
 	remoteURL, _ := s.entryPointScanner.GetRemoteURL(ctx, absPath)
 

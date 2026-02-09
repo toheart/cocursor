@@ -35,9 +35,21 @@ func NewSSAAnalyzer() *SSAAnalyzer {
 
 // Analyze 分析项目，生成调用图
 func (a *SSAAnalyzer) Analyze(ctx context.Context, projectPath string, entryPoints []string, algorithm codeanalysis.AlgorithmType) (*codeanalysis.AnalysisResult, error) {
+	return a.AnalyzeWithProgress(ctx, projectPath, entryPoints, algorithm, nil)
+}
+
+// AnalyzeWithProgress 分析项目，生成调用图（带进度回调）
+func (a *SSAAnalyzer) AnalyzeWithProgress(ctx context.Context, projectPath string, entryPoints []string, algorithm codeanalysis.AlgorithmType, onProgress codeanalysis.SSAProgressCallback) (*codeanalysis.AnalysisResult, error) {
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// 安全的进度回调封装
+	report := func(progress int, message string) {
+		if onProgress != nil {
+			onProgress(progress, message)
+		}
 	}
 
 	a.logger.Info("starting SSA analysis",
@@ -46,7 +58,8 @@ func (a *SSAAnalyzer) Analyze(ctx context.Context, projectPath string, entryPoin
 		"entry_points", len(entryPoints),
 	)
 
-	// 1. 加载包
+	// 1. 加载包（0% - 40%）
+	report(0, "Loading Go packages...")
 	prog, pkgs, modulePath, err := a.loadPackages(ctx, absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load packages: %w", err)
@@ -56,14 +69,17 @@ func (a *SSAAnalyzer) Analyze(ctx context.Context, projectPath string, entryPoin
 		"module", modulePath,
 		"packages", len(pkgs),
 	)
+	report(40, fmt.Sprintf("Loaded %d packages, building call graph...", len(pkgs)))
 
-	// 2. 构建调用图
+	// 2. 构建调用图（40% - 80%）
+	report(45, fmt.Sprintf("Building call graph with %s algorithm...", algorithm))
 	cgResult, err := a.buildCallGraph(prog, pkgs, algorithm, entryPoints)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build call graph: %w", err)
 	}
+	report(80, "Call graph built, extracting data...")
 
-	// 3. 提取函数节点和调用边
+	// 3. 提取函数节点和调用边（80% - 100%）
 	result, err := a.extractCallGraphData(cgResult.graph, modulePath, absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract call graph data: %w", err)
@@ -73,6 +89,8 @@ func (a *SSAAnalyzer) Analyze(ctx context.Context, projectPath string, entryPoin
 	result.ActualAlgorithm = cgResult.actualAlgorithm
 	result.Fallback = false
 	result.FallbackReason = ""
+
+	report(100, fmt.Sprintf("Analysis complete: %d functions, %d edges", len(result.FuncNodes), len(result.FuncEdges)))
 
 	a.logger.Info("SSA analysis completed",
 		"func_count", len(result.FuncNodes),
@@ -453,14 +471,15 @@ func (a *SSAAnalyzer) getOrCreateFuncNode(fn *ssa.Function, funcMap map[string]*
 	}
 
 	node := &codeanalysis.FuncNode{
-		ID:         *nextID,
-		FullName:   fullName,
-		Package:    pkgPath,
-		FuncName:   funcName,
-		FilePath:   filePath,
-		LineStart:  lineStart,
-		LineEnd:    lineEnd,
-		IsExported: token.IsExported(fn.Name()),
+		ID:            *nextID,
+		FullName:      fullName,
+		CanonicalName: canonicalizeFuncName(fullName),
+		Package:       pkgPath,
+		FuncName:      funcName,
+		FilePath:      filePath,
+		LineStart:     lineStart,
+		LineEnd:       lineEnd,
+		IsExported:    token.IsExported(fn.Name()),
 	}
 
 	funcMap[fullName] = node
@@ -476,6 +495,18 @@ func (a *SSAAnalyzer) getRelativePath(absPath string, basePath string) string {
 		return absPath
 	}
 	return rel
+}
+
+// canonicalizeFuncName 将 SSA 原始函数名转换为规范化名称
+// (*github.com/example/pkg.Type).Method → github.com/example/pkg.Type.Method
+// 普通函数和匿名闭包保持不变
+func canonicalizeFuncName(ssaName string) string {
+	if strings.HasPrefix(ssaName, "(*") {
+		name := strings.TrimPrefix(ssaName, "(*")
+		name = strings.Replace(name, ").", ".", 1)
+		return name
+	}
+	return ssaName
 }
 
 // 确保实现接口

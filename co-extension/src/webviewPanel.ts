@@ -738,6 +738,24 @@ export class WebviewPanel {
           message.payload as { task_id: string },
         );
         break;
+      case "analyzeDiff":
+        this._handleAnalyzeDiff(
+          message.payload as {
+            project_path: string;
+            commit_range?: string;
+          },
+        );
+        break;
+      case "queryImpact":
+        this._handleQueryImpact(
+          message.payload as {
+            project_path: string;
+            functions: string[];
+            depth?: number;
+            commit?: string;
+          },
+        );
+        break;
       default:
         console.warn(`未知命令: ${message.command}`);
     }
@@ -3087,11 +3105,19 @@ export class WebviewPanel {
         data: response.data.data,
       });
     } catch (error) {
+      // 优先提取后端返回的实际错误信息
+      let errorMessage = "扫描入口函数失败";
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const backendMsg = error.response.data.message || error.response.data.error;
+        if (backendMsg) {
+          errorMessage = backendMsg;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       this._sendMessage({
         type: "scanEntryPoints-response",
-        data: {
-          error: error instanceof Error ? error.message : "扫描入口函数失败",
-        },
+        data: { error: errorMessage },
       });
     }
   }
@@ -3113,11 +3139,18 @@ export class WebviewPanel {
         data: response.data.data,
       });
     } catch (error) {
+      let errorMessage = "注册项目失败";
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const backendMsg = error.response.data.message || error.response.data.error;
+        if (backendMsg) {
+          errorMessage = backendMsg;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       this._sendMessage({
         type: "registerProject-response",
-        data: {
-          error: error instanceof Error ? error.message : "注册项目失败",
-        },
+        data: { error: errorMessage },
       });
     }
   }
@@ -3160,11 +3193,18 @@ export class WebviewPanel {
         data: response.data.data,
       });
     } catch (error) {
+      let errorMessage = "检查状态失败";
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const backendMsg = error.response.data.message || error.response.data.error;
+        if (backendMsg) {
+          errorMessage = backendMsg;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       this._sendMessage({
         type: "checkCallGraphStatus-response",
-        data: {
-          error: error instanceof Error ? error.message : "检查状态失败",
-        },
+        data: { error: errorMessage },
       });
     }
   }
@@ -3237,11 +3277,18 @@ export class WebviewPanel {
         data: response.data.data,
       });
     } catch (error) {
+      let errorMessage = "生成调用图失败";
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const backendMsg = error.response.data.message || error.response.data.error;
+        if (backendMsg) {
+          errorMessage = backendMsg;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       this._sendMessage({
         type: "generateCallGraphWithConfig-response",
-        data: {
-          error: error instanceof Error ? error.message : "生成调用图失败",
-        },
+        data: { error: errorMessage },
       });
     }
   }
@@ -3264,6 +3311,75 @@ export class WebviewPanel {
         data: {
           error: error instanceof Error ? error.message : "获取进度失败",
         },
+      });
+    }
+  }
+
+  private async _handleAnalyzeDiff(payload: {
+    project_path: string;
+    commit_range?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/diff",
+        {
+          project_path: payload.project_path,
+          commit_range: payload.commit_range,
+        },
+        { timeout: 30000 },
+      );
+      this._sendMessage({
+        type: "analyzeDiff-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      let errorMessage = "Diff analysis failed";
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const backendMsg =
+          error.response.data.message || error.response.data.error;
+        if (backendMsg) {
+          errorMessage = backendMsg;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      this._sendMessage({
+        type: "analyzeDiff-response",
+        data: { error: errorMessage },
+      });
+    }
+  }
+
+  private async _handleQueryImpact(payload: {
+    project_path: string;
+    functions: string[];
+    depth?: number;
+    commit?: string;
+  }): Promise<void> {
+    try {
+      const response = await axios.post(
+        "http://localhost:19960/api/v1/analysis/impact",
+        payload,
+        { timeout: 60000 },
+      );
+      this._sendMessage({
+        type: "queryImpact-response",
+        data: response.data.data,
+      });
+    } catch (error) {
+      let errorMessage = "Impact analysis failed";
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const backendMsg =
+          error.response.data.message || error.response.data.error;
+        if (backendMsg) {
+          errorMessage = backendMsg;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      this._sendMessage({
+        type: "queryImpact-response",
+        data: { error: errorMessage },
       });
     }
   }

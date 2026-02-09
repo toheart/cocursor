@@ -179,10 +179,14 @@ type GoModuleValidation struct {
 	Valid      bool   `json:"valid"`
 	ModulePath string `json:"module_path,omitempty"`
 	GoModPath  string `json:"go_mod_path,omitempty"`
-	Error      string `json:"error,omitempty"`
+	// GoModDir go.mod 所在的目录（即实际的 Go 模块根目录）
+	// 对于全栈项目，可能与传入的 projectPath 不同（如 go.mod 在 backend/ 子目录中）
+	GoModDir string `json:"go_mod_dir,omitempty"`
+	Error    string `json:"error,omitempty"`
 }
 
 // ValidateGoModule 验证目录是否是有效的 Go 模块
+// 支持全栈项目：当根目录没有 go.mod 时，会自动向下搜索子目录（如 backend/）中的 go.mod
 func (s *EntryPointScanner) ValidateGoModule(_ context.Context, projectPath string) *GoModuleValidation {
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
@@ -210,18 +214,26 @@ func (s *EntryPointScanner) ValidateGoModule(_ context.Context, projectPath stri
 	// 查找 go.mod 文件
 	goModPath := filepath.Join(absPath, "go.mod")
 	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
-		// 向上查找，但记录实际的 go.mod 位置
+		// 1. 先向下搜索子目录中的 go.mod（支持全栈项目如 backend/go.mod）
+		foundGoModInChild := s.findGoModInChildren(absPath)
+		if foundGoModInChild != "" {
+			goModDir := filepath.Dir(foundGoModInChild)
+			return s.validateGoModAt(goModDir, foundGoModInChild)
+		}
+
+		// 2. 向上查找父目录中的 go.mod
 		foundGoMod := ""
-		for dir := filepath.Dir(absPath); dir != "/" && dir != "."; dir = filepath.Dir(dir) {
+		prevDir := absPath
+		for dir := filepath.Dir(absPath); dir != prevDir; dir = filepath.Dir(dir) {
 			candidate := filepath.Join(dir, "go.mod")
 			if _, err := os.Stat(candidate); err == nil {
 				foundGoMod = candidate
 				break
 			}
+			prevDir = dir
 		}
 
 		if foundGoMod != "" {
-			// go.mod 在父目录，需要告知用户
 			return &GoModuleValidation{
 				Valid: false,
 				Error: fmt.Sprintf("go.mod not found in project directory. Found go.mod at parent directory: %s. Please use the module root directory, or ensure the project has its own go.mod file.", foundGoMod),
@@ -234,12 +246,58 @@ func (s *EntryPointScanner) ValidateGoModule(_ context.Context, projectPath stri
 		}
 	}
 
+	// go.mod 就在当前目录
+	return s.validateGoModAt(absPath, goModPath)
+}
+
+// findGoModInChildren 在子目录中查找 go.mod 文件
+// 只搜索一级子目录（常见的全栈项目结构如 backend/、server/、go/）
+// 如果找到多个，优先返回常见目录名（backend, server, go, api, service）
+func (s *EntryPointScanner) findGoModInChildren(rootPath string) string {
+	// 优先检查常见的 Go 子目录名
+	commonDirs := []string{"backend", "server", "go", "api", "service", "services", "app", "src"}
+	for _, dirName := range commonDirs {
+		candidate := filepath.Join(rootPath, dirName, "go.mod")
+		if _, err := os.Stat(candidate); err == nil {
+			s.logger.Info("found go.mod in common subdirectory", "dir", dirName, "path", candidate)
+			return candidate
+		}
+	}
+
+	// 如果常见目录都没找到，遍历一级子目录
+	entries, err := os.ReadDir(rootPath)
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		// 跳过隐藏目录和不需要扫描的目录
+		if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == "frontend" || name == "web" || name == "dist" {
+			continue
+		}
+		candidate := filepath.Join(rootPath, name, "go.mod")
+		if _, err := os.Stat(candidate); err == nil {
+			s.logger.Info("found go.mod in subdirectory", "dir", name, "path", candidate)
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+// validateGoModAt 验证指定目录下的 go.mod 是否有效
+func (s *EntryPointScanner) validateGoModAt(goModDir string, goModPath string) *GoModuleValidation {
 	// 读取 go.mod 获取模块路径
 	file, err := os.Open(goModPath)
 	if err != nil {
 		return &GoModuleValidation{
 			Valid:     false,
 			GoModPath: goModPath,
+			GoModDir:  goModDir,
 			Error:     fmt.Sprintf("failed to read go.mod: %v", err),
 		}
 	}
@@ -259,22 +317,27 @@ func (s *EntryPointScanner) ValidateGoModule(_ context.Context, projectPath stri
 		return &GoModuleValidation{
 			Valid:     false,
 			GoModPath: goModPath,
+			GoModDir:  goModDir,
 			Error:     "go.mod exists but 'module' directive not found. The go.mod file may be corrupted.",
 		}
 	}
 
-	// 检查是否有 Go 源文件
+	// 检查是否有 Go 源文件（在 go.mod 所在目录中查找）
 	hasGoFiles := false
-	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(goModDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // 忽略错误，继续遍历
+			return nil
 		}
-		if !info.IsDir() && strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
-			// 排除 vendor 目录
-			if !strings.Contains(path, "/vendor/") {
-				hasGoFiles = true
-				return filepath.SkipAll // 找到一个就够了
+		if info.IsDir() {
+			dirName := info.Name()
+			if dirName == "vendor" || dirName == "node_modules" || strings.HasPrefix(dirName, ".") {
+				return filepath.SkipDir
 			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			hasGoFiles = true
+			return filepath.SkipAll
 		}
 		return nil
 	})
@@ -284,6 +347,7 @@ func (s *EntryPointScanner) ValidateGoModule(_ context.Context, projectPath stri
 			Valid:      false,
 			ModulePath: modulePath,
 			GoModPath:  goModPath,
+			GoModDir:   goModDir,
 			Error:      "go.mod found but no Go source files (.go) in the project. This may not be a valid Go project.",
 		}
 	}
@@ -292,6 +356,7 @@ func (s *EntryPointScanner) ValidateGoModule(_ context.Context, projectPath stri
 		Valid:      true,
 		ModulePath: modulePath,
 		GoModPath:  goModPath,
+		GoModDir:   goModDir,
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ func (s *CallGraphService) CheckStatus(ctx context.Context, req *CheckStatusRequ
 		return nil, err
 	}
 
-	// 首先验证 Go 模块
+	// 首先验证 Go 模块（支持全栈项目，go.mod 可能在子目录中）
 	validation := s.entryPointScanner.ValidateGoModule(ctx, absPath)
 	if !validation.Valid {
 		// 不是有效的 Go 模块，返回验证错误状态
@@ -75,8 +76,12 @@ func (s *CallGraphService) CheckStatus(ctx context.Context, req *CheckStatusRequ
 		}, nil
 	}
 
-	// 获取项目配置
+	// 获取项目配置（使用原始路径和 go.mod 所在路径均尝试查找）
 	project, err := s.projectService.GetProject(ctx, absPath)
+	if err != nil && validation.GoModDir != "" && validation.GoModDir != absPath {
+		// 原始路径未找到，尝试使用 go.mod 所在目录查找
+		project, err = s.projectService.GetProject(ctx, validation.GoModDir)
+	}
 	if err != nil {
 		// 项目未注册，但是有效的 Go 模块
 		return &codeanalysis.CallGraphStatus{
@@ -292,25 +297,61 @@ func (s *CallGraphService) GenerateWithConfigAsync(ctx context.Context, req *Gen
 		return nil, fmt.Errorf("entry_points is required")
 	}
 
-	// 验证 Go 模块
+	// 验证 Go 模块（支持全栈项目，go.mod 可能在子目录中）
 	validation := s.entryPointScanner.ValidateGoModule(ctx, absPath)
 	if !validation.Valid {
 		return nil, fmt.Errorf("invalid Go module: %s", validation.Error)
 	}
 
-	project, err := s.buildProjectFromConfig(ctx, absPath, req)
+	// 确定实际的 Go 模块根目录（用于 SSA 分析）
+	goModDir := absPath
+	if validation.GoModDir != "" && validation.GoModDir != absPath {
+		goModDir = validation.GoModDir
+		s.logger.Info("using go.mod subdirectory for SSA analysis",
+			"original_path", absPath,
+			"go_mod_dir", goModDir,
+		)
+	}
+
+	// 如果是全栈项目，需要将入口函数路径调整为相对于 Go 模块根目录
+	adjustedReq := req
+	if goModDir != absPath {
+		relPrefix, _ := filepath.Rel(absPath, goModDir)
+		relPrefix = filepath.ToSlash(relPrefix)
+		adjustedEntryPoints := make([]string, len(req.EntryPoints))
+		for i, ep := range req.EntryPoints {
+			// 入口函数格式: file:func，如 backend/cmd/main.go:main
+			// 需要去掉 backend/ 前缀，变为 cmd/main.go:main
+			if strings.HasPrefix(ep, relPrefix+"/") {
+				adjustedEntryPoints[i] = strings.TrimPrefix(ep, relPrefix+"/")
+			} else {
+				adjustedEntryPoints[i] = ep
+			}
+		}
+		adjustedReq = &GenerateWithConfigRequest{
+			ProjectPath:        req.ProjectPath,
+			EntryPoints:        adjustedEntryPoints,
+			Exclude:            req.Exclude,
+			Algorithm:          req.Algorithm,
+			Commit:             req.Commit,
+			IntegrationTestDir: req.IntegrationTestDir,
+			IntegrationTestTag: req.IntegrationTestTag,
+		}
+	}
+
+	project, err := s.buildProjectFromConfig(ctx, absPath, adjustedReq)
 	if err != nil {
 		return nil, err
 	}
 
-	// 创建任务
+	// 创建任务（使用 Go 模块目录作为分析路径）
 	taskID := uuid.New().String()
 	now := time.Now()
 
 	task := &codeanalysis.GenerationTask{
 		TaskID:      taskID,
 		ProjectID:   project.ID,
-		ProjectPath: absPath,
+		ProjectPath: goModDir,
 		Commit:      req.Commit,
 		Status:      "pending",
 		Progress:    0,
@@ -335,6 +376,10 @@ func (s *CallGraphService) GenerateWithConfigAsync(ctx context.Context, req *Gen
 func (s *CallGraphService) runGenerationTask(ctx context.Context, task *codeanalysis.GenerationTask, project *codeanalysis.Project) {
 	defer func() {
 		if r := recover(); r != nil {
+			s.logger.Error("generation task panicked",
+				"task_id", task.TaskID,
+				"panic", fmt.Sprintf("%v", r),
+			)
 			s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
 				t.Status = "failed"
 				t.Error = fmt.Sprintf("panic: %v", r)
@@ -401,6 +446,10 @@ func (s *CallGraphService) runGenerationTask(ctx context.Context, task *codeanal
 func (s *CallGraphService) runGenerationTaskWithConfig(ctx context.Context, task *codeanalysis.GenerationTask, project *codeanalysis.Project, req *GenerateWithConfigRequest) {
 	defer func() {
 		if r := recover(); r != nil {
+			s.logger.Error("generation task panicked",
+				"task_id", task.TaskID,
+				"panic", fmt.Sprintf("%v", r),
+			)
 			s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
 				t.Status = "failed"
 				t.Error = fmt.Sprintf("panic: %v", r)
@@ -431,6 +480,10 @@ func (s *CallGraphService) runGenerationTaskWithConfig(ctx context.Context, task
 	now := time.Now()
 
 	if err != nil {
+		s.logger.Error("generation task failed",
+			"task_id", task.TaskID,
+			"error", err,
+		)
 		s.updateTask(task.TaskID, func(t *codeanalysis.GenerationTask) {
 			t.Status = "failed"
 			t.Progress = 100
@@ -550,8 +603,15 @@ func (s *CallGraphService) generateWithProgressByProject(ctx context.Context, re
 	)
 
 	// 执行 SSA 分析（这是最耗时的步骤，占 20%-80%）
+	// 将 SSA 内部进度（0-100%）映射到整体进度（20%-80%）
 	onProgress(20, "Loading and building SSA...")
-	result, err := s.ssaAnalyzer.Analyze(ctx, analysisPath, project.EntryPoints, project.Algorithm)
+	result, err := s.ssaAnalyzer.AnalyzeWithProgress(ctx, analysisPath, project.EntryPoints, project.Algorithm,
+		func(ssaProgress int, ssaMessage string) {
+			// SSA 0-100% → 整体 20%-80%
+			overallProgress := 20 + ssaProgress*60/100
+			onProgress(overallProgress, ssaMessage)
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("SSA analysis failed: %w", err)
 	}

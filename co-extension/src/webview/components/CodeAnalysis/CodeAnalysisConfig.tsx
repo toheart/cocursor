@@ -5,7 +5,11 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { apiService } from "../../services/api";
+import {
+  apiService,
+  type DiffAnalysisResult,
+  type ImpactAnalysisResult,
+} from "../../services/api";
 import { useToast } from "../../hooks";
 import { ToastContainer, Button, Loading } from "../shared";
 
@@ -91,10 +95,10 @@ interface GenerationTask {
 
 // 算法选项
 const ALGORITHM_OPTIONS = [
-  { value: "static", label: "Static", desc: "最快，精度低" },
-  { value: "cha", label: "CHA", desc: "保守，快速" },
-  { value: "rta", label: "RTA", desc: "推荐，平衡", recommended: true },
-  { value: "vta", label: "VTA", desc: "最精确，较慢" },
+  { value: "static", label: "Static", descKey: "codeAnalysis.algorithmDesc.static" },
+  { value: "cha", label: "CHA", descKey: "codeAnalysis.algorithmDesc.cha" },
+  { value: "rta", label: "RTA", descKey: "codeAnalysis.algorithmDesc.rta", recommended: true },
+  { value: "vta", label: "VTA", descKey: "codeAnalysis.algorithmDesc.vta", warning: true },
 ];
 
 export const CodeAnalysisConfig: React.FC = () => {
@@ -126,6 +130,17 @@ export const CodeAnalysisConfig: React.FC = () => {
   // 展开/折叠状态
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // 影响面分析状态
+  const [impactCommitRange, setImpactCommitRange] = useState<string>("");
+  const [impactDepth, setImpactDepth] = useState<number>(3);
+  const [analyzingImpact, setAnalyzingImpact] = useState(false);
+  const [diffResult, setDiffResult] = useState<DiffAnalysisResult | null>(null);
+  const [impactResult, setImpactResult] =
+    useState<ImpactAnalysisResult | null>(null);
+  const [expandedImpacts, setExpandedImpacts] = useState<Set<number>>(
+    new Set(),
+  );
+
   // 调用图状态
   const [callGraphStatus, setCallGraphStatus] =
     useState<CallGraphStatus | null>(null);
@@ -150,6 +165,10 @@ export const CodeAnalysisConfig: React.FC = () => {
   );
   // 用于防止重复处理完成状态
   const taskCompletedRef = useRef<boolean>(false);
+  // 轮询超时保护（10 分钟）
+  const pollStartTimeRef = useRef<number>(0);
+  // 进度停滞检测
+  const lastProgressRef = useRef<{ progress: number; time: number }>({ progress: 0, time: 0 });
   // 记录已初始化的项目路径
   const initializedProjectPathRef = useRef<string>("");
 
@@ -312,7 +331,7 @@ export const CodeAnalysisConfig: React.FC = () => {
   // 停止轮询
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
+      clearTimeout(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
   }, []);
@@ -321,7 +340,7 @@ export const CodeAnalysisConfig: React.FC = () => {
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+        clearTimeout(pollingIntervalRef.current);
       }
     };
   }, []);
@@ -333,11 +352,47 @@ export const CodeAnalysisConfig: React.FC = () => {
         return;
       }
 
+      // 超时保护：超过 10 分钟自动放弃
+      const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+      const elapsed = Date.now() - pollStartTimeRef.current;
+      if (elapsed > POLL_TIMEOUT_MS) {
+        taskCompletedRef.current = true;
+        stopPolling();
+        setGenerating(false);
+        setLastError({
+          message: t("codeAnalysis.error.timeout"),
+          code: "TIMEOUT",
+        });
+        showToast(t("codeAnalysis.error.timeout"), "error");
+        setCurrentTask(null);
+        return;
+      }
+
       try {
         const task = (await apiService.getGenerationProgress(
           taskId,
         )) as GenerationTask;
         setCurrentTask(task);
+
+        // 进度停滞检测：如果进度 2 分钟内没有变化，标记为可能异常
+        const now = Date.now();
+        if (task.status === "running") {
+          if (lastProgressRef.current.progress !== task.progress) {
+            lastProgressRef.current = { progress: task.progress, time: now };
+          } else if (now - lastProgressRef.current.time > 2 * 60 * 1000) {
+            // 进度停滞超过 2 分钟，自动视为失败
+            taskCompletedRef.current = true;
+            stopPolling();
+            setGenerating(false);
+            setLastError({
+              message: t("codeAnalysis.error.stalled"),
+              code: "STALLED",
+            });
+            showToast(t("codeAnalysis.error.stalled"), "error");
+            setCurrentTask(null);
+            return;
+          }
+        }
 
         if (task.status === "completed") {
           if (taskCompletedRef.current) {
@@ -424,6 +479,8 @@ export const CodeAnalysisConfig: React.FC = () => {
       }
 
       taskCompletedRef.current = false;
+      pollStartTimeRef.current = Date.now();
+      lastProgressRef.current = { progress: 0, time: Date.now() };
 
       setGenerating(true);
       setCurrentTask(null);
@@ -451,10 +508,21 @@ export const CodeAnalysisConfig: React.FC = () => {
         message: t("codeAnalysis.taskStarting"),
       });
 
-      const interval = setInterval(() => {
-        pollProgress(taskId);
-      }, 1000);
-      pollingIntervalRef.current = interval;
+      // 渐进式轮询：2s → 3s → 5s，避免频繁请求
+      let pollCount = 0;
+      const getPollInterval = () => {
+        pollCount++;
+        if (pollCount <= 2) return 2000;
+        if (pollCount <= 5) return 3000;
+        return 5000;
+      };
+      const schedulePoll = () => {
+        if (taskCompletedRef.current) return;
+        pollingIntervalRef.current = setTimeout(() => {
+          pollProgress(taskId).then(() => schedulePoll());
+        }, getPollInterval());
+      };
+      schedulePoll();
 
       await pollProgress(taskId);
     } catch (error) {
@@ -463,6 +531,70 @@ export const CodeAnalysisConfig: React.FC = () => {
       setGenerating(false);
       setCurrentTask(null);
     }
+  };
+
+  // 影响面分析
+  const handleAnalyzeImpact = async () => {
+    if (!callGraphStatus?.exists) {
+      showToast(t("codeAnalysis.impact.needCallGraph"), "error");
+      return;
+    }
+
+    try {
+      setAnalyzingImpact(true);
+      setDiffResult(null);
+      setImpactResult(null);
+      setExpandedImpacts(new Set());
+
+      // 1. 分析 diff
+      const commitRange = impactCommitRange.trim() || "HEAD~1..HEAD";
+      const diff = await apiService.analyzeDiff(projectPath, commitRange);
+      setDiffResult(diff);
+
+      if (!diff.changed_functions || diff.changed_functions.length === 0) {
+        setAnalyzingImpact(false);
+        return;
+      }
+
+      // 2. 查询影响面
+      const functions = diff.changed_functions.map((fn) => fn.full_name);
+      const impact = await apiService.queryImpact({
+        projectPath,
+        functions,
+        depth: impactDepth,
+      });
+      setImpactResult(impact);
+
+      // 默认展开前 3 个
+      const defaultExpanded = new Set<number>();
+      for (let i = 0; i < Math.min(3, impact.impacts.length); i++) {
+        defaultExpanded.add(i);
+      }
+      setExpandedImpacts(defaultExpanded);
+    } catch (error) {
+      console.error("Impact analysis failed:", error);
+      showToast(
+        error instanceof Error
+          ? error.message
+          : t("codeAnalysis.impact.error"),
+        "error",
+      );
+    } finally {
+      setAnalyzingImpact(false);
+    }
+  };
+
+  // 切换展开/折叠
+  const toggleImpactExpand = (index: number) => {
+    setExpandedImpacts((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
   };
 
   // 渲染状态指示器
@@ -703,14 +835,19 @@ export const CodeAnalysisConfig: React.FC = () => {
                   <span className="ca-algorithm-label">
                     {opt.label}
                     {opt.recommended && (
-                      <span className="ca-algorithm-rec">推荐</span>
+                      <span className="ca-algorithm-rec">{t("codeAnalysis.recommended")}</span>
                     )}
                   </span>
-                  <span className="ca-algorithm-desc">{opt.desc}</span>
+                  <span className="ca-algorithm-desc">{t(opt.descKey)}</span>
                 </div>
               </div>
             ))}
           </div>
+          {algorithm === "vta" && (
+            <div className="ca-algorithm-warning">
+              ⚠ {t("codeAnalysis.vtaWarning")}
+            </div>
+          )}
         </div>
 
         {/* 高级配置 */}
@@ -849,21 +986,246 @@ export const CodeAnalysisConfig: React.FC = () => {
         </div>
       )}
 
-      {/* 使用说明 */}
-      <div className="ca-tips">
-        <h3>{t("codeAnalysis.howToUse")}</h3>
-        <ol>
-          <li>{t("codeAnalysis.step1")}</li>
-          <li>{t("codeAnalysis.step2")}</li>
-          <li>{t("codeAnalysis.step3")}</li>
-        </ol>
-      </div>
+      {/* 影响面分析 */}
+      {callGraphStatus?.exists && (
+        <div className="ca-section">
+          <h3 className="ca-section-title">
+            {t("codeAnalysis.impact.title")}
+          </h3>
+          <p className="ca-section-subtitle">
+            {t("codeAnalysis.impact.subtitle")}
+          </p>
 
-      {/* 精准测试 Skill 提示 */}
-      <div className="ca-skill-hint">
-        <span className="ca-skill-hint-icon">💡</span>
-        <span>{t("codeAnalysis.skillHint")}</span>
-      </div>
+          {/* 分析配置 */}
+          <div className="ca-impact-config">
+            <div className="ca-form-group">
+              <label className="ca-label">
+                {t("codeAnalysis.impact.commitRange")}
+              </label>
+              <input
+                type="text"
+                className="ca-input"
+                value={impactCommitRange}
+                onChange={(e) => setImpactCommitRange(e.target.value)}
+                placeholder={t("codeAnalysis.impact.commitRangePlaceholder")}
+              />
+              <span className="ca-hint">
+                {t("codeAnalysis.impact.commitRangeHint")}
+              </span>
+            </div>
+            <div className="ca-form-group ca-form-group-inline">
+              <label className="ca-label">
+                {t("codeAnalysis.impact.depth")}
+              </label>
+              <select
+                className="ca-select"
+                value={impactDepth}
+                onChange={(e) => setImpactDepth(Number(e.target.value))}
+              >
+                {[1, 2, 3, 5, 10].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              onClick={handleAnalyzeImpact}
+              disabled={analyzingImpact || generating}
+              className="ca-btn-primary"
+            >
+              {analyzingImpact
+                ? t("codeAnalysis.impact.analyzing")
+                : t("codeAnalysis.impact.analyze")}
+            </Button>
+          </div>
+
+          {/* 分析中状态 */}
+          {analyzingImpact && (
+            <div className="ca-loading-inline">
+              <Loading />
+              <span>{t("codeAnalysis.impact.analyzing")}</span>
+            </div>
+          )}
+
+          {/* Diff 结果 */}
+          {diffResult && !analyzingImpact && (
+            <div className="ca-impact-results">
+              {diffResult.changed_functions.length === 0 ? (
+                <div className="ca-empty-hint">
+                  {t("codeAnalysis.impact.noChanges")}
+                </div>
+              ) : (
+                <>
+                  <div className="ca-impact-diff">
+                    <h4>
+                      {t("codeAnalysis.impact.changedFunctions")} (
+                      {diffResult.changed_functions.length})
+                    </h4>
+                    <div className="ca-impact-func-list">
+                      {diffResult.changed_functions.map((fn, i) => (
+                        <div key={i} className="ca-impact-func-item">
+                          <span
+                            className={`ca-change-badge ca-change-${fn.change_type}`}
+                          >
+                            {fn.change_type === "added"
+                              ? "+"
+                              : fn.change_type === "deleted"
+                                ? "-"
+                                : "~"}
+                          </span>
+                          <span className="ca-func-name">{fn.name}</span>
+                          <span className="ca-func-file">
+                            {fn.file}:{fn.line_start}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 影响面结果 */}
+                  {impactResult && (
+                    <div className="ca-impact-detail">
+                      <h4>{t("codeAnalysis.impact.impactResult")}</h4>
+
+                      {/* 汇总统计 */}
+                      <div className="ca-impact-summary">
+                        <div className="ca-impact-stat">
+                          <span className="ca-impact-stat-value">
+                            {impactResult.summary.functions_analyzed}
+                          </span>
+                          <span className="ca-impact-stat-label">
+                            {t("codeAnalysis.impact.changedFunctions")}
+                          </span>
+                        </div>
+                        <div className="ca-impact-stat">
+                          <span className="ca-impact-stat-value">
+                            {impactResult.summary.total_affected}
+                          </span>
+                          <span className="ca-impact-stat-label">
+                            {t("codeAnalysis.impact.affectedFunctions")}
+                          </span>
+                        </div>
+                        <div className="ca-impact-stat">
+                          <span className="ca-impact-stat-value">
+                            {impactResult.summary.affected_files.length}
+                          </span>
+                          <span className="ca-impact-stat-label">
+                            {t("codeAnalysis.impact.affectedFiles")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 每个函数的影响面 */}
+                      {impactResult.impacts.map((impact, idx) => (
+                        <div key={idx} className="ca-impact-item">
+                          <div
+                            className="ca-impact-item-header"
+                            onClick={() => toggleImpactExpand(idx)}
+                          >
+                            <span
+                              className={`ca-expand-icon ${expandedImpacts.has(idx) ? "expanded" : ""}`}
+                            >
+                              ▶
+                            </span>
+                            <span className="ca-impact-func-name">
+                              {impact.display_name}
+                            </span>
+                            <span className="ca-impact-callers-count">
+                              {impact.total_callers}{" "}
+                              {t("codeAnalysis.impact.callers")}
+                            </span>
+                          </div>
+                          {expandedImpacts.has(idx) && (
+                            <div className="ca-impact-item-body">
+                              {impact.file && (
+                                <div className="ca-impact-file">
+                                  {impact.file}
+                                </div>
+                              )}
+                              {impact.callers.length === 0 ? (
+                                <div className="ca-empty-hint">
+                                  {t("codeAnalysis.impact.noCallers")}
+                                </div>
+                              ) : (
+                                <div className="ca-caller-list">
+                                  {impact.callers.map((caller, ci) => (
+                                    <div
+                                      key={ci}
+                                      className="ca-caller-item"
+                                      style={{
+                                        paddingLeft: `${(caller.depth - 1) * 16 + 8}px`,
+                                      }}
+                                    >
+                                      <span className="ca-depth-badge">
+                                        {caller.depth}
+                                      </span>
+                                      <span className="ca-caller-name">
+                                        {caller.display_name}
+                                      </span>
+                                      {caller.file && (
+                                        <span className="ca-caller-file">
+                                          {caller.file}:{caller.line}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* 分析版本 */}
+                      {impactResult.analysis_commit && (
+                        <div className="ca-impact-version">
+                          {t("codeAnalysis.impact.analysisCommit")}:{" "}
+                          {impactResult.analysis_commit}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MCP 工具使用指引 */}
+      {callGraphStatus?.exists && (
+        <div className="ca-section ca-mcp-guide">
+          <h3 className="ca-section-title">{t("codeAnalysis.mcpGuide.title")}</h3>
+          <p className="ca-section-subtitle">{t("codeAnalysis.mcpGuide.subtitle")}</p>
+          <div className="ca-mcp-tools">
+            <div className="ca-mcp-tool-item">
+              <div className="ca-mcp-tool-name">
+                <code>analyze_diff_impact</code>
+              </div>
+              <div className="ca-mcp-tool-desc">{t("codeAnalysis.mcpGuide.analyzeDiff")}</div>
+              <div className="ca-mcp-tool-example">{t("codeAnalysis.mcpGuide.analyzeDiffExample")}</div>
+            </div>
+            <div className="ca-mcp-tool-item">
+              <div className="ca-mcp-tool-name">
+                <code>query_impact</code>
+              </div>
+              <div className="ca-mcp-tool-desc">{t("codeAnalysis.mcpGuide.queryImpact")}</div>
+              <div className="ca-mcp-tool-example">{t("codeAnalysis.mcpGuide.queryImpactExample")}</div>
+            </div>
+            <div className="ca-mcp-tool-item">
+              <div className="ca-mcp-tool-name">
+                <code>search_function</code>
+              </div>
+              <div className="ca-mcp-tool-desc">{t("codeAnalysis.mcpGuide.searchFunction")}</div>
+              <div className="ca-mcp-tool-example">{t("codeAnalysis.mcpGuide.searchFunctionExample")}</div>
+            </div>
+          </div>
+          <div className="ca-mcp-tip">
+            {t("codeAnalysis.mcpGuide.tip")}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -939,6 +939,13 @@
     "rescan": "Rescan",
     "advancedConfig": "Advanced Configuration",
     "algorithm": "Analysis Algorithm",
+    "algorithmDesc": {
+      "static": "Fastest, low accuracy",
+      "cha": "Conservative, fast",
+      "rta": "Recommended, balanced",
+      "vta": "Most accurate, slower"
+    },
+    "vtaWarning": "VTA may take several minutes for large projects. Consider trying RTA first.",
     "excludePaths": "Exclude Paths",
     "excludePathsHint": "One pattern per line, wildcards supported",
     "registerAndGenerate": "Register Project & Generate",
@@ -961,6 +968,17 @@
     "step1": "After generating call graph, use \"go-precision-test\" Skill in Cursor",
     "step2": "The skill will automatically analyze Git diff and identify changed functions",
     "step3": "Query impact surface using call graph and recommend integration tests to run",
+    "mcpGuide": {
+      "title": "Use in Cursor",
+      "subtitle": "Call graph is ready. These MCP tools are available in Cursor chat",
+      "analyzeDiff": "One-click analysis of Git diff changes and their impact",
+      "analyzeDiffExample": "\"Analyze the impact of my current changes\"",
+      "queryImpact": "Query upstream call chain for specific functions",
+      "queryImpactExample": "\"Who calls the HandleLogin function?\"",
+      "searchFunction": "Search function nodes in the call graph",
+      "searchFunctionExample": "\"Find functions related to UserService\"",
+      "tip": "No manual steps needed. Just describe what you need in Cursor chat and AI will automatically use the right tool."
+    },
     "success": {
       "register": "Project registered successfully",
       "generate": "Call graph generated: {{funcCount}} functions, {{edgeCount}} edges, took {{time}}s"
@@ -975,12 +993,39 @@
       "invalidGoModule": "Invalid Go Module",
       "noGoMod": "This directory is not a Go module. Please ensure the project has a go.mod file.",
       "noGoFiles": "No Go source files found in the project.",
-      "taskNotFound": "Generation task lost, please regenerate"
+      "taskNotFound": "Generation task lost, please regenerate",
+      "timeout": "Generation timed out (over 10 minutes). Check project size or try a faster algorithm.",
+      "stalled": "Generation progress stalled. Task may have terminated abnormally. Please retry."
     },
     "taskStarting": "Starting task...",
     "taskRunning": "Analyzing...",
     "algorithmFallback": "Algorithm Fallback Occurred",
-    "fallbackWarning": "Algorithm automatically switched to {{algorithm}} due to analysis issues"
+    "fallbackWarning": "Algorithm automatically switched to {{algorithm}} due to analysis issues",
+    "impact": {
+      "title": "Impact Analysis",
+      "subtitle": "Analyze which upstream functions are affected by code changes",
+      "commitRange": "Commit Range",
+      "commitRangePlaceholder": "e.g., HEAD~1..HEAD or main..HEAD",
+      "commitRangeHint": "Leave empty to analyze last commit, enter 'working' for uncommitted changes",
+      "analyze": "Analyze Impact",
+      "analyzing": "Analyzing...",
+      "depth": "Analysis Depth",
+      "depthHint": "Max call chain traversal depth",
+      "changedFunctions": "Changed Functions",
+      "changedFiles": "Changed Files",
+      "noChanges": "No Go function changes found",
+      "impactResult": "Impact Results",
+      "callers": "Upstream Callers",
+      "noCallers": "No upstream callers (may be an entry point)",
+      "affectedFunctions": "Affected Functions",
+      "affectedFiles": "Affected Files",
+      "directCallers": "Direct Callers",
+      "maxDepth": "Max Depth",
+      "summary": "Summary",
+      "analysisCommit": "Analysis Version",
+      "needCallGraph": "Please generate call graph first",
+      "error": "Impact analysis failed"
+    }
   },
   "session": {
     "sharedSessions": "Shared Sessions",

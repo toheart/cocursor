@@ -778,6 +778,34 @@ class ApiService {
   async getGenerationProgress(taskId: string): Promise<unknown> {
     return this.postMessage("getGenerationProgress", { task_id: taskId });
   }
+
+  // ========== 影响面分析 API ==========
+
+  // 分析 Git diff
+  async analyzeDiff(
+    projectPath: string,
+    commitRange?: string,
+  ): Promise<DiffAnalysisResult> {
+    return this.postMessage("analyzeDiff", {
+      project_path: projectPath,
+      commit_range: commitRange,
+    }) as Promise<DiffAnalysisResult>;
+  }
+
+  // 查询影响面
+  async queryImpact(params: {
+    projectPath: string;
+    functions: string[];
+    depth?: number;
+    commit?: string;
+  }): Promise<ImpactAnalysisResult> {
+    return this.postMessage("queryImpact", {
+      project_path: params.projectPath,
+      functions: params.functions,
+      depth: params.depth,
+      commit: params.commit,
+    }) as Promise<ImpactAnalysisResult>;
+  }
 }
 
 // 日报状态响应类型
@@ -947,6 +975,56 @@ export interface GenerateResponse {
   edge_count: number;
   generation_time_ms: number;
   db_path: string;
+}
+
+// ========== 影响面分析类型 ==========
+
+export interface ChangedFunction {
+  name: string;
+  full_name: string;
+  package: string;
+  file: string;
+  line_start: number;
+  line_end: number;
+  change_type: "added" | "modified" | "deleted";
+  lines_added: number;
+  lines_removed: number;
+}
+
+export interface DiffAnalysisResult {
+  commit_range: string;
+  changed_functions: ChangedFunction[];
+  changed_files: string[];
+}
+
+export interface CallerInfo {
+  function: string;
+  display_name: string;
+  package: string;
+  file: string;
+  line: number;
+  depth: number;
+}
+
+export interface FunctionImpact {
+  function: string;
+  display_name: string;
+  file: string;
+  callers: CallerInfo[];
+  total_callers: number;
+  max_depth_reached: number;
+}
+
+export interface ImpactSummary {
+  functions_analyzed: number;
+  total_affected: number;
+  affected_files: string[];
+}
+
+export interface ImpactAnalysisResult {
+  analysis_commit: string;
+  impacts: FunctionImpact[];
+  summary: ImpactSummary;
 }
 
 export const apiService = new ApiService();

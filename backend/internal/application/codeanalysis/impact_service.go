@@ -36,6 +36,11 @@ func NewImpactService(
 	}
 }
 
+// GetDiffAnalyzer 获取 diff 分析器（供 MCP 工具获取时效性信息）
+func (s *ImpactService) GetDiffAnalyzer() *infra.DiffAnalyzer {
+	return s.diffAnalyzer
+}
+
 // AnalyzeDiffRequest 分析 diff 请求
 type AnalyzeDiffRequest struct {
 	ProjectPath string `json:"project_path"`

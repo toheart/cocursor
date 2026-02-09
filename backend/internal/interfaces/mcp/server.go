@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
+	appAnalysis "github.com/cocursor/backend/internal/application/codeanalysis"
 	appCursor "github.com/cocursor/backend/internal/application/cursor"
 	appRAG "github.com/cocursor/backend/internal/application/rag"
+	infraAnalysis "github.com/cocursor/backend/internal/infrastructure/codeanalysis"
 	infraStorage "github.com/cocursor/backend/internal/infrastructure/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -21,6 +23,11 @@ type MCPServer struct {
 	ragInitializer       *appRAG.RAGInitializer
 	dailySummaryService  *appCursor.DailySummaryService
 	weeklySummaryService *appCursor.WeeklySummaryService
+	// 影响面分析相关依赖
+	impactService     *appAnalysis.ImpactService
+	callGraphRepo     *infraAnalysis.CallGraphRepository
+	callGraphManager  *infraAnalysis.CallGraphManager
+	projectService    *appAnalysis.ProjectService
 }
 
 // NewServer 创建 MCP 服务器
@@ -30,6 +37,10 @@ func NewServer(
 	sessionRepo infraStorage.WorkspaceSessionRepository,
 	weeklySummaryRepo infraStorage.WeeklySummaryRepository,
 	ragInitializer *appRAG.RAGInitializer,
+	impactService *appAnalysis.ImpactService,
+	callGraphRepo *infraAnalysis.CallGraphRepository,
+	callGraphManager *infraAnalysis.CallGraphManager,
+	projectService *appAnalysis.ProjectService,
 ) *MCPServer {
 	// 创建 MCP 服务器实例
 	server := mcp.NewServer(
@@ -72,6 +83,10 @@ func NewServer(
 		ragInitializer:       ragInitializer,
 		dailySummaryService:  dailySummaryService,
 		weeklySummaryService: weeklySummaryService,
+		impactService:        impactService,
+		callGraphRepo:        callGraphRepo,
+		callGraphManager:     callGraphManager,
+		projectService:       projectService,
 	}
 
 	// 注册新工具：get_daily_sessions
@@ -219,6 +234,57 @@ Parameters:
 
 Returns: summary object (if found), found flag, and needs_update flag indicating if source data has changed.`,
 	}, mcpServer.getWeeklySummaryTool)
+
+	// 注册影响面分析工具：search_function
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "search_function",
+		Description: `Search for function nodes in the project's call graph database using multiple dimensions.
+Search priority (AI should try in this order):
+1. file_path + line: Most precise, locates the function containing the specified line
+2. full_name: Exact match by canonical function name (e.g., github.com/example/pkg.Type.Method)
+3. package + func_name: Match by package path and short function name
+4. func_name: Fuzzy search by short function name (supports LIKE pattern)
+
+Parameters:
+- project_path (string, required): Absolute path to the project
+- file_path (string, optional): File path relative to project root
+- line (int, optional): Line number, used with file_path for precise location
+- full_name (string, optional): Full function name (canonical format, without pointer receiver syntax)
+- package (string, optional): Package path
+- func_name (string, optional): Short function name (supports fuzzy matching)
+- limit (int, optional): Max results, default 20
+
+Returns: List of matching functions with file path, line numbers, and package info.`,
+	}, mcpServer.searchFunctionTool)
+
+	// 注册影响面分析工具：query_impact
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "query_impact",
+		Description: `Query the upstream call chain (callers) for specified functions to analyze impact scope.
+Use this to understand "who calls this function" and assess the blast radius of changes.
+
+Parameters:
+- project_path (string, required): Absolute path to the project
+- functions (array of strings, required): Function names to analyze (supports both SSA format and canonical format)
+- depth (int, optional): Max call chain depth, default 3, max 10
+- commit (string, optional): Specific call graph commit version, defaults to latest
+
+Returns: Formatted impact analysis report including call chain tree, affected files, and summary.`,
+	}, mcpServer.queryImpactTool)
+
+	// 注册影响面分析工具：analyze_diff_impact
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "analyze_diff_impact",
+		Description: `One-click analysis of git diff changes and their impact scope.
+Combines diff analysis (which functions changed) with impact analysis (who calls those functions).
+
+Parameters:
+- project_path (string, required): Absolute path to the project
+- commit_range (string, optional): Git commit range, e.g., "HEAD~1..HEAD", "main..HEAD", or "working" for uncommitted changes. Defaults to "HEAD~1..HEAD"
+- depth (int, optional): Max call chain depth, default 3
+
+Returns: Comprehensive impact report including changed functions, call chains, and affected entry points.`,
+	}, mcpServer.analyzeDiffImpactTool)
 
 	// 创建 SSE Handler
 	handler := mcp.NewSSEHandler(
